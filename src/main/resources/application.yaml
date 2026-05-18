@@ -1,0 +1,129 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} requestTraceId : %X{requestTraceId:-} - %msg%n"
+spring:
+  application:
+    name: booksmith
+  profiles:
+    active: dev
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
+    username: ${SPRING_DATASOURCE_USERNAME:booksmith}
+    password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+api:
+  security:
+    token:
+      secret: ${TOKEN_SECRET:token}
+      expiration: ${EXPIRATION:86400000}
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+spring:
+  config:
+    activate:
+      on-profile: dev
+  application:
+    name: booksmith
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
+    username: ${SPRING_DATASOURCE_USERNAME:booksmith}
+    password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+api:
+  security:
+    token:
+      secret: ${TOKEN_SECRET:token}
+      expiration: ${EXPIRATION:86400000}
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics"
+spring:
+  config:
+    activate:
+      on-profile: stage
+  application:
+    name: booksmith
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
+    username: ${SPRING_DATASOURCE_USERNAME:booksmith}
+    password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+api:
+  security:
+    token:
+      secret: ${TOKEN_SECRET:token}
+      expiration: ${EXPIRATION:86400000}
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics"
+spring:
+  config:
+    activate:
+      on-profile: prod
+  application:
+    name: booksmith
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
+    username: ${SPRING_DATASOURCE_USERNAME:booksmith}
+    password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+api:
+  security:
+    token:
+      secret: ${TOKEN_SECRET:token}
+      expiration: ${EXPIRATION:86400000}
