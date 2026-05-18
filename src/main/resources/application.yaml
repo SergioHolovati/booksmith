@@ -6,6 +6,14 @@ management:
 logging:
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} requestTraceId : %X{requestTraceId:-} - %msg%n"
+aws:
+  access-key: ${AWS_ACCESS_KEY_ID:booksmith}
+  secret-key: ${AWS_SECRET_ACCESS_KEY:booksmith123}
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    bucket: ${AWS_S3_BUCKET:booksmith}
+    endpoint: ${AWS_S3_ENDPOINT:http://localhost:9000}
+
 spring:
   application:
     name: booksmith

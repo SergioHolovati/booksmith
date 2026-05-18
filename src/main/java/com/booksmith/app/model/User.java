@@ -2,6 +2,7 @@ package com.booksmith.app.model;
 
 import com.booksmith.app.dto.request.RegisterRequestDTO;
 import com.booksmith.app.dto.response.ProfileResponseDTO;
+import com.booksmith.app.dto.response.ProfileUserDTO;
 import com.booksmith.app.enums.AuthProvider;
 import jakarta.persistence.*;
 import lombok.*;
@@ -58,6 +59,12 @@ public class User {
     @Column
     private LocalDateTime lastLogin;
 
+    @OneToOne(
+            mappedBy = "user",
+            fetch = FetchType.EAGER
+    )
+    private Author author;
+
     public static User toEntity(RegisterRequestDTO request){
         return User.builder()
                 .firstName(request.getFirstName())
@@ -73,8 +80,8 @@ public class User {
                 .build();
     }
 
-    public static ProfileResponseDTO toProfile(User user){
-        return ProfileResponseDTO.builder()
+    public static ProfileUserDTO toProfile(User user){
+        return ProfileUserDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .name(user.getFirstName())

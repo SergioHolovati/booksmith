@@ -2,7 +2,9 @@ package com.booksmith.app.service.impl;
 
 import com.booksmith.app.dto.config.UserContextDTO;
 import com.booksmith.app.model.User;
+import com.booksmith.app.repository.AuthorRepository;
 import com.booksmith.app.repository.ProfileRepository;
+import com.booksmith.app.service.LocalStorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +16,9 @@ class ProfileServiceImplTest {
 
     private final ProfileRepository profileRepository = mock(ProfileRepository.class);
     private final UserContextDTO userContextDTO = new UserContextDTO();
-    private final ProfileServiceImpl profileService = new ProfileServiceImpl(profileRepository, userContextDTO);
+    private final LocalStorageService localStorageService = mock(LocalStorageService.class);
+    private final AuthorRepository authorRepository = mock(AuthorRepository.class);
+    private final ProfileServiceImpl profileService = new ProfileServiceImpl(profileRepository, userContextDTO,localStorageService,authorRepository);
 
     @AfterEach
     void tearDown() {
