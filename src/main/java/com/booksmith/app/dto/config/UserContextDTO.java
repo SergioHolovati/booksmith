@@ -3,22 +3,22 @@ package com.booksmith.app.dto.config;
 import org.springframework.stereotype.Component;
 
 @Component
-public class UserContext {
-    private static final ThreadLocal<UserContext> CURRENT = new ThreadLocal<>();
+public class UserContextDTO {
+    private static final ThreadLocal<UserContextDTO> CURRENT = new ThreadLocal<>();
 
     private String userId;
     private String userName;
     private String requestTraceId;
 
-    public UserContext() {
+    public UserContextDTO() {
     }
 
-    public UserContext(String userId, String userName) {
+    public UserContextDTO(String userId, String userName) {
         this.userId = userId;
         this.userName = userName;
     }
 
-    public UserContext(String userId, String userName, String requestTraceId) {
+    public UserContextDTO(String userId, String userName, String requestTraceId) {
         this.userId = userId;
         this.userName = userName;
         this.requestTraceId = requestTraceId;
@@ -29,7 +29,7 @@ public class UserContext {
     }
 
     public String getUserId() {
-        UserContext current = CURRENT.get();
+        UserContextDTO current = CURRENT.get();
         return current != null ? current.userId : userId;
     }
 
@@ -38,7 +38,7 @@ public class UserContext {
     }
 
     public String getUserName() {
-        UserContext current = CURRENT.get();
+        UserContextDTO current = CURRENT.get();
         return current != null ? current.userName : userName;
     }
 
@@ -47,7 +47,7 @@ public class UserContext {
     }
 
     public String getRequestTraceId() {
-        UserContext current = CURRENT.get();
+        UserContextDTO current = CURRENT.get();
         return current != null ? current.requestTraceId : requestTraceId;
     }
 
@@ -55,14 +55,14 @@ public class UserContext {
         getOrCreateCurrent().requestTraceId = requestTraceId;
     }
 
-    public void setAuthenticatedUser(UserContext authenticatedUser) {
-        UserContext current = getOrCreateCurrent();
+    public void setAuthenticatedUser(UserContextDTO authenticatedUser) {
+        UserContextDTO current = getOrCreateCurrent();
         current.userId = authenticatedUser.userId;
         current.userName = authenticatedUser.userName;
     }
 
     public void clearAuthenticatedUser() {
-        UserContext current = CURRENT.get();
+        UserContextDTO current = CURRENT.get();
         if (current != null) {
             current.userId = null;
             current.userName = null;
@@ -79,10 +79,10 @@ public class UserContext {
                 .formatted(getUserId(), getUserName(), getRequestTraceId());
     }
 
-    private UserContext getOrCreateCurrent() {
-        UserContext current = CURRENT.get();
+    private UserContextDTO getOrCreateCurrent() {
+        UserContextDTO current = CURRENT.get();
         if (current == null) {
-            current = new UserContext(userId, userName, requestTraceId);
+            current = new UserContextDTO(userId, userName, requestTraceId);
             CURRENT.set(current);
         }
         return current;
@@ -108,8 +108,8 @@ public class UserContext {
             return this;
         }
 
-        public UserContext build() {
-            return new UserContext(userId, userName, requestTraceId);
+        public UserContextDTO build() {
+            return new UserContextDTO(userId, userName, requestTraceId);
         }
     }
 }

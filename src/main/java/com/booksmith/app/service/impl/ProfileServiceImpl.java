@@ -1,7 +1,7 @@
 package com.booksmith.app.service.impl;
 
-import com.booksmith.app.dto.config.UserContext;
-import com.booksmith.app.dto.response.ProfileResponse;
+import com.booksmith.app.dto.config.UserContextDTO;
+import com.booksmith.app.dto.response.ProfileResponseDTO;
 import com.booksmith.app.model.User;
 import com.booksmith.app.repository.ProfileRepository;
 import com.booksmith.app.service.ProfileService;
@@ -12,16 +12,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProfileServiceImpl implements ProfileService {
     private final ProfileRepository profileRepository;
-    private final UserContext userContext;
+    private final UserContextDTO userContextDTO;
 
-    public ProfileServiceImpl(ProfileRepository profileRepository, UserContext userContext) {
+    public ProfileServiceImpl(ProfileRepository profileRepository, UserContextDTO userContextDTO) {
         this.profileRepository = profileRepository;
-        this.userContext = userContext;
+        this.userContextDTO = userContextDTO;
     }
 
     @Override
-    public ProfileResponse profile() {
-        String userId = userContext.getUserId();
+    public ProfileResponseDTO profile() {
+        String userId = userContextDTO.getUserId();
         log.info("Getting profile userId: {}",userId);
         User user = profileRepository.getReferenceById(userId);
         return User.toProfile(user);

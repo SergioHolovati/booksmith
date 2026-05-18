@@ -1,32 +1,46 @@
 package com.booksmith.app.service.impl;
 
 import com.booksmith.app.config.auth.JwtTokenProvider;
-import com.booksmith.app.dto.request.LoginRequest;
-import com.booksmith.app.dto.request.RegisterRequest;
+import com.booksmith.app.dto.config.UserContextDTO;
+import com.booksmith.app.dto.request.LoginRequestDTO;
+import com.booksmith.app.dto.request.RegisterRequestDTO;
+import com.booksmith.app.enums.AuthProvider;
 import com.booksmith.app.exception.UnauthorizedException;
 import com.booksmith.app.model.User;
 import com.booksmith.app.repository.AuthRepository;
+import com.booksmith.app.repository.PasswordResetRepository;
+import com.booksmith.app.service.EmailService;
+import com.resend.core.exception.ResendException;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class LoginServiceImplTest {
+class AuthServiceImplTest {
 
     private final AuthRepository authRepository = mock(AuthRepository.class);
     private final JwtTokenProvider jwtTokenProvider = mock(JwtTokenProvider.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
-    private final LoginServiceImpl loginService = new LoginServiceImpl(authRepository, jwtTokenProvider, passwordEncoder);
+    private final PasswordResetRepository passwordResetRepository = mock(PasswordResetRepository.class);
+    private final EmailService emailService = mock(EmailService.class);
+    private final AuthServiceImpl loginService = new AuthServiceImpl(authRepository,
+                                                                     jwtTokenProvider,
+                                                                     passwordEncoder,
+                                                                     passwordResetRepository,
+                                                                     emailService);
 
     @Test
     void loginShouldReturnJwtWhenCredentialsAreValid() {
-        LoginRequest request = loginRequest("john", "john@email.com", "raw-password");
+        LoginRequestDTO request = loginRequest("john", "john@email.com", "raw-password");
         User user = User.builder()
                 .id("user-id")
                 .username("john")
@@ -46,7 +60,7 @@ class LoginServiceImplTest {
 
     @Test
     void loginShouldThrowUnauthorizedWhenUserDoesNotExist() {
-        LoginRequest request = loginRequest("john", "john@email.com", "raw-password");
+        LoginRequestDTO request = loginRequest("john", "john@email.com", "raw-password");
         when(authRepository.findByUsernameOrEmail("john", "john@email.com")).thenReturn(null);
 
         assertThatThrownBy(() -> loginService.login(request))
@@ -56,7 +70,7 @@ class LoginServiceImplTest {
 
     @Test
     void loginShouldThrowUnauthorizedWhenPasswordDoesNotMatch() {
-        LoginRequest request = loginRequest("john", "john@email.com", "raw-password");
+        LoginRequestDTO request = loginRequest("john", "john@email.com", "raw-password");
         User user = User.builder().password("encoded-password").build();
         when(authRepository.findByUsernameOrEmail("john", "john@email.com")).thenReturn(user);
         when(passwordEncoder.matches("raw-password", "encoded-password")).thenReturn(false);
@@ -67,8 +81,8 @@ class LoginServiceImplTest {
     }
 
     @Test
-    void registerShouldEncodePasswordAndSaveUser() {
-        RegisterRequest request = new RegisterRequest(
+    void registerShouldEncodePasswordSaveUserAsUnverifiedAndSendVerificationEmail() throws ResendException {
+        RegisterRequestDTO request = new RegisterRequestDTO(
                 "John",
                 "Doe",
                 "john",
@@ -81,7 +95,52 @@ class LoginServiceImplTest {
 
         loginService.register(request);
 
-        verify(authRepository).save(any(User.class));
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
+        verify(authRepository).save(userCaptor.capture());
+        verify(emailService).sendEmailVerificationEmail(eq("john@email.com"), tokenCaptor.capture());
+
+        User savedUser = userCaptor.getValue();
+        assertThat(savedUser.getPassword()).isEqualTo("encoded-password");
+        assertThat(savedUser.getProvider()).isEqualTo(AuthProvider.LOCAL);
+        assertThat(savedUser.isGoogleLinked()).isFalse();
+        assertThat(savedUser.isVerified()).isFalse();
+        assertThat(savedUser.getEmailVerificationTokenHash()).isNotNull();
+        assertThat(savedUser.getEmailVerificationTokenExpiresAt()).isAfter(LocalDateTime.now());
+        assertThat(tokenCaptor.getValue()).matches("[A-Z0-9]{6}");
+    }
+
+    @Test
+    void verifyEmailShouldMarkUserAsVerifiedWhenTokenIsValid() {
+        User user = User.builder()
+                .email("john@email.com")
+                .verified(false)
+                .emailVerificationTokenHash(java.util.Objects.hash("ABC123"))
+                .emailVerificationTokenExpiresAt(LocalDateTime.now().plusMinutes(10))
+                .build();
+        when(authRepository.findByEmail("john@email.com")).thenReturn(user);
+
+        loginService.verifyEmail("john@email.com", "ABC123");
+
+        assertThat(user.isVerified()).isTrue();
+        assertThat(user.getEmailVerificationTokenHash()).isNull();
+        assertThat(user.getEmailVerificationTokenExpiresAt()).isNull();
+        verify(authRepository).save(user);
+    }
+
+    @Test
+    void verifyEmailShouldThrowWhenTokenIsInvalid() {
+        User user = User.builder()
+                .email("john@email.com")
+                .verified(false)
+                .emailVerificationTokenHash(java.util.Objects.hash("ABC123"))
+                .emailVerificationTokenExpiresAt(LocalDateTime.now().plusMinutes(10))
+                .build();
+        when(authRepository.findByEmail("john@email.com")).thenReturn(user);
+
+        assertThatThrownBy(() -> loginService.verifyEmail("john@email.com", "ZZZ999"))
+                .isInstanceOf(UnauthorizedException.class)
+                .hasMessage("Invalid verification token.");
     }
 
     @Test
@@ -89,7 +148,7 @@ class LoginServiceImplTest {
         User userContext = User.builder().id("user-id").username("john").build();
         when(jwtTokenProvider.validateToken("token")).thenReturn(true);
         when(jwtTokenProvider.getUserContextFromToken("token")).thenReturn(
-                com.booksmith.app.dto.config.UserContext.builder().userId("user-id").userName("john").build()
+                UserContextDTO.builder().userId("user-id").userName("john").build()
         );
         when(jwtTokenProvider.refreshToken("token")).thenReturn("refreshed-token");
 
@@ -121,7 +180,7 @@ class LoginServiceImplTest {
     void logoutShouldInvalidateToken() {
         when(jwtTokenProvider.validateToken("token")).thenReturn(true);
         when(jwtTokenProvider.getUserContextFromToken("token")).thenReturn(
-                com.booksmith.app.dto.config.UserContext.builder().userId("user-id").userName("john").build()
+                UserContextDTO.builder().userId("user-id").userName("john").build()
         );
 
         loginService.logout("Bearer token");
@@ -138,8 +197,8 @@ class LoginServiceImplTest {
                 .hasMessage("Invalid token.");
     }
 
-    private LoginRequest loginRequest(String username, String email, String password) {
-        LoginRequest request = new LoginRequest();
+    private LoginRequestDTO loginRequest(String username, String email, String password) {
+        LoginRequestDTO request = new LoginRequestDTO();
         ReflectionTestUtils.setField(request, "username", username);
         ReflectionTestUtils.setField(request, "email", email);
         ReflectionTestUtils.setField(request, "password", password);

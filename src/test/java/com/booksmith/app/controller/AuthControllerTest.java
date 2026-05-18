@@ -1,9 +1,10 @@
 package com.booksmith.app.controller;
 
-import com.booksmith.app.dto.request.LoginRequest;
-import com.booksmith.app.dto.request.RegisterRequest;
-import com.booksmith.app.dto.response.LoginResponse;
-import com.booksmith.app.service.LoginService;
+import com.booksmith.app.dto.request.LoginRequestDTO;
+import com.booksmith.app.dto.request.EmailVerificationRequestDTO;
+import com.booksmith.app.dto.request.RegisterRequestDTO;
+import com.booksmith.app.dto.response.LoginResponseDTO;
+import com.booksmith.app.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
@@ -14,18 +15,18 @@ import static org.mockito.Mockito.when;
 
 class AuthControllerTest {
 
-    private final LoginService loginService = mock(LoginService.class);
-    private final AuthController authController = new AuthController(loginService);
+    private final AuthService authService = mock(AuthService.class);
+    private final AuthController authController = new AuthController(authService);
 
     @Test
     void loginShouldReturnServiceResponse() throws Exception {
-        LoginRequest request = new LoginRequest();
-        LoginResponse response = LoginResponse.builder()
+        LoginRequestDTO request = new LoginRequestDTO();
+        LoginResponseDTO response = LoginResponseDTO.builder()
                 .userId("user-id")
                 .userName("john")
                 .jwt("Bearer token")
                 .build();
-        when(loginService.login(request)).thenReturn(response);
+        when(authService.login(request)).thenReturn(response);
 
         var result = authController.login(request);
 
@@ -34,19 +35,40 @@ class AuthControllerTest {
     }
 
     @Test
+    void googleLoginShouldRedirectToGoogleOAuthAuthorization() {
+        var result = authController.googleLogin();
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        assertThat(result.getHeaders().getLocation().toString())
+                .isEqualTo("/oauth2/authorization/google");
+    }
+
+    @Test
     void registerShouldReturnCreated() {
-        RegisterRequest request = new RegisterRequest();
+        RegisterRequestDTO request = new RegisterRequestDTO();
 
         var result = authController.register(request);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        verify(loginService).register(request);
+        verify(authService).register(request);
+    }
+
+    @Test
+    void verifyEmailShouldReturnNoContent() {
+        EmailVerificationRequestDTO request = new EmailVerificationRequestDTO();
+        request.setEmail("john@email.com");
+        request.setToken("ABC123");
+
+        var result = authController.verifyEmail(request);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(authService).verifyEmail("john@email.com", "ABC123");
     }
 
     @Test
     void refreshTokenShouldReturnServiceResponse() {
-        LoginResponse response = LoginResponse.builder().jwt("Bearer refreshed-token").build();
-        when(loginService.refreshToken("Bearer token")).thenReturn(response);
+        LoginResponseDTO response = LoginResponseDTO.builder().jwt("Bearer refreshed-token").build();
+        when(authService.refreshToken("Bearer token")).thenReturn(response);
 
         var result = authController.refreshToken("Bearer token");
 
@@ -59,6 +81,6 @@ class AuthControllerTest {
         var result = authController.logout("Bearer token");
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        verify(loginService).logout("Bearer token");
+        verify(authService).logout("Bearer token");
     }
 }

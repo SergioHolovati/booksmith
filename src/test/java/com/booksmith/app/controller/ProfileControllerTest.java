@@ -1,6 +1,6 @@
 package com.booksmith.app.controller;
 
-import com.booksmith.app.dto.response.ProfileResponse;
+import com.booksmith.app.dto.response.ProfileResponseDTO;
 import com.booksmith.app.service.ProfileService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -16,7 +16,7 @@ class ProfileControllerTest {
 
     @Test
     void getProfileShouldReturnProfile() {
-        ProfileResponse profile = ProfileResponse.builder()
+        ProfileResponseDTO profile = ProfileResponseDTO.builder()
                 .id("user-id")
                 .username("john")
                 .build();

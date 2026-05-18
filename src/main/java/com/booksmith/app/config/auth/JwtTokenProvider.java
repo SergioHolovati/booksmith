@@ -3,7 +3,7 @@ package com.booksmith.app.config.auth;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.booksmith.app.dto.config.UserContext;
+import com.booksmith.app.dto.config.UserContextDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -61,15 +61,15 @@ public class JwtTokenProvider {
     }
 
     public String refreshToken(String token) {
-        UserContext userContext = getUserContextFromToken(token);
-        String refreshedToken = generateToken(userContext.getUserId(), userContext.getUserName());
+        UserContextDTO userContextDTO = getUserContextFromToken(token);
+        String refreshedToken = generateToken(userContextDTO.getUserId(), userContextDTO.getUserName());
         invalidateToken(token);
         return refreshedToken;
     }
 
-    public UserContext getUserContextFromToken(String token) {
+    public UserContextDTO getUserContextFromToken(String token) {
         var decodedJwt = JWT.decode(token);
-        return UserContext.builder()
+        return UserContextDTO.builder()
                 .userId(decodedJwt.getSubject())
                 .userName(decodedJwt.getClaim("userName").asString())
                 .build();

@@ -1,6 +1,5 @@
 package com.booksmith.app.dto.response;
 
-import com.booksmith.app.model.User;
 import lombok.*;
 
 @Getter
@@ -8,7 +7,7 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProfileResponse {
+public class ProfileResponseDTO {
     private String id;
     private String username;
     private String name;

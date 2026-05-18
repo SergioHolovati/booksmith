@@ -8,12 +8,12 @@ import java.util.List;
 
 @Getter
 @Setter
-public class ErrorResponse {
+public class ErrorResponseDTO {
     private LocalDateTime timestamp;
     private int status;
     private List<String> messages;
 
-    public ErrorResponse(int value, List<String> errors) {
+    public ErrorResponseDTO(int value, List<String> errors) {
         timestamp = LocalDateTime.now();
         this.status = value;
         this.messages = errors;

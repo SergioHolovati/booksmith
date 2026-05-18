@@ -1,7 +1,8 @@
 package com.booksmith.app.config.auth;
 
 import com.booksmith.app.config.RateLimitingFilter;
-import com.booksmith.app.dto.config.UserContext;
+import com.booksmith.app.dto.config.UserContextDTO;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,34 +15,83 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtTokenProvider tokenProvider;
-    private final UserContext userContext;
-
-    public SecurityConfig(JwtTokenProvider tokenProvider, UserContext userContext) {
-        this.tokenProvider = tokenProvider;
-        this.userContext = userContext;
-    }
+    private final UserContextDTO userContextDTO;
+    private final OAuth2SuccessHandler successHandler;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+
         return http
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .addFilterBefore(new RateLimitingFilter(), UsernamePasswordAuthenticationFilter.class)
-            .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(new JwtAuthenticationFilter(tokenProvider, userContext), UsernamePasswordAuthenticationFilter.class)
-            .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(401);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"timestamp\":\"" + java.time.LocalDateTime.now() + "\",\"status\":401,\"messages\":[\"Invalid token.\"]}");
-                        })
+                .csrf(csrf -> csrf.disable())
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.IF_REQUIRED
+                        )
+                )
+
+                .authorizeHttpRequests(authorize ->
+                        authorize
+                                .requestMatchers(
+                                        "/auth/**",
+                                        "/oauth2/**",
+                                        "/login/oauth2/**"
+                                ).permitAll()
+
+                                .requestMatchers(
+                                        "/actuator/health",
+                                        "/actuator/info"
+                                ).permitAll()
+
+                                .anyRequest()
+                                .authenticated()
+                )
+
+                .oauth2Login(oauth ->
+                        oauth.successHandler(successHandler)
+                )
+
+                .addFilterBefore(
+                        new RateLimitingFilter(),
+                        UsernamePasswordAuthenticationFilter.class
+                )
+
+                .addFilterBefore(
+                        new JwtAuthenticationFilter(
+                                tokenProvider,
+                                userContextDTO
+                        ),
+                        UsernamePasswordAuthenticationFilter.class
+                )
+
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(
+                                (request, response, authException) -> {
+
+                                    response.setStatus(401);
+                                    response.setContentType(
+                                            "application/json"
+                                    );
+
+                                    response.getWriter().write("""
+                            {
+                              "timestamp":"%s",
+                              "status":401,
+                              "messages":[
+                                "Invalid token."
+                              ]
+                            }
+                            """.formatted(
+                                            java.time.LocalDateTime.now()
+                                    ));
+                                }
+                        )
                 )
 
                 .build();

@@ -1,6 +1,6 @@
 package com.booksmith.app.config.auth;
 
-import com.booksmith.app.dto.config.UserContext;
+import com.booksmith.app.dto.config.UserContextDTO;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,11 +14,11 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-    private final UserContext userContext;
+    private final UserContextDTO userContextDTO;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserContext userContext) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserContextDTO userContextDTO) {
         this.tokenProvider = tokenProvider;
-        this.userContext = userContext;
+        this.userContextDTO = userContextDTO;
     }
 
     @Override
@@ -29,22 +29,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = recoverToken(request);
             
             if (token != null && tokenProvider.validateToken(token)) {
-                UserContext authenticatedUser = tokenProvider.getUserContextFromToken(token);
-                userContext.setAuthenticatedUser(authenticatedUser);
+                UserContextDTO authenticatedUser = tokenProvider.getUserContextFromToken(token);
+                userContextDTO.setAuthenticatedUser(authenticatedUser);
                 UsernamePasswordAuthenticationToken authentication = 
-                        new UsernamePasswordAuthenticationToken(userContext.getUserName(), null, Collections.emptyList());
+                        new UsernamePasswordAuthenticationToken(userContextDTO.getUserName(), null, Collections.emptyList());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            userContext.clearAuthenticatedUser();
+            userContextDTO.clearAuthenticatedUser();
         }
 
         try {
             filterChain.doFilter(request, response);
         } finally {
             SecurityContextHolder.clearContext();
-            userContext.clearAuthenticatedUser();
+            userContextDTO.clearAuthenticatedUser();
         }
     }
 

@@ -1,6 +1,7 @@
 package com.booksmith.app.model;
 
-import com.booksmith.app.dto.request.RegisterRequest;
+import com.booksmith.app.dto.request.RegisterRequestDTO;
+import com.booksmith.app.enums.AuthProvider;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -9,7 +10,7 @@ class UserTest {
 
     @Test
     void toEntityShouldMapRegisterRequest() {
-        RegisterRequest request = new RegisterRequest(
+        RegisterRequestDTO request = new RegisterRequestDTO(
                 "John",
                 "Doe",
                 "john",
@@ -25,6 +26,9 @@ class UserTest {
         assertThat(user.getLastName()).isEqualTo("Doe");
         assertThat(user.getUsername()).isEqualTo("john");
         assertThat(user.getEmail()).isEqualTo("john@email.com");
+        assertThat(user.getProvider()).isEqualTo(AuthProvider.LOCAL);
+        assertThat(user.isGoogleLinked()).isFalse();
+        assertThat(user.isVerified()).isFalse();
     }
 
     @Test

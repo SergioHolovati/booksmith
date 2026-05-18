@@ -1,7 +1,8 @@
 package com.booksmith.app.model;
 
-import com.booksmith.app.dto.request.RegisterRequest;
-import com.booksmith.app.dto.response.ProfileResponse;
+import com.booksmith.app.dto.request.RegisterRequestDTO;
+import com.booksmith.app.dto.response.ProfileResponseDTO;
+import com.booksmith.app.enums.AuthProvider;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -38,6 +39,17 @@ public class User {
     @Column
     private String accountStatus;
     @Column
+    @Enumerated(EnumType.STRING)
+    private AuthProvider provider;
+    @Column(name = "google_linked", nullable = false)
+    private boolean googleLinked;
+    @Column(nullable = false)
+    private boolean verified;
+    @Column(name = "email_verification_token_hash")
+    private Integer emailVerificationTokenHash;
+    @Column(name = "email_verification_token_expires_at")
+    private LocalDateTime emailVerificationTokenExpiresAt;
+    @Column
     @CreationTimestamp
     private LocalDateTime createdAt;
     @Column
@@ -46,7 +58,7 @@ public class User {
     @Column
     private LocalDateTime lastLogin;
 
-    public static User toEntity(RegisterRequest request){
+    public static User toEntity(RegisterRequestDTO request){
         return User.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -55,11 +67,14 @@ public class User {
                 .email(request.getEmail())
                 .password(request.getPassword())
                 .phone(request.getPhone())
+                .provider(AuthProvider.LOCAL)
+                .googleLinked(false)
+                .verified(false)
                 .build();
     }
 
-    public static ProfileResponse toProfile(User user){
-        return ProfileResponse.builder()
+    public static ProfileResponseDTO toProfile(User user){
+        return ProfileResponseDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .name(user.getFirstName())

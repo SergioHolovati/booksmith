@@ -1,6 +1,6 @@
 package com.booksmith.app.config;
 
-import com.booksmith.app.dto.config.UserContext;
+import com.booksmith.app.dto.config.UserContextDTO;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -16,12 +16,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RequestTraceFilterTest {
 
-    private final UserContext userContext = new UserContext();
-    private final RequestTraceFilter filter = new RequestTraceFilter(userContext);
+    private final UserContextDTO userContextDTO = new UserContextDTO();
+    private final RequestTraceFilter filter = new RequestTraceFilter(userContextDTO);
 
     @AfterEach
     void tearDown() {
-        userContext.clear();
+        userContextDTO.clear();
         MDC.clear();
     }
 
@@ -43,12 +43,12 @@ class RequestTraceFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, (servletRequest, servletResponse) -> {
-            assertThat(userContext.getRequestTraceId()).isEqualTo("trace-id");
+            assertThat(userContextDTO.getRequestTraceId()).isEqualTo("trace-id");
             assertThat(MDC.get("requestTraceId")).isEqualTo("trace-id");
         });
 
         assertThat(response.getHeader("X-Request-Trace-Id")).isEqualTo("trace-id");
-        assertThat(userContext.getRequestTraceId()).isNull();
+        assertThat(userContextDTO.getRequestTraceId()).isNull();
         assertThat(MDC.get("requestTraceId")).isNull();
     }
 

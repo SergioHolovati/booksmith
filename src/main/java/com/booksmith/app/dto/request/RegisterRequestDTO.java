@@ -13,7 +13,7 @@ import lombok.Setter;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class RegisterRequest {
+public class RegisterRequestDTO {
 
     @NotBlank(message = "First name is required.")
     @Size(min = 2, max = 100, message = "First name must be between 2 and 100 characters.")

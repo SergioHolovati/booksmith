@@ -1,6 +1,6 @@
 package com.booksmith.app.config;
 
-import com.booksmith.app.dto.config.UserContext;
+import com.booksmith.app.dto.config.UserContextDTO;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,18 +10,26 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 public class RequestTraceFilter extends OncePerRequestFilter {
 
     private static final String REQUEST_TRACE_ID = "requestTraceId";
     private static final String REQUEST_TRACE_ID_HEADER = "X-Request-Trace-Id";
-    private static final String LOGIN_PATH = "/auth/login";
+    private static final List<String> LOGIN_PATH = List.of("/auth/login",
+                                                           "/auth/forgot-password",
+                                                           "/auth/register",
+                                                           "/auth/google",
+                                                           "/oauth2/authorization/google",
+                                                            "/login/oauth2/code/google",
+            "/favicon.ico",
+            "/login");
 
-    private final UserContext userContext;
+    private final UserContextDTO userContextDTO;
 
-    public RequestTraceFilter(UserContext userContext) {
-        this.userContext = userContext;
+    public RequestTraceFilter(UserContextDTO userContextDTO) {
+        this.userContextDTO = userContextDTO;
     }
 
     @Override
@@ -40,7 +48,7 @@ public class RequestTraceFilter extends OncePerRequestFilter {
             requestTraceId = UUID.randomUUID().toString();
         }
 
-        userContext.setRequestTraceId(requestTraceId);
+        userContextDTO.setRequestTraceId(requestTraceId);
         MDC.put(REQUEST_TRACE_ID, requestTraceId);
         response.setHeader(REQUEST_TRACE_ID_HEADER, requestTraceId);
 
@@ -48,7 +56,7 @@ public class RequestTraceFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } finally {
             MDC.remove(REQUEST_TRACE_ID);
-            userContext.clear();
+            userContextDTO.clear();
         }
     }
 
@@ -61,6 +69,6 @@ public class RequestTraceFilter extends OncePerRequestFilter {
     }
 
     private boolean isLoginRequest(HttpServletRequest request) {
-        return LOGIN_PATH.equals(request.getRequestURI());
+        return LOGIN_PATH.contains(request.getRequestURI());
     }
 }

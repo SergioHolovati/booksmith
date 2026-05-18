@@ -1,6 +1,6 @@
 package com.booksmith.app.controller;
 
-import com.booksmith.app.dto.response.ProfileResponse;
+import com.booksmith.app.dto.response.ProfileResponseDTO;
 import com.booksmith.app.service.ProfileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,7 @@ public class ProfileController {
 
     @GetMapping
     public ResponseEntity<?> getProfile() {
-        ProfileResponse response = this.profileService.profile();
+        ProfileResponseDTO response = this.profileService.profile();
         return ResponseEntity.ok().body(response);
     }
 }

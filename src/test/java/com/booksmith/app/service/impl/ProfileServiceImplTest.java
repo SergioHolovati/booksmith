@@ -1,6 +1,6 @@
 package com.booksmith.app.service.impl;
 
-import com.booksmith.app.dto.config.UserContext;
+import com.booksmith.app.dto.config.UserContextDTO;
 import com.booksmith.app.model.User;
 import com.booksmith.app.repository.ProfileRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -13,17 +13,17 @@ import static org.mockito.Mockito.when;
 class ProfileServiceImplTest {
 
     private final ProfileRepository profileRepository = mock(ProfileRepository.class);
-    private final UserContext userContext = new UserContext();
-    private final ProfileServiceImpl profileService = new ProfileServiceImpl(profileRepository, userContext);
+    private final UserContextDTO userContextDTO = new UserContextDTO();
+    private final ProfileServiceImpl profileService = new ProfileServiceImpl(profileRepository, userContextDTO);
 
     @AfterEach
     void tearDown() {
-        userContext.clear();
+        userContextDTO.clear();
     }
 
     @Test
     void profileShouldReturnCurrentUserProfile() {
-        userContext.setAuthenticatedUser(UserContext.builder().userId("user-id").userName("john").build());
+        userContextDTO.setAuthenticatedUser(UserContextDTO.builder().userId("user-id").userName("john").build());
         User user = User.builder()
                 .id("user-id")
                 .username("john")

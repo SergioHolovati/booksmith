@@ -26,11 +26,26 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:1020269223097-i1tda5amo94d4gv3ao2tcl9etccj18f7.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - email
+              - profile
 api:
   security:
     token:
       secret: ${TOKEN_SECRET:token}
       expiration: ${EXPIRATION:86400000}
+
+resend:
+  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
+  from-email: onboarding@booksmith.com
 ---
 management:
   endpoints:
@@ -58,11 +73,26 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:1020269223097-i1tda5amo94d4gv3ao2tcl9etccj18f7.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - email
+              - profile
 api:
   security:
     token:
       secret: ${TOKEN_SECRET:token}
       expiration: ${EXPIRATION:86400000}
+
+resend:
+  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
+  from-email: onboarding@booksmith.com
 ---
 management:
   endpoints:
@@ -90,11 +120,26 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:1020269223097-i1tda5amo94d4gv3ao2tcl9etccj18f7.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope:
+              - email
+              - profile
 api:
   security:
     token:
       secret: ${TOKEN_SECRET:token}
       expiration: ${EXPIRATION:86400000}
+
+resend:
+  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
+  from-email: onboarding@booksmith.com
 ---
 management:
   endpoints:
@@ -127,3 +172,7 @@ api:
     token:
       secret: ${TOKEN_SECRET:token}
       expiration: ${EXPIRATION:86400000}
+
+resend:
+  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
+  from-email: onboarding@booksmith.com
