@@ -10,6 +10,7 @@ import lombok.Setter;
 public class LoginResponseDTO {
     private String userId;
     private String userName;
-    private String jwt;
+    private String authorId;
+    private String token;
 
 }

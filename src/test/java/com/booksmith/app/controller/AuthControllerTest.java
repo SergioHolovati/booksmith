@@ -24,7 +24,7 @@ class AuthControllerTest {
         LoginResponseDTO response = LoginResponseDTO.builder()
                 .userId("user-id")
                 .userName("john")
-                .jwt("Bearer token")
+                .token("Bearer token")
                 .build();
         when(authService.login(request)).thenReturn(response);
 
@@ -67,7 +67,7 @@ class AuthControllerTest {
 
     @Test
     void refreshTokenShouldReturnServiceResponse() {
-        LoginResponseDTO response = LoginResponseDTO.builder().jwt("Bearer refreshed-token").build();
+        LoginResponseDTO response = LoginResponseDTO.builder().token("Bearer refreshed-token").build();
         when(authService.refreshToken("Bearer token")).thenReturn(response);
 
         var result = authController.refreshToken("Bearer token");

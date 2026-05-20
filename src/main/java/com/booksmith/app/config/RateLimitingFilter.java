@@ -26,10 +26,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, 
-                                    HttpServletResponse response, 
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        
+
         String ip = getClientIP(request);
         Bucket bucket = cache.computeIfAbsent(ip, k -> createNewBucket());
 
@@ -38,17 +38,23 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         } else {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
-            response.getWriter().write("{\"timestamp\":\"" + java.time.LocalDateTime.now() + 
-                    "\",\"status\":429,\"messages\":[\"Muitas requisições. Limite temporariamente excedido.\"]}");
+            response.getWriter().write(
+                    "{\"timestamp\":\"" + java.time.LocalDateTime.now() +
+                            "\",\"status\":429,\"messages\":[\"Muitas requisições. Limite excedido.\"]}"
+            );
         }
     }
-
-    // Método robusto para pegar o IP mesmo atrás de Proxies/Load Balancers (Nginx, Cloudflare)
     private String getClientIP(HttpServletRequest request) {
         String xfHeader = request.getHeader("X-Forwarded-For");
         if (xfHeader == null) {
             return request.getRemoteAddr();
         }
-        return xfHeader.split(",")[0]; // Retorna o IP original do cliente
+        return xfHeader.split(",")[0];
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        // 🔥 nunca aplicar em preflight CORS
+        return "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 }

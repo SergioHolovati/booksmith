@@ -4,7 +4,10 @@ import com.booksmith.app.dto.request.AuthorRequestDTO;
 import com.booksmith.app.dto.response.ProfileAuthorResponseDTO;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -43,6 +46,12 @@ public class Author {
     private String audience;
     @Column
     private String language;
+    @Column
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+    @Column
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 
 
     public static  Author toEntity(AuthorRequestDTO requestDTO, String path, User  user) {

@@ -7,11 +7,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -21,6 +23,7 @@ public class SecurityConfig {
     private final JwtTokenProvider tokenProvider;
     private final UserContextDTO userContextDTO;
     private final OAuth2SuccessHandler successHandler;
+    private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -28,14 +31,13 @@ public class SecurityConfig {
     ) throws Exception {
 
         return http
-                .csrf(csrf -> csrf.disable())
-
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.IF_REQUIRED
                         )
                 )
-
                 .authorizeHttpRequests(authorize ->
                         authorize
                                 .requestMatchers(
@@ -52,16 +54,13 @@ public class SecurityConfig {
                                 .anyRequest()
                                 .authenticated()
                 )
-
                 .oauth2Login(oauth ->
                         oauth.successHandler(successHandler)
                 )
-
                 .addFilterBefore(
                         new RateLimitingFilter(),
                         UsernamePasswordAuthenticationFilter.class
                 )
-
                 .addFilterBefore(
                         new JwtAuthenticationFilter(
                                 tokenProvider,
@@ -69,7 +68,6 @@ public class SecurityConfig {
                         ),
                         UsernamePasswordAuthenticationFilter.class
                 )
-
                 .exceptionHandling(exception ->
                         exception.authenticationEntryPoint(
                                 (request, response, authException) -> {
@@ -93,7 +91,6 @@ public class SecurityConfig {
                                 }
                         )
                 )
-
                 .build();
     }
 

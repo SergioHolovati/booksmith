@@ -25,7 +25,7 @@ public class OAuth2SuccessHandler
     private final AuthRepository authRepository;
     private final JwtTokenProvider jwtTokenProvider;
 
-    @Value("${app.oauth2.success-redirect-url:http://localhost:3000/auth/callback}")
+    @Value("${app.oauth2.success-redirect-url:http://localhost:4200/auth/callback}")
     private String successRedirectUrl;
 
     @Override
@@ -52,7 +52,7 @@ public class OAuth2SuccessHandler
                 throw new UnauthorizedException("This user is not a google account");
             }
 
-        String token = jwtTokenProvider.generateToken(user.getId(), user.getUsername());
+        String token = jwtTokenProvider.generateToken(user);
         String encodedToken = URLEncoder.encode("Bearer " + token, StandardCharsets.UTF_8);
 
         response.sendRedirect(successRedirectUrl + "?token=" + encodedToken);

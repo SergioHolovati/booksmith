@@ -9,18 +9,21 @@ public class UserContextDTO {
     private String userId;
     private String userName;
     private String requestTraceId;
+    private String authorId;
 
     public UserContextDTO() {
     }
 
-    public UserContextDTO(String userId, String userName) {
+    public UserContextDTO(String userId, String userName,String authorId) {
         this.userId = userId;
         this.userName = userName;
+        this.authorId = authorId;
     }
 
-    public UserContextDTO(String userId, String userName, String requestTraceId) {
+    public UserContextDTO(String userId, String userName, String authorId,String requestTraceId) {
         this.userId = userId;
         this.userName = userName;
+        this.authorId = authorId;
         this.requestTraceId = requestTraceId;
     }
 
@@ -35,6 +38,16 @@ public class UserContextDTO {
 
     public void setUserId(String userId) {
         this.userId = userId;
+    }
+
+
+    public String getAuthorId() {
+        UserContextDTO current = CURRENT.get();
+        return current != null ? current.authorId : authorId;
+    }
+
+    public void setAuthorId(String authorId) {
+        this.authorId = authorId;
     }
 
     public String getUserName() {
@@ -59,6 +72,7 @@ public class UserContextDTO {
         UserContextDTO current = getOrCreateCurrent();
         current.userId = authenticatedUser.userId;
         current.userName = authenticatedUser.userName;
+        current.authorId = authenticatedUser.authorId;
     }
 
     public void clearAuthenticatedUser() {
@@ -75,14 +89,14 @@ public class UserContextDTO {
 
     @Override
     public String toString() {
-        return "UserContext{userId='%s', userName='%s', requestTraceId='%s'}"
-                .formatted(getUserId(), getUserName(), getRequestTraceId());
+        return "UserContext{userId='%s', userName='%s', requestTraceId='%s', authorId='%s'}"
+                .formatted(getUserId(), getUserName(), getRequestTraceId(),getAuthorId());
     }
 
     private UserContextDTO getOrCreateCurrent() {
         UserContextDTO current = CURRENT.get();
         if (current == null) {
-            current = new UserContextDTO(userId, userName, requestTraceId);
+            current = new UserContextDTO(userId, userName, authorId,requestTraceId);
             CURRENT.set(current);
         }
         return current;
@@ -92,6 +106,7 @@ public class UserContextDTO {
         private String userId;
         private String userName;
         private String requestTraceId;
+        private String authorId;
 
         public UserContextBuilder userId(String userId) {
             this.userId = userId;
@@ -103,13 +118,19 @@ public class UserContextDTO {
             return this;
         }
 
+        public UserContextBuilder authorId(String authorId) {
+            this.authorId = authorId;
+            return this;
+        }
+
+
         public UserContextBuilder requestTraceId(String requestTraceId) {
             this.requestTraceId = requestTraceId;
             return this;
         }
 
         public UserContextDTO build() {
-            return new UserContextDTO(userId, userName, requestTraceId);
+            return new UserContextDTO(userId, userName, authorId,requestTraceId);
         }
     }
 }

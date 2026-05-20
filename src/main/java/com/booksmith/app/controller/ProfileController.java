@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
+@CrossOrigin
 @RestController
 @RequestMapping("/profile")
 public class ProfileController {
@@ -25,13 +26,13 @@ public class ProfileController {
     }
 
     @PostMapping("/author")
-    public ResponseEntity createAuthor(@RequestBody AuthorRequestDTO request){
+    public ResponseEntity<?> createAuthor(@RequestBody AuthorRequestDTO request){
         profileService.createAuthor(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PutMapping("/author")
-    public ResponseEntity updateAuthor(@RequestBody AuthorRequestDTO request){
+    public ResponseEntity<?> updateAuthor(@RequestBody AuthorRequestDTO request){
         profileService.updateAuthor(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }

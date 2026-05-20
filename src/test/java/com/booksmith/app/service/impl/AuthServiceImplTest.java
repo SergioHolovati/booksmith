@@ -11,6 +11,7 @@ import com.booksmith.app.repository.AuthRepository;
 import com.booksmith.app.repository.PasswordResetRepository;
 import com.booksmith.app.service.EmailService;
 import com.resend.core.exception.ResendException;
+import org.apache.coyote.BadRequestException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,7 +40,7 @@ class AuthServiceImplTest {
                                                                      emailService);
 
     @Test
-    void loginShouldReturnJwtWhenCredentialsAreValid() {
+    void loginShouldReturnJwtWhenCredentialsAreValid() throws BadRequestException {
         LoginRequestDTO request = loginRequest("john", "john@email.com", "raw-password");
         User user = User.builder()
                 .id("user-id")
@@ -49,17 +50,17 @@ class AuthServiceImplTest {
                 .build();
         when(authRepository.findByUsernameOrEmail("john", "john@email.com")).thenReturn(user);
         when(passwordEncoder.matches("raw-password", "encoded-password")).thenReturn(true);
-        when(jwtTokenProvider.generateToken("user-id", "john")).thenReturn("token");
+        when(jwtTokenProvider.generateToken(user)).thenReturn("token");
 
         var response = loginService.login(request);
 
         assertThat(response.getUserId()).isEqualTo("user-id");
         assertThat(response.getUserName()).isEqualTo("john");
-        assertThat(response.getJwt()).isEqualTo("Bearer token");
+        assertThat(response.getToken()).isEqualTo("Bearer token");
     }
 
     @Test
-    void loginShouldThrowUnauthorizedWhenUserDoesNotExist() {
+    void loginShouldThrowUnauthorizedWhenUserDoesNotExist() throws BadRequestException {
         LoginRequestDTO request = loginRequest("john", "john@email.com", "raw-password");
         when(authRepository.findByUsernameOrEmail("john", "john@email.com")).thenReturn(null);
 
@@ -69,7 +70,7 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void loginShouldThrowUnauthorizedWhenPasswordDoesNotMatch() {
+    void loginShouldThrowUnauthorizedWhenPasswordDoesNotMatch() throws BadRequestException {
         LoginRequestDTO request = loginRequest("john", "john@email.com", "raw-password");
         User user = User.builder().password("encoded-password").build();
         when(authRepository.findByUsernameOrEmail("john", "john@email.com")).thenReturn(user);
@@ -155,7 +156,7 @@ class AuthServiceImplTest {
         var response = loginService.refreshToken("Bearer token");
 
         assertThat(userContext.getId()).isEqualTo("user-id");
-        assertThat(response.getJwt()).isEqualTo("Bearer refreshed-token");
+        assertThat(response.getToken()).isEqualTo("Bearer refreshed-token");
         assertThat(response.getUserId()).isEqualTo("user-id");
         assertThat(response.getUserName()).isEqualTo("john");
     }
@@ -197,7 +198,7 @@ class AuthServiceImplTest {
                 .hasMessage("Invalid token.");
     }
 
-    private LoginRequestDTO loginRequest(String username, String email, String password) {
+    private LoginRequestDTO loginRequest(String username, String email, String password) throws BadRequestException {
         LoginRequestDTO request = new LoginRequestDTO();
         ReflectionTestUtils.setField(request, "username", username);
         ReflectionTestUtils.setField(request, "email", email);

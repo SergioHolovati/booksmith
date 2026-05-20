@@ -15,6 +15,7 @@ import com.resend.core.exception.ResendException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ObjectUtils;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -50,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponseDTO login(LoginRequestDTO loginRequestDTO){
-        User user = this.authRepository.findByUsernameOrEmail(loginRequestDTO.getUsername(), loginRequestDTO.getEmail());
+        User user = this.authRepository.findByEmail(loginRequestDTO.getEmail());
         if (user == null) {
             throw new UnauthorizedException("Invalid username or password.");
         }
@@ -61,7 +62,7 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("Successfully Login for userId: {}",user.getId());
         return LoginResponseDTO.builder()
-                .jwt("Bearer " + this.jwtTokenProvider.generateToken(user.getId(), user.getUsername()))
+                .token("Bearer " + this.jwtTokenProvider.generateToken(user))
                 .userId(user.getId())
                 .userName(user.getUsername())
                 .build();
@@ -121,12 +122,15 @@ public class AuthServiceImpl implements AuthService {
         }
 
         var userContext = jwtTokenProvider.getUserContextFromToken(token);
-        String refreshedToken = jwtTokenProvider.refreshToken(token);
+        User user = authRepository.findById(userContext.getUserId())
+                .orElseThrow(()->new UnauthorizedException("Invalid user id."));
+        String refreshedToken = jwtTokenProvider.refreshToken(token,user);
         log.info("Successfully refreshed token for userId: {}", userContext.getUserId());
         return LoginResponseDTO.builder()
-                .jwt("Bearer " + refreshedToken)
-                .userId(userContext.getUserId())
-                .userName(userContext.getUserName())
+                .token("Bearer " + refreshedToken)
+                .userId(user.getId())
+                .userName(user.getUsername())
+                .authorId(ObjectUtils.isEmpty(user.getAuthor()) ? "-" : user.getAuthor().getId())
                 .build();
     }
 

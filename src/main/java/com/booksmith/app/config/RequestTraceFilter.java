@@ -33,17 +33,15 @@ public class RequestTraceFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return "OPTIONS".equalsIgnoreCase(request.getMethod());
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String requestTraceId = resolveRequestTraceId(request);
-        if (isMissingRequestTraceId(requestTraceId) && !isLoginRequest(request)) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            response.setContentType("application/json");
-            response.getWriter().write("{\"timestamp\":\"" + java.time.LocalDateTime.now()
-                    + "\",\"status\":400,\"messages\":[\"Header X-Request-Trace-Id is required.\"]}");
-            return;
-        }
         if (isMissingRequestTraceId(requestTraceId)) {
             requestTraceId = UUID.randomUUID().toString();
         }

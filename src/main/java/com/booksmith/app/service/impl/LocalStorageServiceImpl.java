@@ -27,7 +27,8 @@ public class LocalStorageServiceImpl implements LocalStorageService {
     private String endpoint;
 
     @Override
-    public String saveAuthorAvatar(
+    public String upload(
+            String path,
             String authorId,
             String base64
     ) {
@@ -45,7 +46,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
                     extractExtension(base64);
 
             String key =
-                    "authors/author-%s-avatar.%s"
+                    path
                             .formatted(
                                     authorId,
                                     extension
@@ -78,7 +79,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
         } catch (Exception e) {
 
             throw new RuntimeException(
-                    "Erro ao salvar avatar",
+                    "Invalid Image",
                     e
             );
         }
@@ -113,7 +114,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
         } catch (Exception e) {
 
             log.error(
-                    "Erro ao remover imagem {}",
+                    "Error deleting file {}",
                     filePath,
                     e
             );
@@ -127,7 +128,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
         if (base64 == null
                 || base64.isBlank()) {
             throw new RuntimeException(
-                    "Imagem não enviada"
+                    "Image not sendend"
             );
         }
 
@@ -156,7 +157,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
         }
 
         throw new RuntimeException(
-                "Formato não suportado"
+                "Image format not supported"
         );
     }
 
@@ -178,7 +179,7 @@ public class LocalStorageServiceImpl implements LocalStorageService {
         }
 
         throw new RuntimeException(
-                "Formato não suportado"
+                "Format not supported"
         );
     }
 
