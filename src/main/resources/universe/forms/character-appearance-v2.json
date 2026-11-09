@@ -1,0 +1,2236 @@
+{
+  "id": "character-appearance",
+  "version": 2,
+  "tabs": [
+    {
+      "key": "base",
+      "label": "Base",
+      "fields": [
+        {
+          "key": "species",
+          "label": "Espécie",
+          "type": "choice",
+          "allowCustom": true,
+          "predicate": "species",
+          "summary": "{label}",
+          "summarySkip": [
+            "human"
+          ],
+          "options": [
+            {
+              "value": "human",
+              "label": "Humano"
+            },
+            {
+              "value": "elf",
+              "label": "Elfo"
+            },
+            {
+              "value": "dwarf",
+              "label": "Anão"
+            },
+            {
+              "value": "orc",
+              "label": "Orc"
+            },
+            {
+              "value": "fairy",
+              "label": "Fada"
+            },
+            {
+              "value": "vampire",
+              "label": "Vampiro"
+            },
+            {
+              "value": "werewolf",
+              "label": "Lobisomem"
+            },
+            {
+              "value": "android",
+              "label": "Androide"
+            },
+            {
+              "value": "alien",
+              "label": "Alienígena"
+            },
+            {
+              "value": "creature",
+              "label": "Criatura"
+            }
+          ]
+        },
+        {
+          "key": "apparentAge",
+          "label": "Idade aparente",
+          "type": "choice",
+          "predicate": "apparent_age",
+          "options": [
+            {
+              "value": "child",
+              "label": "Criança"
+            },
+            {
+              "value": "teen",
+              "label": "Adolescente"
+            },
+            {
+              "value": "young_adult",
+              "label": "Jovem adulto"
+            },
+            {
+              "value": "adult",
+              "label": "Adulto"
+            },
+            {
+              "value": "middle_aged",
+              "label": "Meia-idade"
+            },
+            {
+              "value": "elderly",
+              "label": "Idoso"
+            },
+            {
+              "value": "ageless",
+              "label": "Sem idade aparente"
+            }
+          ]
+        },
+        {
+          "key": "gender",
+          "label": "Gênero / expressão",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "feminine",
+              "label": "Feminino"
+            },
+            {
+              "value": "masculine",
+              "label": "Masculino"
+            },
+            {
+              "value": "nonbinary",
+              "label": "Não binário"
+            },
+            {
+              "value": "androgynous",
+              "label": "Andrógino"
+            }
+          ]
+        },
+        {
+          "key": "height",
+          "label": "Altura",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "predicate": "height",
+          "labels": [
+            "Muito baixa",
+            "Baixa",
+            "Média",
+            "Alta",
+            "Muito alta"
+          ]
+        },
+        {
+          "key": "build",
+          "label": "Porte físico",
+          "type": "choice",
+          "allowCustom": true,
+          "predicate": "build",
+          "options": [
+            {
+              "value": "thin",
+              "label": "Magro"
+            },
+            {
+              "value": "slender",
+              "label": "Esguio"
+            },
+            {
+              "value": "average",
+              "label": "Médio"
+            },
+            {
+              "value": "athletic",
+              "label": "Atlético"
+            },
+            {
+              "value": "muscular",
+              "label": "Musculoso"
+            },
+            {
+              "value": "stocky",
+              "label": "Robusto"
+            },
+            {
+              "value": "fat",
+              "label": "Gordo"
+            },
+            {
+              "value": "curvy",
+              "label": "Curvilíneo"
+            }
+          ]
+        },
+        {
+          "key": "heritage",
+          "label": "Origem / traços de família",
+          "type": "text",
+          "placeholder": "Ex.: avó japonesa, traços do norte da Itália"
+        },
+        {
+          "key": "handedness",
+          "label": "Mão dominante",
+          "type": "choice",
+          "options": [
+            {
+              "value": "right",
+              "label": "Destro"
+            },
+            {
+              "value": "left",
+              "label": "Canhoto"
+            },
+            {
+              "value": "both",
+              "label": "Ambidestro"
+            }
+          ]
+        }
+      ],
+      "group": "appearance"
+    },
+    {
+      "key": "face",
+      "label": "Rosto",
+      "fields": [
+        {
+          "key": "eyeColor",
+          "label": "Cor dos olhos",
+          "type": "color",
+          "allowCustom": true,
+          "predicate": "eye_color",
+          "summary": "olhos {label}",
+          "options": [
+            {
+              "value": "dark_brown",
+              "label": "Castanho-escuros",
+              "hex": "#3b2416"
+            },
+            {
+              "value": "brown",
+              "label": "Castanhos",
+              "hex": "#6b4423"
+            },
+            {
+              "value": "hazel",
+              "label": "Cor de mel",
+              "hex": "#a86b2d"
+            },
+            {
+              "value": "green",
+              "label": "Verdes",
+              "hex": "#4f7a3a"
+            },
+            {
+              "value": "blue",
+              "label": "Azuis",
+              "hex": "#3f6fa8"
+            },
+            {
+              "value": "gray",
+              "label": "Cinzentos",
+              "hex": "#8a9299"
+            },
+            {
+              "value": "black",
+              "label": "Pretos",
+              "hex": "#1a1a1a"
+            },
+            {
+              "value": "violet",
+              "label": "Violeta",
+              "hex": "#6b4c9a"
+            },
+            {
+              "value": "red",
+              "label": "Vermelhos",
+              "hex": "#9b1c1c"
+            },
+            {
+              "value": "golden",
+              "label": "Dourados",
+              "hex": "#c9a227"
+            },
+            {
+              "value": "heterochromia",
+              "label": "Heterocromia (um de cada cor)"
+            }
+          ]
+        },
+        {
+          "key": "eyeDetail",
+          "label": "Detalhe dos olhos",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "heterochromia",
+              "label": "Heterocromia"
+            },
+            {
+              "value": "glowing",
+              "label": "Brilham"
+            },
+            {
+              "value": "dark_circles",
+              "label": "Olheiras"
+            },
+            {
+              "value": "long_lashes",
+              "label": "Cílios longos"
+            },
+            {
+              "value": "scar_over_eye",
+              "label": "Cicatriz no olho"
+            },
+            {
+              "value": "blind_eye",
+              "label": "Um olho cego"
+            }
+          ]
+        },
+        {
+          "key": "eyeShape",
+          "label": "Formato dos olhos",
+          "type": "choice",
+          "options": [
+            {
+              "value": "almond",
+              "label": "Amendoados"
+            },
+            {
+              "value": "round",
+              "label": "Redondos"
+            },
+            {
+              "value": "upturned",
+              "label": "Puxados"
+            },
+            {
+              "value": "downturned",
+              "label": "Caídos"
+            },
+            {
+              "value": "hooded",
+              "label": "Pálpebra encapuzada"
+            },
+            {
+              "value": "large",
+              "label": "Grandes"
+            },
+            {
+              "value": "small",
+              "label": "Pequenos"
+            }
+          ]
+        },
+        {
+          "key": "faceShape",
+          "label": "Formato do rosto",
+          "type": "choice",
+          "options": [
+            {
+              "value": "oval",
+              "label": "Oval"
+            },
+            {
+              "value": "round",
+              "label": "Redondo"
+            },
+            {
+              "value": "square",
+              "label": "Quadrado"
+            },
+            {
+              "value": "heart",
+              "label": "Coração"
+            },
+            {
+              "value": "long",
+              "label": "Alongado"
+            },
+            {
+              "value": "diamond",
+              "label": "Diamante"
+            }
+          ]
+        },
+        {
+          "key": "jaw",
+          "label": "Maxilar e queixo",
+          "type": "choice",
+          "options": [
+            {
+              "value": "delicate",
+              "label": "Delicado"
+            },
+            {
+              "value": "rounded",
+              "label": "Arredondado"
+            },
+            {
+              "value": "defined",
+              "label": "Marcado"
+            },
+            {
+              "value": "square",
+              "label": "Quadrado"
+            }
+          ]
+        },
+        {
+          "key": "cheekbones",
+          "label": "Maçãs do rosto",
+          "type": "choice",
+          "options": [
+            {
+              "value": "high",
+              "label": "Altas"
+            },
+            {
+              "value": "soft",
+              "label": "Suaves"
+            },
+            {
+              "value": "prominent",
+              "label": "Marcadas"
+            },
+            {
+              "value": "full",
+              "label": "Cheias"
+            }
+          ]
+        },
+        {
+          "key": "eyebrows",
+          "label": "Sobrancelhas",
+          "type": "choice",
+          "options": [
+            {
+              "value": "thin",
+              "label": "Finas"
+            },
+            {
+              "value": "medium",
+              "label": "Médias"
+            },
+            {
+              "value": "thick",
+              "label": "Grossas"
+            },
+            {
+              "value": "arched",
+              "label": "Arqueadas"
+            },
+            {
+              "value": "straight",
+              "label": "Retas"
+            },
+            {
+              "value": "unibrow",
+              "label": "Unidas"
+            }
+          ]
+        },
+        {
+          "key": "nose",
+          "label": "Nariz",
+          "type": "choice",
+          "options": [
+            {
+              "value": "small",
+              "label": "Pequeno"
+            },
+            {
+              "value": "upturned",
+              "label": "Arrebitado"
+            },
+            {
+              "value": "straight",
+              "label": "Reto"
+            },
+            {
+              "value": "aquiline",
+              "label": "Aquilino"
+            },
+            {
+              "value": "wide",
+              "label": "Largo"
+            },
+            {
+              "value": "flat",
+              "label": "Achatado"
+            }
+          ]
+        },
+        {
+          "key": "lips",
+          "label": "Boca e lábios",
+          "type": "choice",
+          "options": [
+            {
+              "value": "thin",
+              "label": "Finos"
+            },
+            {
+              "value": "medium",
+              "label": "Médios"
+            },
+            {
+              "value": "full",
+              "label": "Carnudos"
+            },
+            {
+              "value": "heart",
+              "label": "Em forma de coração"
+            }
+          ]
+        },
+        {
+          "key": "teeth",
+          "label": "Sorriso",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "perfect",
+              "label": "Dentes perfeitos"
+            },
+            {
+              "value": "gap",
+              "label": "Dentes separados"
+            },
+            {
+              "value": "crooked",
+              "label": "Dentes tortos"
+            },
+            {
+              "value": "braces",
+              "label": "Aparelho"
+            },
+            {
+              "value": "missing",
+              "label": "Falta um dente"
+            },
+            {
+              "value": "fangs",
+              "label": "Caninos pontudos"
+            },
+            {
+              "value": "dimples",
+              "label": "Covinhas"
+            }
+          ]
+        },
+        {
+          "key": "ears",
+          "label": "Orelhas",
+          "type": "choice",
+          "allowCustom": true,
+          "predicate": "ears",
+          "options": [
+            {
+              "value": "human",
+              "label": "Humanas"
+            },
+            {
+              "value": "pointed",
+              "label": "Pontudas"
+            },
+            {
+              "value": "long_pointed",
+              "label": "Longas e pontudas"
+            },
+            {
+              "value": "animal",
+              "label": "De animal"
+            },
+            {
+              "value": "none",
+              "label": "Sem orelhas visíveis"
+            }
+          ]
+        }
+      ],
+      "group": "appearance"
+    },
+    {
+      "key": "skin",
+      "label": "Pele",
+      "fields": [
+        {
+          "key": "skinTone",
+          "label": "Tom de pele",
+          "type": "color",
+          "allowCustom": true,
+          "predicate": "skin_tone",
+          "summary": "pele {label}",
+          "options": [
+            {
+              "value": "very_fair",
+              "label": "Muito clara",
+              "hex": "#f6dfcf"
+            },
+            {
+              "value": "fair",
+              "label": "Clara",
+              "hex": "#eac4a6"
+            },
+            {
+              "value": "light_olive",
+              "label": "Clara oliva",
+              "hex": "#d9b38c"
+            },
+            {
+              "value": "medium",
+              "label": "Média",
+              "hex": "#c48e64"
+            },
+            {
+              "value": "tan",
+              "label": "Morena",
+              "hex": "#a8714a"
+            },
+            {
+              "value": "brown",
+              "label": "Morena escura",
+              "hex": "#8a5533"
+            },
+            {
+              "value": "dark",
+              "label": "Negra",
+              "hex": "#5f3a22"
+            },
+            {
+              "value": "very_dark",
+              "label": "Negra retinta",
+              "hex": "#3d2416"
+            },
+            {
+              "value": "blue",
+              "label": "Azul",
+              "hex": "#4a78b0"
+            },
+            {
+              "value": "green",
+              "label": "Verde",
+              "hex": "#4f8a55"
+            },
+            {
+              "value": "gray",
+              "label": "Cinza",
+              "hex": "#8b8f94"
+            },
+            {
+              "value": "lilac",
+              "label": "Lilás",
+              "hex": "#9b7fc0"
+            },
+            {
+              "value": "golden",
+              "label": "Dourada",
+              "hex": "#c9a227"
+            }
+          ]
+        },
+        {
+          "key": "undertone",
+          "label": "Subtom",
+          "type": "choice",
+          "options": [
+            {
+              "value": "cool",
+              "label": "Frio"
+            },
+            {
+              "value": "neutral",
+              "label": "Neutro"
+            },
+            {
+              "value": "warm",
+              "label": "Quente"
+            },
+            {
+              "value": "olive",
+              "label": "Oliva"
+            }
+          ]
+        },
+        {
+          "key": "skinTexture",
+          "label": "Textura",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "smooth",
+              "label": "Lisa"
+            },
+            {
+              "value": "scales",
+              "label": "Com escamas"
+            },
+            {
+              "value": "fur",
+              "label": "Com pelos"
+            },
+            {
+              "value": "feathers",
+              "label": "Com penas"
+            },
+            {
+              "value": "metallic",
+              "label": "Metálica"
+            },
+            {
+              "value": "translucent",
+              "label": "Translúcida"
+            }
+          ]
+        },
+        {
+          "key": "frecklesAmount",
+          "label": "Quantas sardas",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Nenhuma",
+            "Poucas",
+            "Algumas",
+            "Muitas",
+            "Cobrem o rosto"
+          ]
+        },
+        {
+          "key": "marks",
+          "label": "Marcas",
+          "type": "multi",
+          "allowCustom": true,
+          "predicate": "marks",
+          "options": [
+            {
+              "value": "freckles",
+              "label": "Sardas"
+            },
+            {
+              "value": "moles",
+              "label": "Pintas"
+            },
+            {
+              "value": "scars",
+              "label": "Cicatrizes"
+            },
+            {
+              "value": "tattoos",
+              "label": "Tatuagens"
+            },
+            {
+              "value": "vitiligo",
+              "label": "Vitiligo"
+            },
+            {
+              "value": "wrinkles",
+              "label": "Rugas"
+            },
+            {
+              "value": "birthmark",
+              "label": "Marca de nascença"
+            },
+            {
+              "value": "piercings",
+              "label": "Piercings"
+            }
+          ]
+        },
+        {
+          "key": "marksDetail",
+          "label": "Onde e como",
+          "type": "text",
+          "placeholder": "Ex.: cicatriz fina na sobrancelha esquerda"
+        }
+      ],
+      "group": "appearance"
+    },
+    {
+      "key": "hair",
+      "label": "Cabelo e pelos",
+      "fields": [
+        {
+          "key": "hairColor",
+          "label": "Cor do cabelo",
+          "type": "color",
+          "allowCustom": true,
+          "predicate": "hair_color",
+          "summary": "cabelo {label}",
+          "options": [
+            {
+              "value": "black",
+              "label": "Preto",
+              "hex": "#141414"
+            },
+            {
+              "value": "dark_brown",
+              "label": "Castanho-escuro",
+              "hex": "#3b2416"
+            },
+            {
+              "value": "brown",
+              "label": "Castanho",
+              "hex": "#6b4423"
+            },
+            {
+              "value": "light_brown",
+              "label": "Castanho-claro",
+              "hex": "#9a6b43"
+            },
+            {
+              "value": "dark_blond",
+              "label": "Loiro-escuro",
+              "hex": "#b08a4f"
+            },
+            {
+              "value": "blond",
+              "label": "Loiro",
+              "hex": "#d8b46a"
+            },
+            {
+              "value": "platinum",
+              "label": "Loiro platinado",
+              "hex": "#eee0b8"
+            },
+            {
+              "value": "red",
+              "label": "Ruivo",
+              "hex": "#a6431c"
+            },
+            {
+              "value": "copper",
+              "label": "Acobreado",
+              "hex": "#b5652d"
+            },
+            {
+              "value": "gray",
+              "label": "Grisalho",
+              "hex": "#9a9a9a"
+            },
+            {
+              "value": "white",
+              "label": "Branco",
+              "hex": "#e8e8e8"
+            },
+            {
+              "value": "blue",
+              "label": "Azul",
+              "hex": "#3d6fd1"
+            },
+            {
+              "value": "pink",
+              "label": "Rosa",
+              "hex": "#e07aa8"
+            },
+            {
+              "value": "green",
+              "label": "Verde",
+              "hex": "#3f9e6a"
+            },
+            {
+              "value": "purple",
+              "label": "Roxo",
+              "hex": "#7d4fb8"
+            }
+          ]
+        },
+        {
+          "key": "hairTexture",
+          "label": "Textura",
+          "type": "choice",
+          "predicate": "hair_texture",
+          "summary": "{label}",
+          "options": [
+            {
+              "value": "straight",
+              "label": "Liso"
+            },
+            {
+              "value": "wavy",
+              "label": "Ondulado"
+            },
+            {
+              "value": "curly",
+              "label": "Cacheado"
+            },
+            {
+              "value": "coily",
+              "label": "Crespo"
+            }
+          ]
+        },
+        {
+          "key": "hairLength",
+          "label": "Comprimento",
+          "type": "choice",
+          "predicate": "hair_length",
+          "options": [
+            {
+              "value": "bald",
+              "label": "Careca"
+            },
+            {
+              "value": "shaved",
+              "label": "Raspado"
+            },
+            {
+              "value": "very_short",
+              "label": "Muito curto"
+            },
+            {
+              "value": "short",
+              "label": "Curto"
+            },
+            {
+              "value": "chin",
+              "label": "Na altura do queixo"
+            },
+            {
+              "value": "shoulder",
+              "label": "Nos ombros"
+            },
+            {
+              "value": "long",
+              "label": "Longo"
+            },
+            {
+              "value": "very_long",
+              "label": "Muito longo"
+            }
+          ]
+        },
+        {
+          "key": "hairPart",
+          "label": "Divisão",
+          "type": "choice",
+          "options": [
+            {
+              "value": "middle",
+              "label": "No meio"
+            },
+            {
+              "value": "side",
+              "label": "De lado"
+            },
+            {
+              "value": "none",
+              "label": "Sem divisão"
+            },
+            {
+              "value": "undercut",
+              "label": "Raspado dos lados"
+            },
+            {
+              "value": "bangs",
+              "label": "Com franja"
+            }
+          ]
+        },
+        {
+          "key": "hairCare",
+          "label": "Cuidado",
+          "type": "choice",
+          "options": [
+            {
+              "value": "neat",
+              "label": "Sempre arrumado"
+            },
+            {
+              "value": "messy",
+              "label": "Despenteado"
+            },
+            {
+              "value": "greasy",
+              "label": "Oleoso"
+            },
+            {
+              "value": "styled",
+              "label": "Penteado com produto"
+            },
+            {
+              "value": "wild",
+              "label": "Selvagem"
+            }
+          ]
+        },
+        {
+          "key": "hairStyle",
+          "label": "Corte / penteado",
+          "type": "text",
+          "placeholder": "Franja, tranças, coque, dreads, black power…"
+        },
+        {
+          "key": "hairSecondary",
+          "label": "Mechas / cor secundária",
+          "type": "text",
+          "placeholder": "Ex.: mecha branca na frente"
+        },
+        {
+          "key": "facialHair",
+          "label": "Barba e bigode",
+          "type": "choice",
+          "predicate": "facial_hair",
+          "options": [
+            {
+              "value": "none",
+              "label": "Nenhum"
+            },
+            {
+              "value": "stubble",
+              "label": "Por fazer"
+            },
+            {
+              "value": "goatee",
+              "label": "Cavanhaque"
+            },
+            {
+              "value": "mustache",
+              "label": "Bigode"
+            },
+            {
+              "value": "short_beard",
+              "label": "Barba curta"
+            },
+            {
+              "value": "full_beard",
+              "label": "Barba cheia"
+            },
+            {
+              "value": "long_beard",
+              "label": "Barba longa"
+            }
+          ]
+        }
+      ],
+      "group": "appearance"
+    },
+    {
+      "key": "body",
+      "label": "Corpo",
+      "fields": [
+        {
+          "key": "posture",
+          "label": "Postura",
+          "type": "choice",
+          "options": [
+            {
+              "value": "upright",
+              "label": "Ereta"
+            },
+            {
+              "value": "relaxed",
+              "label": "Relaxada"
+            },
+            {
+              "value": "hunched",
+              "label": "Curvada"
+            },
+            {
+              "value": "stiff",
+              "label": "Rígida"
+            },
+            {
+              "value": "graceful",
+              "label": "Elegante"
+            }
+          ]
+        },
+        {
+          "key": "movement",
+          "label": "Jeito de se mover",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "graceful",
+              "label": "Gracioso"
+            },
+            {
+              "value": "clumsy",
+              "label": "Desajeitado"
+            },
+            {
+              "value": "restrained",
+              "label": "Contido"
+            },
+            {
+              "value": "energetic",
+              "label": "Enérgico"
+            },
+            {
+              "value": "feline",
+              "label": "Felino"
+            },
+            {
+              "value": "heavy",
+              "label": "Pesado"
+            },
+            {
+              "value": "military",
+              "label": "Marcial"
+            }
+          ]
+        },
+        {
+          "key": "hands",
+          "label": "Mãos",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "delicate",
+              "label": "Delicadas"
+            },
+            {
+              "value": "calloused",
+              "label": "Calejadas"
+            },
+            {
+              "value": "large",
+              "label": "Grandes"
+            },
+            {
+              "value": "long",
+              "label": "Longas e finas"
+            },
+            {
+              "value": "bitten_nails",
+              "label": "Unhas roídas"
+            },
+            {
+              "value": "painted_nails",
+              "label": "Unhas pintadas"
+            }
+          ]
+        },
+        {
+          "key": "tattoos",
+          "label": "Tatuagens e cicatrizes",
+          "type": "longtext",
+          "placeholder": "Onde ficam e o que são. Ex.: um corvo no antebraço direito"
+        },
+        {
+          "key": "physical",
+          "label": "Características físicas",
+          "type": "multi",
+          "allowCustom": true,
+          "predicate": "physical_traits",
+          "help": "Para representar pessoas reais: o agente de continuidade avisa se o texto esquecer delas.",
+          "options": [
+            {
+              "value": "glasses",
+              "label": "Usa óculos"
+            },
+            {
+              "value": "wheelchair",
+              "label": "Cadeira de rodas"
+            },
+            {
+              "value": "cane",
+              "label": "Bengala"
+            },
+            {
+              "value": "prosthesis",
+              "label": "Prótese"
+            },
+            {
+              "value": "missing_limb",
+              "label": "Membro ausente"
+            },
+            {
+              "value": "hearing_aid",
+              "label": "Aparelho auditivo"
+            },
+            {
+              "value": "blind",
+              "label": "Deficiência visual"
+            },
+            {
+              "value": "dwarfism",
+              "label": "Nanismo"
+            }
+          ]
+        },
+        {
+          "key": "fantasy",
+          "label": "Traços fantásticos",
+          "type": "multi",
+          "allowCustom": true,
+          "predicate": "fantasy_traits",
+          "options": [
+            {
+              "value": "wings",
+              "label": "Asas"
+            },
+            {
+              "value": "tail",
+              "label": "Cauda"
+            },
+            {
+              "value": "horns",
+              "label": "Chifres"
+            },
+            {
+              "value": "claws",
+              "label": "Garras"
+            },
+            {
+              "value": "fangs",
+              "label": "Presas"
+            },
+            {
+              "value": "glow",
+              "label": "Brilho / aura"
+            }
+          ]
+        }
+      ],
+      "group": "appearance"
+    },
+    {
+      "key": "clothing",
+      "label": "Roupas e acessórios",
+      "fields": [
+        {
+          "key": "clothingStyle",
+          "label": "Estilo / época",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "casual",
+              "label": "Casual de hoje"
+            },
+            {
+              "value": "formal",
+              "label": "Social"
+            },
+            {
+              "value": "sporty",
+              "label": "Esportivo"
+            },
+            {
+              "value": "medieval",
+              "label": "Medieval"
+            },
+            {
+              "value": "victorian",
+              "label": "Vitoriano"
+            },
+            {
+              "value": "steampunk",
+              "label": "Steampunk"
+            },
+            {
+              "value": "cyberpunk",
+              "label": "Cyberpunk"
+            },
+            {
+              "value": "futuristic",
+              "label": "Futurista"
+            },
+            {
+              "value": "school_uniform",
+              "label": "Uniforme escolar"
+            },
+            {
+              "value": "military",
+              "label": "Militar"
+            },
+            {
+              "value": "traditional",
+              "label": "Tradicional / étnico"
+            },
+            {
+              "value": "gothic",
+              "label": "Gótico"
+            }
+          ]
+        },
+        {
+          "key": "clothingCondition",
+          "label": "Estado da roupa",
+          "type": "choice",
+          "options": [
+            {
+              "value": "impeccable",
+              "label": "Impecável"
+            },
+            {
+              "value": "tidy",
+              "label": "Arrumada"
+            },
+            {
+              "value": "casual",
+              "label": "Despojada"
+            },
+            {
+              "value": "worn",
+              "label": "Gasta"
+            },
+            {
+              "value": "ragged",
+              "label": "Esfarrapada"
+            }
+          ]
+        },
+        {
+          "key": "outfit",
+          "label": "Roupa típica",
+          "type": "longtext",
+          "placeholder": "Cabeça, tronco, pernas, pés, casaco ou capa"
+        },
+        {
+          "key": "colors",
+          "label": "Cores e materiais",
+          "type": "text",
+          "placeholder": "Ex.: tons de verde, couro gasto"
+        },
+        {
+          "key": "accessories",
+          "label": "Acessórios",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "earrings",
+              "label": "Brincos"
+            },
+            {
+              "value": "necklace",
+              "label": "Colar"
+            },
+            {
+              "value": "rings",
+              "label": "Anéis"
+            },
+            {
+              "value": "hat",
+              "label": "Chapéu"
+            },
+            {
+              "value": "scarf",
+              "label": "Lenço"
+            },
+            {
+              "value": "backpack",
+              "label": "Mochila"
+            },
+            {
+              "value": "watch",
+              "label": "Relógio"
+            },
+            {
+              "value": "weapon",
+              "label": "Arma"
+            },
+            {
+              "value": "staff",
+              "label": "Cajado"
+            }
+          ]
+        },
+        {
+          "key": "glasses",
+          "label": "Óculos",
+          "type": "choice",
+          "options": [
+            {
+              "value": "none",
+              "label": "Não usa"
+            },
+            {
+              "value": "round",
+              "label": "Redondos"
+            },
+            {
+              "value": "square",
+              "label": "Quadrados"
+            },
+            {
+              "value": "sunglasses",
+              "label": "Escuros"
+            },
+            {
+              "value": "monocle",
+              "label": "Monóculo"
+            },
+            {
+              "value": "goggles",
+              "label": "Óculos de proteção"
+            }
+          ]
+        },
+        {
+          "key": "signatureItem",
+          "label": "Objeto característico",
+          "type": "text",
+          "predicate": "signature_item",
+          "placeholder": "Ex.: o relógio de bolso do avô"
+        }
+      ],
+      "group": "appearance"
+    },
+    {
+      "key": "presence",
+      "label": "Presença",
+      "group": "appearance",
+      "fields": [
+        {
+          "key": "expression",
+          "label": "Expressão de sempre",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "serious",
+              "label": "Séria"
+            },
+            {
+              "value": "smiling",
+              "label": "Sorridente"
+            },
+            {
+              "value": "suspicious",
+              "label": "Desconfiada"
+            },
+            {
+              "value": "dreamy",
+              "label": "Sonhadora"
+            },
+            {
+              "value": "melancholic",
+              "label": "Melancólica"
+            },
+            {
+              "value": "stern",
+              "label": "Severa"
+            },
+            {
+              "value": "mischievous",
+              "label": "Travessa"
+            },
+            {
+              "value": "tired",
+              "label": "Cansada"
+            }
+          ]
+        },
+        {
+          "key": "aura",
+          "label": "Primeira impressão",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "warm",
+              "label": "Acolhedor"
+            },
+            {
+              "value": "intimidating",
+              "label": "Intimidador"
+            },
+            {
+              "value": "mysterious",
+              "label": "Misterioso"
+            },
+            {
+              "value": "elegant",
+              "label": "Elegante"
+            },
+            {
+              "value": "chaotic",
+              "label": "Caótico"
+            },
+            {
+              "value": "unremarkable",
+              "label": "Passa despercebido"
+            },
+            {
+              "value": "magnetic",
+              "label": "Magnético"
+            }
+          ]
+        },
+        {
+          "key": "attractiveness",
+          "label": "Chama atenção",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Nada",
+            "Pouco",
+            "Na média",
+            "Bastante",
+            "Para o trânsito"
+          ]
+        },
+        {
+          "key": "gesture",
+          "label": "Gesto marcante",
+          "type": "text",
+          "placeholder": "Ex.: ajeita os óculos quando mente"
+        },
+        {
+          "key": "scent",
+          "label": "Cheiro",
+          "type": "text",
+          "placeholder": "Ex.: tabaco e chuva"
+        }
+      ]
+    },
+    {
+      "key": "references",
+      "label": "Referências",
+      "group": "appearance",
+      "help": "Ajuda a ilustração: quanto mais concreto, mais parecido.",
+      "fields": [
+        {
+          "key": "looksLike",
+          "label": "Parece com…",
+          "type": "text",
+          "placeholder": "Atores, personagens, pinturas. Ex.: um Timothée Chalamet mais velho"
+        },
+        {
+          "key": "palette",
+          "label": "Cores do personagem",
+          "type": "text",
+          "placeholder": "Ex.: verde-musgo, cobre e preto"
+        },
+        {
+          "key": "visualNotes",
+          "label": "Notas para o ilustrador",
+          "type": "longtext",
+          "placeholder": "O que não pode faltar num retrato. Ex.: a cicatriz sempre visível, nunca sorrindo"
+        }
+      ]
+    },
+    {
+      "key": "free",
+      "label": "Livre",
+      "fields": [
+        {
+          "key": "notes",
+          "label": "Descrição complementar",
+          "type": "longtext",
+          "placeholder": "Ex.: sempre com as mangas dobradas; esconde a cicatriz com o cabelo"
+        }
+      ],
+      "group": "appearance"
+    },
+    {
+      "key": "temperament",
+      "label": "Temperamento",
+      "group": "personality",
+      "help": "Arraste para o lado que combina. Deixe no meio, ou sem mexer, o que você ainda não sabe.",
+      "fields": [
+        {
+          "key": "introExtro",
+          "label": "Introvertido ↔ Extrovertido",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito introvertido",
+            "Introvertido",
+            "Equilibrado",
+            "Extrovertido",
+            "Muito extrovertido"
+          ],
+          "poles": [
+            "Introvertido",
+            "Extrovertido"
+          ]
+        },
+        {
+          "key": "reasonEmotion",
+          "label": "Racional ↔ Emotivo",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito racional",
+            "Racional",
+            "Equilibrado",
+            "Emotivo",
+            "Muito emotivo"
+          ],
+          "poles": [
+            "Racional",
+            "Emotivo"
+          ]
+        },
+        {
+          "key": "cautionImpulse",
+          "label": "Cauteloso ↔ Impulsivo",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito cauteloso",
+            "Cauteloso",
+            "Equilibrado",
+            "Impulsivo",
+            "Muito impulsivo"
+          ],
+          "poles": [
+            "Cauteloso",
+            "Impulsivo"
+          ]
+        },
+        {
+          "key": "cynicIdealist",
+          "label": "Cínico ↔ Idealista",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito cínico",
+            "Cínico",
+            "Equilibrado",
+            "Idealista",
+            "Muito idealista"
+          ],
+          "poles": [
+            "Cínico",
+            "Idealista"
+          ]
+        },
+        {
+          "key": "chaosOrder",
+          "label": "Caótico ↔ Metódico",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito caótico",
+            "Caótico",
+            "Equilibrado",
+            "Metódico",
+            "Muito metódico"
+          ],
+          "poles": [
+            "Caótico",
+            "Metódico"
+          ]
+        },
+        {
+          "key": "shyBold",
+          "label": "Tímido ↔ Confiante",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito tímido",
+            "Tímido",
+            "Equilibrado",
+            "Confiante",
+            "Muito confiante"
+          ],
+          "poles": [
+            "Tímido",
+            "Confiante"
+          ]
+        },
+        {
+          "key": "seriousPlayful",
+          "label": "Sério ↔ Brincalhão",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito sério",
+            "Sério",
+            "Equilibrado",
+            "Brincalhão",
+            "Muito brincalhão"
+          ],
+          "poles": [
+            "Sério",
+            "Brincalhão"
+          ]
+        },
+        {
+          "key": "gentleHarsh",
+          "label": "Gentil ↔ Duro",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Muito gentil",
+            "Gentil",
+            "Equilibrado",
+            "Duro",
+            "Muito duro"
+          ],
+          "poles": [
+            "Gentil",
+            "Duro"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "traits",
+      "label": "Qualidades e defeitos",
+      "group": "personality",
+      "fields": [
+        {
+          "key": "virtues",
+          "label": "Qualidades",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "loyal",
+              "label": "Leal"
+            },
+            {
+              "value": "brave",
+              "label": "Corajoso"
+            },
+            {
+              "value": "generous",
+              "label": "Generoso"
+            },
+            {
+              "value": "honest",
+              "label": "Honesto"
+            },
+            {
+              "value": "patient",
+              "label": "Paciente"
+            },
+            {
+              "value": "curious",
+              "label": "Curioso"
+            },
+            {
+              "value": "funny",
+              "label": "Engraçado"
+            },
+            {
+              "value": "determined",
+              "label": "Determinado"
+            },
+            {
+              "value": "empathetic",
+              "label": "Empático"
+            },
+            {
+              "value": "clever",
+              "label": "Esperto"
+            },
+            {
+              "value": "protective",
+              "label": "Protetor"
+            },
+            {
+              "value": "humble",
+              "label": "Humilde"
+            }
+          ]
+        },
+        {
+          "key": "flaws",
+          "label": "Defeitos",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "proud",
+              "label": "Orgulhoso"
+            },
+            {
+              "value": "stubborn",
+              "label": "Teimoso"
+            },
+            {
+              "value": "jealous",
+              "label": "Ciumento"
+            },
+            {
+              "value": "impatient",
+              "label": "Impaciente"
+            },
+            {
+              "value": "cowardly",
+              "label": "Covarde"
+            },
+            {
+              "value": "liar",
+              "label": "Mentiroso"
+            },
+            {
+              "value": "vengeful",
+              "label": "Vingativo"
+            },
+            {
+              "value": "arrogant",
+              "label": "Arrogante"
+            },
+            {
+              "value": "insecure",
+              "label": "Inseguro"
+            },
+            {
+              "value": "lazy",
+              "label": "Preguiçoso"
+            },
+            {
+              "value": "controlling",
+              "label": "Controlador"
+            },
+            {
+              "value": "naive",
+              "label": "Ingênuo"
+            }
+          ]
+        },
+        {
+          "key": "habits",
+          "label": "Manias e hábitos",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "bites_nails",
+              "label": "Rói as unhas"
+            },
+            {
+              "value": "talks_alone",
+              "label": "Fala sozinho"
+            },
+            {
+              "value": "hums",
+              "label": "Cantarola"
+            },
+            {
+              "value": "always_late",
+              "label": "Sempre atrasado"
+            },
+            {
+              "value": "collects",
+              "label": "Coleciona coisas"
+            },
+            {
+              "value": "insomnia",
+              "label": "Dorme mal"
+            },
+            {
+              "value": "lists",
+              "label": "Faz listas"
+            },
+            {
+              "value": "smokes",
+              "label": "Fuma"
+            },
+            {
+              "value": "fidgets",
+              "label": "Não para quieto"
+            },
+            {
+              "value": "early_riser",
+              "label": "Acorda cedo"
+            }
+          ]
+        },
+        {
+          "key": "likes",
+          "label": "Gosta de",
+          "type": "text",
+          "placeholder": "Ex.: café amargo, mapas antigos"
+        },
+        {
+          "key": "dislikes",
+          "label": "Não suporta",
+          "type": "text",
+          "placeholder": "Ex.: mentira, lugares fechados"
+        }
+      ]
+    },
+    {
+      "key": "skills",
+      "label": "Habilidades",
+      "group": "personality",
+      "fields": [
+        {
+          "key": "abilities",
+          "label": "Sabe fazer bem",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "combat",
+              "label": "Luta"
+            },
+            {
+              "value": "magic",
+              "label": "Magia"
+            },
+            {
+              "value": "medicine",
+              "label": "Medicina"
+            },
+            {
+              "value": "stealth",
+              "label": "Furtividade"
+            },
+            {
+              "value": "persuasion",
+              "label": "Persuasão"
+            },
+            {
+              "value": "technology",
+              "label": "Tecnologia"
+            },
+            {
+              "value": "music",
+              "label": "Música"
+            },
+            {
+              "value": "cooking",
+              "label": "Cozinha"
+            },
+            {
+              "value": "leadership",
+              "label": "Liderança"
+            },
+            {
+              "value": "survival",
+              "label": "Sobrevivência"
+            },
+            {
+              "value": "art",
+              "label": "Arte"
+            },
+            {
+              "value": "science",
+              "label": "Ciência"
+            },
+            {
+              "value": "languages",
+              "label": "Idiomas"
+            },
+            {
+              "value": "riding",
+              "label": "Montaria"
+            }
+          ]
+        },
+        {
+          "key": "strength",
+          "label": "Força",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Frágil",
+            "Fraco",
+            "Na média",
+            "Forte",
+            "Fortíssimo"
+          ]
+        },
+        {
+          "key": "agility",
+          "label": "Agilidade",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Lento",
+            "Desajeitado",
+            "Na média",
+            "Ágil",
+            "Felino"
+          ]
+        },
+        {
+          "key": "intellect",
+          "label": "Intelecto",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Simples",
+            "Prático",
+            "Na média",
+            "Brilhante",
+            "Gênio"
+          ]
+        },
+        {
+          "key": "charisma",
+          "label": "Carisma",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Repele",
+            "Sem graça",
+            "Na média",
+            "Cativante",
+            "Hipnótico"
+          ]
+        },
+        {
+          "key": "powers",
+          "label": "Poderes e limites",
+          "type": "longtext",
+          "placeholder": "O que consegue e o que custa. Ex.: lê pensamentos de quem toca, mas sente a dor deles"
+        },
+        {
+          "key": "weakness",
+          "label": "Ponto fraco",
+          "type": "text",
+          "placeholder": "Ex.: não sabe nadar"
+        }
+      ]
+    },
+    {
+      "key": "speech",
+      "label": "Voz e fala",
+      "group": "personality",
+      "fields": [
+        {
+          "key": "register",
+          "label": "Jeito de falar",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "formal",
+              "label": "Formal"
+            },
+            {
+              "value": "colloquial",
+              "label": "Coloquial"
+            },
+            {
+              "value": "slang",
+              "label": "Cheio de gírias"
+            },
+            {
+              "value": "poetic",
+              "label": "Poético"
+            },
+            {
+              "value": "terse",
+              "label": "Lacônico"
+            },
+            {
+              "value": "chatty",
+              "label": "Tagarela"
+            },
+            {
+              "value": "sarcastic",
+              "label": "Sarcástico"
+            },
+            {
+              "value": "archaic",
+              "label": "Antiquado"
+            }
+          ]
+        },
+        {
+          "key": "voiceTone",
+          "label": "Voz",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "deep",
+              "label": "Grave"
+            },
+            {
+              "value": "high",
+              "label": "Aguda"
+            },
+            {
+              "value": "hoarse",
+              "label": "Rouca"
+            },
+            {
+              "value": "soft",
+              "label": "Suave"
+            },
+            {
+              "value": "loud",
+              "label": "Alta"
+            },
+            {
+              "value": "whisper",
+              "label": "Quase sussurra"
+            },
+            {
+              "value": "melodic",
+              "label": "Melodiosa"
+            }
+          ]
+        },
+        {
+          "key": "accent",
+          "label": "Sotaque",
+          "type": "text",
+          "placeholder": "Ex.: carioca, puxa o R"
+        },
+        {
+          "key": "catchphrase",
+          "label": "Bordão",
+          "type": "text",
+          "placeholder": "Ex.: \"Não é da sua conta.\""
+        }
+      ]
+    },
+    {
+      "key": "values",
+      "label": "O que importa",
+      "group": "personality",
+      "fields": [
+        {
+          "key": "coreValues",
+          "label": "Valores",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "family",
+              "label": "Família"
+            },
+            {
+              "value": "freedom",
+              "label": "Liberdade"
+            },
+            {
+              "value": "power",
+              "label": "Poder"
+            },
+            {
+              "value": "justice",
+              "label": "Justiça"
+            },
+            {
+              "value": "knowledge",
+              "label": "Conhecimento"
+            },
+            {
+              "value": "faith",
+              "label": "Fé"
+            },
+            {
+              "value": "love",
+              "label": "Amor"
+            },
+            {
+              "value": "money",
+              "label": "Dinheiro"
+            },
+            {
+              "value": "honor",
+              "label": "Honra"
+            },
+            {
+              "value": "revenge",
+              "label": "Vingança"
+            },
+            {
+              "value": "fame",
+              "label": "Fama"
+            },
+            {
+              "value": "safety",
+              "label": "Segurança"
+            }
+          ]
+        },
+        {
+          "key": "morality",
+          "label": "Bússola moral",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "hero",
+              "label": "Faz o certo, custe o que custar"
+            },
+            {
+              "value": "pragmatic",
+              "label": "Faz o necessário"
+            },
+            {
+              "value": "selfish",
+              "label": "Primeiro eu"
+            },
+            {
+              "value": "rebel",
+              "label": "Contra as regras"
+            },
+            {
+              "value": "lawful",
+              "label": "Segue as regras"
+            },
+            {
+              "value": "gray",
+              "label": "Depende do dia"
+            }
+          ]
+        },
+        {
+          "key": "arc",
+          "label": "Arco na história",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "growth",
+              "label": "Cresce"
+            },
+            {
+              "value": "fall",
+              "label": "Cai"
+            },
+            {
+              "value": "flat",
+              "label": "Muda os outros, não muda"
+            },
+            {
+              "value": "redemption",
+              "label": "Se redime"
+            },
+            {
+              "value": "corruption",
+              "label": "Se corrompe"
+            },
+            {
+              "value": "disillusion",
+              "label": "Se desilude"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

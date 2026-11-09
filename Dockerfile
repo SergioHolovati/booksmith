@@ -13,7 +13,9 @@ FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 
+RUN useradd --system --uid 10001 booksmith
 COPY --from=build /workspace/target/*.jar app.jar
+USER booksmith
 
 EXPOSE 8080
 

@@ -1,199 +1,129 @@
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "health,info"
-logging:
-  pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} requestTraceId : %X{requestTraceId:-} - %msg%n"
-aws:
-  access-key: ${AWS_ACCESS_KEY_ID:booksmith}
-  secret-key: ${AWS_SECRET_ACCESS_KEY:booksmith123}
-  region: ${AWS_REGION:us-east-1}
-  s3:
-    bucket: ${AWS_S3_BUCKET:booksmith}
-    endpoint: ${AWS_S3_ENDPOINT:http://localhost:9000}
-
+# Segredos NUNCA ficam neste arquivo. Em desenvolvimento, copie .env.example para .env (fora do git).
 spring:
   application:
     name: booksmith
+  config:
+    import: optional:file:.env[.properties]
   profiles:
-    active: dev
+    default: dev
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
     username: ${SPRING_DATASOURCE_USERNAME:booksmith}
     password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
-    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none   # o esquema é das migrações Flyway (db/migration)
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
   data:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
+  mvc:
+    problemdetails:
+      enabled: true
+  servlet:
+    multipart:
+      # Importação de .docx (§9.3): um romance inteiro em .docx raramente passa de 2 MB
+      max-file-size: 15MB
+      max-request-size: 16MB
   security:
     oauth2:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID:1020269223097-i1tda5amo94d4gv3ao2tcl9etccj18f7.apps.googleusercontent.com}
-            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope:
               - email
               - profile
-api:
-  security:
-    token:
-      secret: ${TOKEN_SECRET:token}
-      expiration: ${EXPIRATION:86400000}
-app:
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200,http://localhost:4200,http://127.0.0.1:4200}
 
-resend:
-  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
-  from-email: onboarding@booksmith.com
+server:
+  # 8090, não 8080: a 8080 costuma estar ocupada por outros projetos na mesma máquina
+  port: ${SERVER_PORT:8090}
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} requestTraceId : %X{requestTraceId:-} - %msg%n"
+
+booksmith:
+  security:
+    jwt-secret: ${JWT_SECRET}
+    access-token-ttl: PT1H
+    # Sessão longa e renovada a cada uso: quem escreve no celular não deve precisar entrar toda hora
+    session-ttl: P30D
+    frontend-url: ${FRONTEND_URL:http://localhost:4200}
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+    rate-limit:
+      general-per-minute: ${RATE_LIMIT_GENERAL_PER_MINUTE:300}
+      auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
+  identity:
+    minimum-age: 13
+  mail:
+    enabled: ${MAIL_ENABLED:true}
+    resend-api-key: ${RESEND_API_KEY:}
+    from: ${MAIL_FROM:Booksmith <no-reply@booksmith.com.br>}
+  media:
+    bucket: ${MEDIA_BUCKET:booksmith-media}
+    region: ${AWS_REGION:sa-east-1}
+    endpoint: ${MEDIA_S3_ENDPOINT:}
+    access-key: ${MEDIA_S3_ACCESS_KEY:}
+    secret-key: ${MEDIA_S3_SECRET_KEY:}
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL:https://media.booksmith.com.br}
+    max-image-size: 5MB
+
 ---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
 management:
   endpoints:
     web:
       exposure:
         include: "*"
 
+booksmith:
+  security:
+    # Segredo só para desenvolvimento local; staging e produção exigem JWT_SECRET
+    jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200}
+    # Folgado em dev: os testes de integração (booksmith-tests) cadastram muitos usuários do mesmo IP
+    rate-limit:
+      general-per-minute: ${RATE_LIMIT_GENERAL_PER_MINUTE:3000}
+      auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:600}
+  mail:
+    enabled: ${MAIL_ENABLED:false}   # e-mails vão para o log
+  media:
+    bucket: ${MEDIA_BUCKET:booksmith}
+    region: ${AWS_REGION:us-east-1}
+    endpoint: ${MEDIA_S3_ENDPOINT:http://localhost:9000}
+    access-key: ${MEDIA_S3_ACCESS_KEY:booksmith}
+    secret-key: ${MEDIA_S3_SECRET_KEY:booksmith123}
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:9000/booksmith}
+
+---
 spring:
   config:
     activate:
-      on-profile: dev
-  application:
-    name: booksmith
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
-    username: ${SPRING_DATASOURCE_USERNAME:booksmith}
-    password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
-    driver-class-name: org.postgresql.Driver
-  data:
-    redis:
-      host: ${SPRING_DATA_REDIS_HOST:localhost}
-      port: ${SPRING_DATA_REDIS_PORT:6379}
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID:1020269223097-i1tda5amo94d4gv3ao2tcl9etccj18f7.apps.googleusercontent.com}
-            client-secret: ${GOOGLE_CLIENT_SECRET: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}
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            scope:
-              - email
-              - profile
-api:
-  security:
-    token:
-      secret: ${TOKEN_SECRET:token}
-      expiration: ${EXPIRATION:86400000}
-app:
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200,http://localhost:4200,http://127.0.0.1:4200}
+      on-profile: stage,prod
 
-resend:
-  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
-  from-email: onboarding@booksmith.com
----
 management:
   endpoints:
     web:
       exposure:
-        include: "health,metrics"
-spring:
-  config:
-    activate:
-      on-profile: stage
-  application:
-    name: booksmith
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
-    username: ${SPRING_DATASOURCE_USERNAME:booksmith}
-    password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
-    driver-class-name: org.postgresql.Driver
-  data:
-    redis:
-      host: ${SPRING_DATA_REDIS_HOST:localhost}
-      port: ${SPRING_DATA_REDIS_PORT:6379}
-  jpa:
-    hibernate:
-      ddl-auto: none
-    properties:
-      hibernate:
-        format_sql: true
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID:1020269223097-i1tda5amo94d4gv3ao2tcl9etccj18f7.apps.googleusercontent.com}
-            client-secret: ${GOOGLE_CLIENT_SECRET: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}
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            scope:
-              - email
-              - profile
-api:
-  security:
-    token:
-      secret: ${TOKEN_SECRET:token}
-      expiration: ${EXPIRATION:86400000}
-app:
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200,http://localhost:4200,http://127.0.0.1:4200}
-
-resend:
-  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
-  from-email: onboarding@booksmith.com
----
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "health,metrics"
-spring:
-  config:
-    activate:
-      on-profile: prod
-  application:
-    name: booksmith
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/booksmith}
-    username: ${SPRING_DATASOURCE_USERNAME:booksmith}
-    password: ${SPRING_DATASOURCE_PASSWORD:booksmith}
-    driver-class-name: org.postgresql.Driver
-  data:
-    redis:
-      host: ${SPRING_DATA_REDIS_HOST:localhost}
-      port: ${SPRING_DATA_REDIS_PORT:6379}
-  jpa:
-    hibernate:
-      ddl-auto: none
-    properties:
-      hibernate:
-        format_sql: true
-api:
-  security:
-    token:
-      secret: ${TOKEN_SECRET:token}
-      expiration: ${EXPIRATION:86400000}
-app:
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200,http://localhost:4200,http://127.0.0.1:4200}
-
-resend:
-  api-key: ${RESEND_API_KEY:re_cc9NN4HF_79dgFNFV6QKaheGgKv6HhfGx}
-  from-email: onboarding@booksmith.com
+        include: health,info,metrics

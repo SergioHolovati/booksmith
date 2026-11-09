@@ -1,0 +1,848 @@
+{
+  "id": "universe-builder",
+  "version": 1,
+  "tabs": [
+    {
+      "key": "idea",
+      "label": "Ideia",
+      "help": "Comece pelo coração do mundo: em uma frase, o que torna este universo diferente?",
+      "fields": [
+        {
+          "key": "premise",
+          "label": "Premissa",
+          "type": "longtext",
+          "placeholder": "Ex.: um mundo onde as memórias podem ser vendidas, e os pobres esquecem a própria infância"
+        },
+        {
+          "key": "genres",
+          "label": "Gêneros",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "fantasy",
+              "label": "Fantasia"
+            },
+            {
+              "value": "scifi",
+              "label": "Ficção científica"
+            },
+            {
+              "value": "romance",
+              "label": "Romance"
+            },
+            {
+              "value": "horror",
+              "label": "Terror"
+            },
+            {
+              "value": "dystopia",
+              "label": "Distopia"
+            },
+            {
+              "value": "historical",
+              "label": "Histórico"
+            },
+            {
+              "value": "urban",
+              "label": "Fantasia urbana"
+            },
+            {
+              "value": "steampunk",
+              "label": "Steampunk"
+            },
+            {
+              "value": "cyberpunk",
+              "label": "Cyberpunk"
+            },
+            {
+              "value": "mythology",
+              "label": "Mitológico"
+            },
+            {
+              "value": "mystery",
+              "label": "Mistério"
+            },
+            {
+              "value": "adventure",
+              "label": "Aventura"
+            }
+          ]
+        },
+        {
+          "key": "tone",
+          "label": "Tom",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "dark",
+              "label": "Sombrio"
+            },
+            {
+              "value": "light",
+              "label": "Leve"
+            },
+            {
+              "value": "epic",
+              "label": "Épico"
+            },
+            {
+              "value": "intimate",
+              "label": "Intimista"
+            },
+            {
+              "value": "humor",
+              "label": "Com humor"
+            },
+            {
+              "value": "melancholic",
+              "label": "Melancólico"
+            },
+            {
+              "value": "hopeful",
+              "label": "Esperançoso"
+            },
+            {
+              "value": "brutal",
+              "label": "Brutal"
+            },
+            {
+              "value": "whimsical",
+              "label": "Fantasioso"
+            }
+          ]
+        },
+        {
+          "key": "themes",
+          "label": "Temas",
+          "type": "text",
+          "placeholder": "Ex.: memória, desigualdade, o preço do poder"
+        },
+        {
+          "key": "inspiration",
+          "label": "Inspirações",
+          "type": "text",
+          "placeholder": "Ex.: Duna encontra Studio Ghibli"
+        }
+      ]
+    },
+    {
+      "key": "world",
+      "label": "Mundo",
+      "help": "Agora o palco: tamanho, época, paisagens e o que aconteceu antes da história começar.",
+      "fields": [
+        {
+          "key": "scale",
+          "label": "Tamanho do mundo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "city",
+              "label": "Uma cidade"
+            },
+            {
+              "value": "country",
+              "label": "Um país"
+            },
+            {
+              "value": "continent",
+              "label": "Um continente"
+            },
+            {
+              "value": "planet",
+              "label": "Um planeta"
+            },
+            {
+              "value": "planets",
+              "label": "Vários planetas"
+            },
+            {
+              "value": "galaxy",
+              "label": "Uma galáxia"
+            },
+            {
+              "value": "planes",
+              "label": "Vários planos ou dimensões"
+            }
+          ]
+        },
+        {
+          "key": "era",
+          "label": "Época",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "prehistory",
+              "label": "Pré-história"
+            },
+            {
+              "value": "antiquity",
+              "label": "Antiguidade"
+            },
+            {
+              "value": "medieval",
+              "label": "Medieval"
+            },
+            {
+              "value": "renaissance",
+              "label": "Renascença"
+            },
+            {
+              "value": "industrial",
+              "label": "Revolução industrial"
+            },
+            {
+              "value": "present",
+              "label": "Atual"
+            },
+            {
+              "value": "near_future",
+              "label": "Futuro próximo"
+            },
+            {
+              "value": "far_future",
+              "label": "Futuro distante"
+            },
+            {
+              "value": "timeless",
+              "label": "Fora do tempo"
+            }
+          ]
+        },
+        {
+          "key": "realism",
+          "label": "Parecido com o nosso mundo?",
+          "type": "choice",
+          "options": [
+            {
+              "value": "our_world",
+              "label": "É o nosso mundo"
+            },
+            {
+              "value": "hidden",
+              "label": "O nosso, com algo escondido"
+            },
+            {
+              "value": "alternate",
+              "label": "Uma versão alternativa do nosso"
+            },
+            {
+              "value": "secondary",
+              "label": "Outro mundo"
+            }
+          ]
+        },
+        {
+          "key": "geography",
+          "label": "Paisagens e geografia",
+          "type": "longtext",
+          "placeholder": "Montanhas, mares, desertos, cidades flutuantes…"
+        },
+        {
+          "key": "climate",
+          "label": "Clima e estações",
+          "type": "text",
+          "placeholder": "Ex.: inverno de sete anos, chuva ácida no verão"
+        },
+        {
+          "key": "sky",
+          "label": "Céu",
+          "type": "text",
+          "placeholder": "Ex.: dois sóis e uma lua vermelha"
+        },
+        {
+          "key": "history",
+          "label": "O que veio antes",
+          "type": "longtext",
+          "placeholder": "Guerras, quedas de impérios, catástrofes, eras esquecidas"
+        },
+        {
+          "key": "dangers",
+          "label": "Perigos",
+          "type": "longtext",
+          "placeholder": "Criaturas, doenças, regiões proibidas"
+        }
+      ]
+    },
+    {
+      "key": "peoples",
+      "label": "Povos e culturas",
+      "help": "Quem vive aqui, no que acredita e como se organiza.",
+      "fields": [
+        {
+          "key": "peoples",
+          "label": "Povos e espécies",
+          "type": "longtext",
+          "placeholder": "Ex.: humanos das planícies, elfos do gelo, androides libertos"
+        },
+        {
+          "key": "government",
+          "label": "Quem manda",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "monarchy",
+              "label": "Monarquia"
+            },
+            {
+              "value": "empire",
+              "label": "Império"
+            },
+            {
+              "value": "republic",
+              "label": "República"
+            },
+            {
+              "value": "theocracy",
+              "label": "Teocracia"
+            },
+            {
+              "value": "corporations",
+              "label": "Corporações"
+            },
+            {
+              "value": "council",
+              "label": "Conselho"
+            },
+            {
+              "value": "anarchy",
+              "label": "Ninguém"
+            },
+            {
+              "value": "tribes",
+              "label": "Tribos e clãs"
+            },
+            {
+              "value": "magocracy",
+              "label": "Magos"
+            }
+          ]
+        },
+        {
+          "key": "religions",
+          "label": "Crenças e religiões",
+          "type": "longtext"
+        },
+        {
+          "key": "languages",
+          "label": "Idiomas",
+          "type": "text",
+          "placeholder": "Ex.: a língua comum e o idioma antigo dos magos"
+        },
+        {
+          "key": "economy",
+          "label": "Dinheiro e comércio",
+          "type": "text",
+          "placeholder": "Ex.: moedas de sal; memórias valem mais que ouro"
+        },
+        {
+          "key": "calendar",
+          "label": "Calendário",
+          "type": "text",
+          "placeholder": "Ex.: ano 312 da Era das Cinzas; semanas de nove dias"
+        },
+        {
+          "key": "customs",
+          "label": "Costumes e tabus",
+          "type": "longtext"
+        }
+      ]
+    },
+    {
+      "key": "map",
+      "label": "Mapa",
+      "map": true,
+      "help": "Um desenho seu, uma foto do caderno ou um mapa feito em outro programa. Depois, as distâncias.",
+      "fields": [
+        {
+          "key": "regions",
+          "label": "Regiões e lugares principais",
+          "type": "longtext",
+          "placeholder": "Ex.: ao norte o Reino de Vel; no centro o Mar Raso; ao sul as Ilhas Quebradas"
+        },
+        {
+          "key": "travel",
+          "label": "Como se viaja, e quanto tempo leva",
+          "type": "longtext",
+          "placeholder": "Ex.: de Vel à capital, 3 dias a cavalo ou 6 horas de dirigível"
+        }
+      ]
+    },
+    {
+      "key": "magic",
+      "label": "Magia",
+      "collection": "magic",
+      "help": "Crie um ou vários sistemas de magia. Quanto mais claras as regras, mais o leitor acredita.",
+      "fields": [
+        {
+          "key": "magicPresence",
+          "label": "A magia neste mundo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "none",
+              "label": "Não existe"
+            },
+            {
+              "value": "myth",
+              "label": "Só em lendas"
+            },
+            {
+              "value": "rare",
+              "label": "Rara e escondida"
+            },
+            {
+              "value": "known",
+              "label": "Conhecida, mas de poucos"
+            },
+            {
+              "value": "everyday",
+              "label": "Faz parte do dia a dia"
+            },
+            {
+              "value": "everywhere",
+              "label": "Está em tudo"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "science",
+      "label": "Ciência",
+      "help": "A explicação por trás das coisas: o que a física deste mundo permite e como a magia se encaixa.",
+      "fields": [
+        {
+          "key": "techLevel",
+          "label": "Tecnologia",
+          "type": "scale",
+          "min": 1,
+          "max": 7,
+          "labels": [
+            "Primitiva",
+            "Antiga",
+            "Medieval",
+            "Industrial",
+            "Moderna",
+            "Avançada",
+            "Muito além da nossa"
+          ]
+        },
+        {
+          "key": "magicAndScience",
+          "label": "Magia e ciência",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "same",
+              "label": "São a mesma coisa"
+            },
+            {
+              "value": "coexist",
+              "label": "Convivem"
+            },
+            {
+              "value": "rivals",
+              "label": "Disputam espaço"
+            },
+            {
+              "value": "opposed",
+              "label": "Uma anula a outra"
+            },
+            {
+              "value": "only_magic",
+              "label": "Só existe magia"
+            },
+            {
+              "value": "only_science",
+              "label": "Só existe ciência"
+            }
+          ]
+        },
+        {
+          "key": "physics",
+          "label": "O que é diferente da nossa física",
+          "type": "longtext",
+          "placeholder": "Ex.: o som carrega energia; o tempo corre mais devagar perto do mar"
+        },
+        {
+          "key": "magicScience",
+          "label": "De onde a magia tira energia",
+          "type": "longtext",
+          "placeholder": "A teoria do mundo, mesmo que os personagens não a conheçam"
+        },
+        {
+          "key": "technology",
+          "label": "Invenções e tecnologias",
+          "type": "longtext",
+          "placeholder": "Ex.: relógios movidos a luz de lua, armas de vapor"
+        },
+        {
+          "key": "medicine",
+          "label": "Medicina e cura",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "key": "laws",
+      "label": "Leis",
+      "collection": "laws",
+      "help": "As regras que a história nunca pode quebrar sem consequência. A revisão de continuidade vai conferir o texto contra elas.",
+      "fields": []
+    }
+  ],
+  "collections": {
+    "magic": {
+      "label": "Sistema de magia",
+      "add": "Criar magia",
+      "titleField": "name",
+      "max": 30,
+      "fields": [
+        {
+          "key": "name",
+          "label": "Nome",
+          "type": "text",
+          "placeholder": "Ex.: Tecelagem de Sombras"
+        },
+        {
+          "key": "origin",
+          "label": "De onde vem",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "innate",
+              "label": "Nasce com a pessoa"
+            },
+            {
+              "value": "learned",
+              "label": "Se aprende"
+            },
+            {
+              "value": "divine",
+              "label": "Dos deuses"
+            },
+            {
+              "value": "pact",
+              "label": "Pacto com algo"
+            },
+            {
+              "value": "artifacts",
+              "label": "Objetos e artefatos"
+            },
+            {
+              "value": "nature",
+              "label": "Natureza e elementos"
+            },
+            {
+              "value": "blood",
+              "label": "Sangue e linhagem"
+            },
+            {
+              "value": "tech",
+              "label": "Tecnologia"
+            },
+            {
+              "value": "unknown",
+              "label": "Ninguém sabe"
+            }
+          ]
+        },
+        {
+          "key": "users",
+          "label": "Quem pode usar",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "anyone",
+              "label": "Qualquer pessoa"
+            },
+            {
+              "value": "born",
+              "label": "Quem nasce com o dom"
+            },
+            {
+              "value": "bloodline",
+              "label": "Uma família ou linhagem"
+            },
+            {
+              "value": "trained",
+              "label": "Quem estuda anos"
+            },
+            {
+              "value": "chosen",
+              "label": "Escolhidos"
+            },
+            {
+              "value": "species",
+              "label": "Uma espécie"
+            }
+          ]
+        },
+        {
+          "key": "rarity",
+          "label": "Raridade",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Única no mundo",
+            "Raríssima",
+            "Rara",
+            "Incomum",
+            "Comum"
+          ]
+        },
+        {
+          "key": "hardness",
+          "label": "Misteriosa ↔ Com regras claras",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Totalmente misteriosa",
+            "Misteriosa",
+            "Meio a meio",
+            "Com regras",
+            "Regras exatas"
+          ],
+          "poles": [
+            "Misteriosa",
+            "Com regras claras"
+          ]
+        },
+        {
+          "key": "effects",
+          "label": "O que ela faz",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "healing",
+              "label": "Cura"
+            },
+            {
+              "value": "attack",
+              "label": "Ataque"
+            },
+            {
+              "value": "protection",
+              "label": "Proteção"
+            },
+            {
+              "value": "illusion",
+              "label": "Ilusão"
+            },
+            {
+              "value": "transformation",
+              "label": "Transformação"
+            },
+            {
+              "value": "mind",
+              "label": "Controle da mente"
+            },
+            {
+              "value": "summoning",
+              "label": "Invocação"
+            },
+            {
+              "value": "travel",
+              "label": "Viagem"
+            },
+            {
+              "value": "prophecy",
+              "label": "Profecia"
+            },
+            {
+              "value": "elements",
+              "label": "Elementos"
+            },
+            {
+              "value": "necromancy",
+              "label": "Mortos"
+            },
+            {
+              "value": "time",
+              "label": "Tempo"
+            }
+          ]
+        },
+        {
+          "key": "how",
+          "label": "Como se usa",
+          "type": "longtext",
+          "placeholder": "Palavras, gestos, ingredientes, concentração…"
+        },
+        {
+          "key": "cost",
+          "label": "O preço",
+          "type": "longtext",
+          "placeholder": "Ex.: cada feitiço apaga uma lembrança de quem o lança"
+        },
+        {
+          "key": "limits",
+          "label": "Limites",
+          "type": "longtext",
+          "placeholder": "Ex.: não funciona em ferro; só à noite; nunca traz os mortos de volta"
+        },
+        {
+          "key": "weakness",
+          "label": "Ponto fraco",
+          "type": "text"
+        },
+        {
+          "key": "principle",
+          "label": "Princípio",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "conservation",
+              "label": "Nada se cria: a energia vem de algum lugar"
+            },
+            {
+              "value": "exchange",
+              "label": "Troca equivalente"
+            },
+            {
+              "value": "will",
+              "label": "Força de vontade"
+            },
+            {
+              "value": "faith",
+              "label": "Fé"
+            },
+            {
+              "value": "words",
+              "label": "Palavras verdadeiras"
+            },
+            {
+              "value": "particles",
+              "label": "Uma partícula ou energia invisível"
+            },
+            {
+              "value": "mystery",
+              "label": "Sem explicação"
+            }
+          ]
+        },
+        {
+          "key": "science",
+          "label": "A ciência por trás",
+          "type": "longtext",
+          "placeholder": "Como ela funciona de verdade, mesmo que ninguém no mundo saiba"
+        },
+        {
+          "key": "society",
+          "label": "Como o mundo a vê",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "revered",
+              "label": "Venerada"
+            },
+            {
+              "value": "feared",
+              "label": "Temida"
+            },
+            {
+              "value": "forbidden",
+              "label": "Proibida"
+            },
+            {
+              "value": "regulated",
+              "label": "Controlada por lei"
+            },
+            {
+              "value": "common",
+              "label": "Normal"
+            },
+            {
+              "value": "secret",
+              "label": "Segredo"
+            }
+          ]
+        }
+      ]
+    },
+    "laws": {
+      "label": "Lei",
+      "add": "Criar lei",
+      "titleField": "statement",
+      "max": 200,
+      "fields": [
+        {
+          "key": "statement",
+          "label": "A lei",
+          "type": "text",
+          "placeholder": "Ex.: Magia não funciona perto de ferro."
+        },
+        {
+          "key": "kind",
+          "label": "Tipo",
+          "type": "choice",
+          "options": [
+            {
+              "value": "nature",
+              "label": "Da natureza"
+            },
+            {
+              "value": "magic",
+              "label": "Da magia"
+            },
+            {
+              "value": "society",
+              "label": "Da sociedade"
+            },
+            {
+              "value": "custom",
+              "label": "Costume ou tabu"
+            }
+          ]
+        },
+        {
+          "key": "strictness",
+          "label": "Pode ser quebrada?",
+          "type": "choice",
+          "options": [
+            {
+              "value": "absolute",
+              "label": "Nunca"
+            },
+            {
+              "value": "rare",
+              "label": "Quase nunca"
+            },
+            {
+              "value": "price",
+              "label": "Sim, com um preço"
+            },
+            {
+              "value": "often",
+              "label": "É quebrada o tempo todo"
+            }
+          ]
+        },
+        {
+          "key": "consequence",
+          "label": "O que acontece se quebrar",
+          "type": "text"
+        },
+        {
+          "key": "notes",
+          "label": "Detalhes",
+          "type": "longtext"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,552 @@
+{
+  "id": "lore",
+  "version": 1,
+  "types": {
+    "religion": {
+      "label": "Religião",
+      "plural": "Religiões",
+      "icon": "pi-sun",
+      "add": "Criar religião",
+      "help": "No que as pessoas acreditam, e o que isso muda no dia a dia.",
+      "summaryField": "beliefs",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Tipo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "polytheist",
+              "label": "Muitos deuses"
+            },
+            {
+              "value": "monotheist",
+              "label": "Um deus"
+            },
+            {
+              "value": "ancestors",
+              "label": "Ancestrais"
+            },
+            {
+              "value": "nature",
+              "label": "Forças da natureza"
+            },
+            {
+              "value": "philosophy",
+              "label": "Filosofia de vida"
+            },
+            {
+              "value": "cult",
+              "label": "Culto secreto"
+            },
+            {
+              "value": "godless",
+              "label": "Sem deuses"
+            }
+          ]
+        },
+        {
+          "key": "deities",
+          "label": "Deuses ou forças",
+          "type": "text",
+          "placeholder": "Ex.: Aurin, a Mãe do Sol; Kael, o Guardião das Marés"
+        },
+        {
+          "key": "beliefs",
+          "label": "No que acreditam",
+          "type": "longtext"
+        },
+        {
+          "key": "afterlife",
+          "label": "O que acontece depois da morte",
+          "type": "text"
+        },
+        {
+          "key": "rituals",
+          "label": "Rituais e festas",
+          "type": "longtext",
+          "placeholder": "Ex.: a Noite das Velas, no solstício de inverno"
+        },
+        {
+          "key": "clergy",
+          "label": "Sacerdotes",
+          "type": "text",
+          "placeholder": "Quem conduz a fé, e como se chega lá"
+        },
+        {
+          "key": "symbols",
+          "label": "Símbolos",
+          "type": "text"
+        },
+        {
+          "key": "taboos",
+          "label": "Proibições",
+          "type": "longtext"
+        },
+        {
+          "key": "attitude",
+          "label": "Com quem não crê",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "tolerant",
+              "label": "Tolerante"
+            },
+            {
+              "value": "missionary",
+              "label": "Missionária"
+            },
+            {
+              "value": "hostile",
+              "label": "Hostil"
+            },
+            {
+              "value": "indifferent",
+              "label": "Indiferente"
+            },
+            {
+              "value": "secretive",
+              "label": "Esconde-se"
+            }
+          ]
+        },
+        {
+          "key": "influence",
+          "label": "Quantos seguem",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Quase ninguém",
+            "Poucos",
+            "Muitos",
+            "A maioria",
+            "Todos"
+          ]
+        }
+      ]
+    },
+    "government": {
+      "label": "Sistema político",
+      "plural": "Sistemas políticos",
+      "icon": "pi-building-columns",
+      "add": "Criar sistema político",
+      "help": "Quem manda, como chegou lá e o que acontece com quem desobedece.",
+      "summaryField": "ruler",
+      "fields": [
+        {
+          "key": "form",
+          "label": "Forma de governo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "monarchy",
+              "label": "Monarquia"
+            },
+            {
+              "value": "empire",
+              "label": "Império"
+            },
+            {
+              "value": "republic",
+              "label": "República"
+            },
+            {
+              "value": "theocracy",
+              "label": "Teocracia"
+            },
+            {
+              "value": "oligarchy",
+              "label": "Oligarquia"
+            },
+            {
+              "value": "clans",
+              "label": "Conselho de clãs"
+            },
+            {
+              "value": "dictatorship",
+              "label": "Ditadura"
+            },
+            {
+              "value": "magocracy",
+              "label": "Governo de magos"
+            },
+            {
+              "value": "anarchy",
+              "label": "Sem governo"
+            },
+            {
+              "value": "corporations",
+              "label": "Corporações"
+            }
+          ]
+        },
+        {
+          "key": "ruler",
+          "label": "Quem governa hoje",
+          "type": "text",
+          "placeholder": "Ex.: a rainha Ysolde III"
+        },
+        {
+          "key": "succession",
+          "label": "Como se chega ao poder",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "heredity",
+              "label": "Herança"
+            },
+            {
+              "value": "election",
+              "label": "Eleição"
+            },
+            {
+              "value": "force",
+              "label": "Pela força"
+            },
+            {
+              "value": "divine",
+              "label": "Escolha divina"
+            },
+            {
+              "value": "council",
+              "label": "Escolha do conselho"
+            },
+            {
+              "value": "lottery",
+              "label": "Sorteio"
+            },
+            {
+              "value": "merit",
+              "label": "Provas e mérito"
+            }
+          ]
+        },
+        {
+          "key": "freedom",
+          "label": "Autoritário ↔ Livre",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Tirania",
+            "Autoritário",
+            "Meio-termo",
+            "Livre",
+            "Muito livre"
+          ],
+          "poles": [
+            "Autoritário",
+            "Livre"
+          ]
+        },
+        {
+          "key": "stability",
+          "label": "Estabilidade",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Em colapso",
+            "Instável",
+            "Firme",
+            "Forte",
+            "Inabalável"
+          ]
+        },
+        {
+          "key": "corruption",
+          "label": "Corrupção",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Nenhuma",
+            "Pouca",
+            "Alguma",
+            "Muita",
+            "Tudo se compra"
+          ]
+        },
+        {
+          "key": "laws",
+          "label": "Leis importantes",
+          "type": "longtext"
+        },
+        {
+          "key": "justice",
+          "label": "Justiça e punições",
+          "type": "text"
+        },
+        {
+          "key": "army",
+          "label": "Exército e guardas",
+          "type": "text"
+        },
+        {
+          "key": "conflicts",
+          "label": "Conflitos e inimigos",
+          "type": "longtext"
+        }
+      ]
+    },
+    "language": {
+      "label": "Idioma",
+      "plural": "Idiomas",
+      "icon": "pi-comments",
+      "add": "Criar idioma",
+      "help": "Como as pessoas falam: o som, a escrita e algumas palavras.",
+      "summaryField": "greeting",
+      "fields": [
+        {
+          "key": "sound",
+          "label": "Como soa",
+          "type": "multi",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "guttural",
+              "label": "Gutural"
+            },
+            {
+              "value": "melodic",
+              "label": "Melódica"
+            },
+            {
+              "value": "sibilant",
+              "label": "Sibilante"
+            },
+            {
+              "value": "fast",
+              "label": "Rápida"
+            },
+            {
+              "value": "sung",
+              "label": "Cantada"
+            },
+            {
+              "value": "harsh",
+              "label": "Áspera"
+            },
+            {
+              "value": "soft",
+              "label": "Suave"
+            }
+          ]
+        },
+        {
+          "key": "writing",
+          "label": "Escrita",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "alphabet",
+              "label": "Alfabeto"
+            },
+            {
+              "value": "ideograms",
+              "label": "Ideogramas"
+            },
+            {
+              "value": "runes",
+              "label": "Runas"
+            },
+            {
+              "value": "knots",
+              "label": "Nós e cordas"
+            },
+            {
+              "value": "none",
+              "label": "Sem escrita"
+            }
+          ]
+        },
+        {
+          "key": "status",
+          "label": "Situação",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "living",
+              "label": "Falada no dia a dia"
+            },
+            {
+              "value": "trade",
+              "label": "Língua do comércio"
+            },
+            {
+              "value": "sacred",
+              "label": "Sagrada"
+            },
+            {
+              "value": "dead",
+              "label": "Morta"
+            },
+            {
+              "value": "secret",
+              "label": "Secreta"
+            }
+          ]
+        },
+        {
+          "key": "speakers",
+          "label": "Quantos falam",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Um punhado",
+            "Poucos",
+            "Uma região",
+            "Um povo",
+            "Meio mundo"
+          ]
+        },
+        {
+          "key": "greeting",
+          "label": "Como se diz \"olá\"",
+          "type": "text"
+        },
+        {
+          "key": "words",
+          "label": "Palavras e expressões",
+          "type": "longtext",
+          "placeholder": "Ex.: vael = água; kesh-tor = \"que o vento te leve\""
+        },
+        {
+          "key": "names",
+          "label": "Como são os nomes",
+          "type": "text",
+          "placeholder": "Ex.: sobrenome vem da mãe; nomes terminam em -ren ou -mar"
+        }
+      ]
+    },
+    "organization": {
+      "label": "Organização",
+      "plural": "Organizações",
+      "icon": "pi-users",
+      "add": "Criar organização",
+      "help": "Ordens, guildas, casas nobres, sociedades secretas: quem se junta, e para quê.",
+      "summaryField": "goal",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Tipo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "order",
+              "label": "Ordem"
+            },
+            {
+              "value": "guild",
+              "label": "Guilda"
+            },
+            {
+              "value": "house",
+              "label": "Casa nobre"
+            },
+            {
+              "value": "army",
+              "label": "Exército"
+            },
+            {
+              "value": "secret",
+              "label": "Sociedade secreta"
+            },
+            {
+              "value": "academy",
+              "label": "Academia"
+            },
+            {
+              "value": "company",
+              "label": "Companhia de comércio"
+            },
+            {
+              "value": "gang",
+              "label": "Gangue"
+            },
+            {
+              "value": "rebels",
+              "label": "Rebeldes"
+            }
+          ]
+        },
+        {
+          "key": "goal",
+          "label": "O que querem",
+          "type": "longtext"
+        },
+        {
+          "key": "leader",
+          "label": "Quem lidera",
+          "type": "text"
+        },
+        {
+          "key": "members",
+          "label": "Quem pode entrar",
+          "type": "text"
+        },
+        {
+          "key": "symbol",
+          "label": "Símbolo e lema",
+          "type": "text"
+        },
+        {
+          "key": "reach",
+          "label": "Alcance",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Um bairro",
+            "Uma cidade",
+            "Um país",
+            "Vários países",
+            "O mundo todo"
+          ]
+        },
+        {
+          "key": "reputation",
+          "label": "Como são vistos",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "respected",
+              "label": "Respeitados"
+            },
+            {
+              "value": "feared",
+              "label": "Temidos"
+            },
+            {
+              "value": "unknown",
+              "label": "Desconhecidos"
+            },
+            {
+              "value": "hated",
+              "label": "Odiados"
+            },
+            {
+              "value": "mocked",
+              "label": "Ridicularizados"
+            }
+          ]
+        },
+        {
+          "key": "secrets",
+          "label": "Segredos",
+          "type": "longtext"
+        }
+      ]
+    }
+  }
+}
