@@ -58,7 +58,8 @@ public class ExportService {
         for (int i = 0; i < content.chapters().size(); i++) {
             var chapter = content.chapters().get(i);
             chapters.add(new ExportBook.Chapter(BookHtml.chapterTitle(chapter.title(), i + 1),
-                    jsonMapper.readTree(chapter.document())));
+                    jsonMapper.readTree(chapter.document()),
+                    chapter.partTitle() == null || chapter.partTitle().isBlank() ? null : chapter.partTitle().strip()));
         }
         String fandom = content.fanfic()
                 ? (content.fandom() == null || content.fandom().isBlank() ? "outra obra" : content.fandom().strip())

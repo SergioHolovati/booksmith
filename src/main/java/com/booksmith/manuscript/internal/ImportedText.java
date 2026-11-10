@@ -24,7 +24,13 @@ final class ImportedText {
         }
     }
 
-    record Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments) {
+    /** {@code part}: título de parte do livro (estilo "Parte" do Word que o Booksmith gera). */
+    record Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments,
+                     boolean part) {
+
+        Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments) {
+            this(headingLevel, title, subtitle, indent, segments, false);
+        }
 
         static Paragraph plain(boolean indent, String text) {
             return new Paragraph(0, false, false, indent, List.of(new Segment(text, Set.of())));

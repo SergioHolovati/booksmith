@@ -52,6 +52,14 @@ final class PdfWriter {
             ExportBook.Chapter chapter = book.chapters().get(i);
             String id = "chapter-" + (i + 1);
             String title = escape(chapter.title());
+            if (chapter.partTitle() != null) {
+                String partId = "part-" + (i + 1);
+                String part = escape(chapter.partTitle());
+                bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(part, partId));
+                toc.append("<li class=\"toc-part\"><a href=\"#%s\">%s</a></li>\n".formatted(partId, part));
+                chapters.append("<section class=\"part-page\" id=\"%s\"><h1 class=\"part-title\">%s</h1></section>\n"
+                        .formatted(partId, part));
+            }
             bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(title, id));
             toc.append("<li><a href=\"#%s\">%s</a></li>\n".formatted(id, title));
             chapters.append("""
@@ -136,6 +144,9 @@ final class PdfWriter {
             h3, h4 { font-size: 11.5pt; margin: 5mm 0 2mm; }
             p { margin: 0; text-align: justify; orphans: 2; widows: 2; }
             p.indent { text-indent: 1.5em; }
+            .part-page { page-break-before: always; page-break-after: always; text-align: center; padding-top: 60mm; }
+            h1.part-title { font-size: 20pt; margin: 0; }
+            .toc li.toc-part { margin-top: 5mm; font-weight: bold; }
             figure.illustration { margin: 6mm 0; text-align: center; page-break-inside: avoid; }
             figure.illustration img { max-width: 100%; max-height: 140mm; }
             figure.illustration figcaption { font-size: 9.5pt; font-style: italic; margin-top: 2mm; text-align: center; }

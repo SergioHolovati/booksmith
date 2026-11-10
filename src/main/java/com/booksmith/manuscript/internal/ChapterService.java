@@ -90,10 +90,36 @@ public class ChapterService {
         return chapterRepository.saveAndFlush(chapter);
     }
 
-    /** Vai para a lixeira por 30 dias (TrashService). */
+    static final int MAX_PART_TITLE = 120;
+
+    /** Começa (ou renomeia) uma parte neste capítulo; {@code title} vazio ou null tira a parte. */
+    @Transactional
+    public Chapter setPart(UUID ownerId, UUID chapterId, String title) {
+        Chapter chapter = require(ownerId, chapterId);
+        String clean = title == null ? "" : title.strip();
+        if (clean.length() > MAX_PART_TITLE) {
+            throw ApiException.unprocessable("part_invalid",
+                    "O nome da parte passou de %d caracteres.".formatted(MAX_PART_TITLE));
+        }
+        chapter.setPartTitle(clean.isEmpty() ? null : clean);
+        return chapterRepository.saveAndFlush(chapter);
+    }
+
+    /**
+     * Vai para a lixeira por 30 dias (TrashService). Se o capítulo abria uma parte, ela passa para o capítulo
+     * seguinte (a parte não some junto com um capítulo).
+     */
     @Transactional
     public void delete(UUID ownerId, UUID chapterId) {
-        require(ownerId, chapterId).setDeletedAt(Instant.now(clock));
+        Chapter chapter = require(ownerId, chapterId);
+        if (chapter.getPartTitle() != null) {
+            chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(chapter.getBookId()).stream()
+                    .filter(c -> c.getPosition() > chapter.getPosition())
+                    .findFirst()
+                    .filter(next -> next.getPartTitle() == null)
+                    .ifPresent(next -> next.setPartTitle(chapter.getPartTitle()));
+        }
+        chapter.setDeletedAt(Instant.now(clock));
     }
 
     /** {@code orderedIds} precisa conter exatamente os capítulos atuais do livro. */

@@ -48,6 +48,7 @@ public class ImportService {
                     .bookId(bookId)
                     .position(++position)
                     .title(draft.title())
+                    .partTitle(draft.partTitle())
                     .build();
             chapter.applyDocument(draft.document());
             created.add(chapterRepository.save(chapter));

@@ -160,6 +160,49 @@ class ExportWritersTest {
         assertThat(document).contains("[Ilustração: O mapa de Vel]").contains("[Ilustração]");
     }
 
+    private static ExportBook withParts() {
+        String doc = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"id\":\"b_p1\"},"
+                + "\"content\":[{\"type\":\"text\",\"text\":\"Texto.\"}]}]}";
+        return new ExportBook(UUID.randomUUID(), "A Conversão", "Sérgio Holovati", "pt-BR", null, null, null,
+                Instant.parse("2026-11-10T12:00:00Z"), List.of(
+                new ExportBook.Chapter("Prólogo", JSON.readTree(doc)),
+                new ExportBook.Chapter("O Encontro", JSON.readTree(doc), "Parte I — A partida"),
+                new ExportBook.Chapter("A Estrada", JSON.readTree(doc)),
+                new ExportBook.Chapter("O Retorno", JSON.readTree(doc), "Parte II — A volta")));
+    }
+
+    @Test
+    void partsGetTheirOwnPageAndANestedTocInTheEpub(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(withParts());
+        Path file = dir.resolve("partes.epub");
+        Files.write(file, epub);
+
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        assertThat(entries(epub)).contains("EPUB/part-002.xhtml", "EPUB/part-004.xhtml").doesNotContain("EPUB/part-001.xhtml");
+        String nav = entry(epub, "EPUB/nav.xhtml");
+        // O prólogo fica solto; "A Estrada" fica dentro da Parte I
+        assertThat(nav.indexOf("Prólogo")).isLessThan(nav.indexOf("Parte I"));
+        assertThat(nav.substring(nav.indexOf("Parte I"), nav.indexOf("Parte II"))).contains("A Estrada").contains("<ol>");
+    }
+
+    @Test
+    void wordPartComesBackAsAPartWhenImported() throws Exception {
+        byte[] docx = DocxWriter.write(withParts());
+        assertThat(entry(docx, "word/document.xml")).contains("<w:pStyle w:val=\"Parte\"/>");
+
+        var plan = com.booksmith.manuscript.internal.ImportRoundTrip.plan(docx);
+
+        assertThat(plan).containsExactly("Prólogo|", "O Encontro|Parte I — A partida", "A Estrada|", "O Retorno|Parte II — A volta");
+    }
+
+    @Test
+    void pdfWithPartsRenders() {
+        assertThat(PdfWriter.html(withParts())).contains("class=\"part-page\"").contains("toc-part");
+        assertThat(PdfWriter.write(withParts())).isNotEmpty();
+    }
+
     @Test
     void epubWithoutCoverIsValidToo(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("livro.epub");

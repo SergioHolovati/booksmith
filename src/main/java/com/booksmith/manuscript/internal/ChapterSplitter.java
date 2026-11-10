@@ -43,7 +43,7 @@ final class ChapterSplitter {
 
     enum SplitRule { HEADINGS, CHAPTER_TITLES, SINGLE }
 
-    record Draft(String title, ManuscriptDocument document, String excerpt) {
+    record Draft(String title, ManuscriptDocument document, String excerpt, String partTitle) {
     }
 
     record Plan(SplitRule rule, String documentTitle, List<Draft> chapters, List<String> warnings) {
@@ -100,6 +100,8 @@ final class ChapterSplitter {
         final String title;
         /** Texto antes do primeiro título de capítulo: só vira capítulo se tiver conteúdo. */
         final boolean opening;
+        /** A parte que este capítulo abre (título com o estilo "Parte" logo antes dele). */
+        String partTitle;
         final List<Paragraph> paragraphs = new ArrayList<>();
 
         Section(String title, boolean opening) {
@@ -113,7 +115,12 @@ final class ChapterSplitter {
         Section current = rule == SplitRule.SINGLE
                 ? new Section(fallbackTitle, false)
                 : new Section(OPENING_TITLE, true);
+        String pendingPart = null;
         for (Paragraph paragraph : paragraphs) {
+            if (paragraph.part()) {
+                pendingPart = limit(paragraph.text().replace('\n', ' ').strip());
+                continue; // não é texto do capítulo: vira a parte do próximo
+            }
             boolean boundary = switch (rule) {
                 case HEADINGS -> paragraph.headingLevel() == chapterLevel;
                 case CHAPTER_TITLES -> looksLikeChapterTitle(paragraph);
@@ -124,6 +131,8 @@ final class ChapterSplitter {
                     sections.add(current);
                 }
                 current = new Section(limit(paragraph.text().replace('\n', ' ').strip()), false);
+                current.partTitle = pendingPart;
+                pendingPart = null;
             } else {
                 current.paragraphs.add(paragraph);
             }
@@ -196,7 +205,7 @@ final class ChapterSplitter {
             }
             throw e;
         }
-        return new Draft(section.title, document, shorten(excerpt.toString()));
+        return new Draft(section.title, document, shorten(excerpt.toString()), section.partTitle);
     }
 
     private static ObjectNode block(ArrayNode content, String type) {

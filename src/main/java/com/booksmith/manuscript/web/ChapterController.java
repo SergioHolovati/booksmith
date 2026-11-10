@@ -76,6 +76,16 @@ class ChapterController {
         return ResponseEntity.ok().eTag(etag(chapter)).body(SaveResult.from(chapter));
     }
 
+    /** Começa, renomeia ou ({@code title} vazio) tira a parte que este capítulo abre. */
+    @PutMapping("/chapters/{chapterId}/part")
+    ResponseEntity<ChapterSummary> part(@PathVariable UUID chapterId, @RequestBody PartRequest request) {
+        Chapter chapter = chapterService.setPart(currentUser.id(), chapterId, request.title());
+        return ResponseEntity.ok().eTag(etag(chapter)).body(ChapterSummary.from(chapter));
+    }
+
+    record PartRequest(String title) {
+    }
+
     @PatchMapping("/chapters/{chapterId}")
     ResponseEntity<ChapterSummary> rename(@PathVariable UUID chapterId, @RequestBody @Valid RenameChapterRequest request) {
         Chapter chapter = chapterService.rename(currentUser.id(), chapterId, request.title());

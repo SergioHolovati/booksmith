@@ -50,7 +50,7 @@ class BooksDataContributor implements PersonalDataContributor {
                 }
             }
             List<ChapterData> chapterData = chapters.stream()
-                    .map(c -> new ChapterData(c.getId(), c.getPosition(), c.getTitle(), c.getWordCount(),
+                    .map(c -> new ChapterData(c.getId(), c.getPosition(), c.getTitle(), c.getPartTitle(), c.getWordCount(),
                             c.getUpdatedAt(), jsonMapper.readTree(c.getContent()),
                             noteRepository.findAllByChapterIdOrderByCreatedAtAsc(c.getId()).stream()
                                     .map(n -> new NoteData(n.getId(), n.getQuote(), n.getBody(), n.isResolved(),
@@ -81,7 +81,7 @@ class BooksDataContributor implements PersonalDataContributor {
      * {@code document}: JSON ProseMirror do capítulo, o formato do editor. {@code notes}: as notas do autor; o
      * trecho de cada uma tem a marca commentAnchor com o mesmo id no documento.
      */
-    record ChapterData(UUID id, int position, String title, int wordCount, Instant updatedAt, JsonNode document,
+    record ChapterData(UUID id, int position, String title, String partTitle, int wordCount, Instant updatedAt, JsonNode document,
                        List<NoteData> notes) {
     }
 

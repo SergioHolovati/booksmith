@@ -69,11 +69,13 @@ final class ManuscriptDtos {
         }
     }
 
-    record ChapterSummary(UUID id, String title, int position, int wordCount, long version, Instant updatedAt) {
+    /** {@code partTitle}: este capítulo abre uma parte do livro (null = continua a anterior). */
+    record ChapterSummary(UUID id, String title, int position, int wordCount, long version, Instant updatedAt,
+                          String partTitle) {
 
         static ChapterSummary from(Chapter chapter) {
             return new ChapterSummary(chapter.getId(), chapter.getTitle(), chapter.getPosition(),
-                    chapter.getWordCount(), chapter.getVersion(), chapter.getUpdatedAt());
+                    chapter.getWordCount(), chapter.getVersion(), chapter.getUpdatedAt(), chapter.getPartTitle());
         }
     }
 

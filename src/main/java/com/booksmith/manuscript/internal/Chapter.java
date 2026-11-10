@@ -39,6 +39,10 @@ public class Chapter {
 
     private String title;
 
+    /** Este capítulo abre uma parte do livro ("Parte I — A partida"); null = continua a parte anterior. */
+    @Column(name = "part_title")
+    private String partTitle;
+
     /** Documento ProseMirror serializado. Gravado como jsonb. */
     @Column(nullable = false, columnDefinition = "jsonb")
     @ColumnTransformer(write = "?::jsonb")

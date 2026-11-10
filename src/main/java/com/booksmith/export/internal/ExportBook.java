@@ -28,8 +28,15 @@ record ExportBook(UUID id, String title, String author, String language, String 
         return fandom != null;
     }
 
-    /** @param document o documento ProseMirror do capítulo (§8), já validado */
-    record Chapter(String title, JsonNode document) {
+    /**
+     * @param document  o documento ProseMirror do capítulo (§8), já validado
+     * @param partTitle o capítulo abre uma parte do livro ("Parte I — A partida"); null = continua a anterior
+     */
+    record Chapter(String title, JsonNode document, String partTitle) {
+
+        Chapter(String title, JsonNode document) {
+            this(title, document, null);
+        }
 
         /** Corpo do capítulo em XHTML, sem o título (ePub e PDF). */
         String html() {

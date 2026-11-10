@@ -34,8 +34,11 @@ public interface Manuscripts {
                        String coverUrl, UUID universeId, List<ChapterContent> chapters) {
     }
 
-    /** {@code document} é o JSON ProseMirror do capítulo, já validado contra o esquema (§8). */
-    record ChapterContent(UUID chapterId, int position, String title, String document) {
+    /**
+     * {@code document} é o JSON ProseMirror do capítulo, já validado contra o esquema (§8). {@code partTitle}: o
+     * capítulo abre uma parte do livro (null = continua a anterior).
+     */
+    record ChapterContent(UUID chapterId, int position, String title, String document, String partTitle) {
     }
 
     record ChapterText(UUID chapterId, int position, String title, List<Block> blocks) {

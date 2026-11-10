@@ -66,6 +66,9 @@ final class DocxWriter {
             body.append(paragraph("Subtitle", null, escapedRun("Cópia para uso pessoal, sem fins comerciais. Não pode ser vendida.")));
         }
         for (ExportBook.Chapter chapter : book.chapters()) {
+            if (chapter.partTitle() != null) {
+                body.append(paragraph("Parte", null, escapedRun(chapter.partTitle())));
+            }
             body.append(paragraph("Heading1", null, escapedRun(chapter.title())));
             blocks(chapter.document(), null, body);
         }
@@ -256,6 +259,9 @@ final class DocxWriter {
                 <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>
                 <w:pPr><w:keepNext/><w:pageBreakBefore/><w:spacing w:before="2880" w:after="720"/><w:jc w:val="center"/><w:outlineLvl w:val="0"/></w:pPr>
                 <w:rPr><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>
+                <w:style w:type="paragraph" w:styleId="Parte"><w:name w:val="Parte"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>
+                <w:pPr><w:pageBreakBefore/><w:spacing w:before="4320" w:after="0"/><w:jc w:val="center"/></w:pPr>
+                <w:rPr><w:b/><w:sz w:val="36"/><w:szCs w:val="36"/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>
                 <w:pPr><w:keepNext/><w:spacing w:before="360" w:after="120"/><w:jc w:val="left"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>

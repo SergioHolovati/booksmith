@@ -116,6 +116,26 @@ class ChapterServiceTest {
     }
 
     @Test
+    void deletingTheChapterThatOpensAPartPassesThePartToTheNextOne() {
+        chapter.setPartTitle("Parte I");
+        Chapter next = Chapter.builder().id(UUID.randomUUID()).bookId(bookId).position(2).title("Capítulo 2").build();
+        when(chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId)).thenReturn(List.of(chapter, next));
+
+        service.delete(ownerId, chapter.getId());
+
+        assertThat(next.getPartTitle()).isEqualTo("Parte I");
+        assertThat(chapter.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    void partNameIsTrimmedEmptyRemovesItAndTooLongIsRefused() {
+        assertThat(service.setPart(ownerId, chapter.getId(), "  Parte II  ").getPartTitle()).isEqualTo("Parte II");
+        assertThat(service.setPart(ownerId, chapter.getId(), " ").getPartTitle()).isNull();
+        assertThatThrownBy(() -> service.setPart(ownerId, chapter.getId(), "x".repeat(121)))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("part_invalid"));
+    }
+
+    @Test
     void savesContentAndPublishesEvent() {
         var content = mapper.readTree("""
                 {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},

@@ -55,6 +55,13 @@ final class EpubWriter {
             }
             for (int i = 0; i < book.chapters().size(); i++) {
                 ExportBook.Chapter chapter = book.chapters().get(i);
+                if (chapter.partTitle() != null) {
+                    text(zip, "EPUB/" + partFile(i), page(book, chapter.partTitle(), "bodymatter", """
+                            <section epub:type="part" class="part-page" id="part-%d">
+                            <h1 class="part-title">%s</h1>
+                            </section>
+                            """.formatted(i + 1, escape(chapter.partTitle()))));
+                }
                 text(zip, "EPUB/" + chapterFile(i), page(book, chapter.title(), "bodymatter", """
                         <section epub:type="chapter" id="chapter-%d">
                         <h1>%s</h1>
@@ -74,6 +81,11 @@ final class EpubWriter {
     static String illustrationHref(ExportBook book, String imageId) {
         var image = book.illustrations().get(imageId);
         return image == null ? null : "images/ill-" + imageId + "." + image.extension();
+    }
+
+    /** Página de abertura da parte que o capítulo {@code index} abre. */
+    static String partFile(int index) {
+        return "part-%03d.xhtml".formatted(index + 1);
     }
 
     static String chapterFile(int index) {
@@ -106,6 +118,11 @@ final class EpubWriter {
             spine.append("    <itemref idref=\"fan-notice\"/>\n");
         }
         for (int i = 0; i < book.chapters().size(); i++) {
+            if (book.chapters().get(i).partTitle() != null) {
+                manifest.append("    <item id=\"part-%d\" href=\"%s\" media-type=\"application/xhtml+xml\"/>\n"
+                        .formatted(i + 1, partFile(i)));
+                spine.append("    <itemref idref=\"part-%d\"/>\n".formatted(i + 1));
+            }
             manifest.append("    <item id=\"chapter-%d\" href=\"%s\" media-type=\"application/xhtml+xml\"/>\n"
                     .formatted(i + 1, chapterFile(i)));
             spine.append("    <itemref idref=\"chapter-%d\"/>\n".formatted(i + 1));
@@ -134,10 +151,23 @@ final class EpubWriter {
     }
 
     private static String nav(ExportBook book) {
+        // Capítulos de uma parte ficam aninhados nela; os de antes da primeira parte, soltos
         StringBuilder items = new StringBuilder();
+        boolean inPart = false;
         for (int i = 0; i < book.chapters().size(); i++) {
-            items.append("      <li><a href=\"%s\">%s</a></li>\n"
-                    .formatted(chapterFile(i), escape(book.chapters().get(i).title())));
+            ExportBook.Chapter chapter = book.chapters().get(i);
+            if (chapter.partTitle() != null) {
+                if (inPart) {
+                    items.append("        </ol>\n      </li>\n");
+                }
+                items.append("      <li><a href=\"%s\">%s</a>\n        <ol>\n".formatted(partFile(i), escape(chapter.partTitle())));
+                inPart = true;
+            }
+            items.append("      %s<li><a href=\"%s\">%s</a></li>\n"
+                    .formatted(inPart ? "    " : "", chapterFile(i), escape(chapter.title())));
+        }
+        if (inPart) {
+            items.append("        </ol>\n      </li>\n");
         }
         String landmarks = """
                 <nav epub:type="landmarks" hidden="hidden">
@@ -158,13 +188,32 @@ final class EpubWriter {
 
     private static String ncx(ExportBook book) {
         StringBuilder points = new StringBuilder();
+        int order = 0;
+        boolean inPart = false;
         for (int i = 0; i < book.chapters().size(); i++) {
+            ExportBook.Chapter chapter = book.chapters().get(i);
+            if (chapter.partTitle() != null) {
+                if (inPart) {
+                    points.append("    </navPoint>\n");
+                }
+                order++;
+                points.append("""
+                            <navPoint id="np-part-%1$d" playOrder="%2$d">
+                              <navLabel><text>%3$s</text></navLabel>
+                              <content src="%4$s"/>
+                        """.formatted(i + 1, order, escape(chapter.partTitle()), partFile(i)));
+                inPart = true;
+            }
+            order++;
             points.append("""
-                        <navPoint id="np-%1$d" playOrder="%1$d">
-                          <navLabel><text>%2$s</text></navLabel>
-                          <content src="%3$s"/>
+                        <navPoint id="np-%1$d" playOrder="%2$d">
+                          <navLabel><text>%3$s</text></navLabel>
+                          <content src="%4$s"/>
                         </navPoint>
-                    """.formatted(i + 1, escape(book.chapters().get(i).title()), chapterFile(i)));
+                    """.formatted(i + 1, order, escape(chapter.title()), chapterFile(i)));
+        }
+        if (inPart) {
+            points.append("    </navPoint>\n");
         }
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -254,6 +303,8 @@ final class EpubWriter {
             figure.illustration { margin: 1.5em 0; text-align: center; page-break-inside: avoid; }
             figure.illustration img { max-width: 100%; max-height: 80vh; }
             figure.illustration figcaption { font-size: .85em; font-style: italic; margin-top: .5em; text-align: center; }
+            .part-page { text-align: center; padding-top: 35%; }
+            .part-title { font-size: 1.8em; margin: 0; font-weight: normal; letter-spacing: .03em; }
             .cover { text-align: center; margin: 0; padding: 0; }
             .cover img { max-width: 100%; max-height: 100%; }
             .title-page { text-align: center; padding-top: 30%; }
