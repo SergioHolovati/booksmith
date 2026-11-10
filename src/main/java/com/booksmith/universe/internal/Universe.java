@@ -51,6 +51,11 @@ public class Universe {
     @ColumnTransformer(write = "?::jsonb")
     private String mapGenerator;
 
+    /** Calendário do mundo ({@link WorldCalendar}); nulo usa o padrão. */
+    @Column(columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    private String calendar;
+
     @Version
     private long version;
 

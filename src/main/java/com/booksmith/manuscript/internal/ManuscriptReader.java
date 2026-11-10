@@ -19,6 +19,7 @@ class ManuscriptReader implements Manuscripts {
     private static final java.util.Set<String> TEXT_BLOCKS = java.util.Set.of("paragraph", "heading");
 
     private final BookService bookService;
+    private final BookRepository bookRepository;
     private final JsonMapper jsonMapper;
 
     @Override
@@ -51,6 +52,15 @@ class ManuscriptReader implements Manuscripts {
     @Transactional(readOnly = true)
     public void requireOwned(UUID ownerId, UUID bookId) {
         bookService.require(ownerId, bookId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UUID> bookIds(UUID ownerId) {
+        return bookRepository.findAllByOwnerIdAndDeletedAtIsNull(ownerId,
+                        org.springframework.data.domain.Pageable.unpaged()).stream()
+                .map(Book::getId)
+                .toList();
     }
 
     /** Parágrafos e títulos em ordem de leitura, inclusive os de dentro de citações e listas. */

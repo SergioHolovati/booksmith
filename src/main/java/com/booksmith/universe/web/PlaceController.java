@@ -1,6 +1,7 @@
 package com.booksmith.universe.web;
 
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.universe.internal.GalleryService;
 import com.booksmith.universe.internal.PlaceService;
 import com.booksmith.universe.internal.PlaceService.PlaceData;
 import com.booksmith.universe.internal.UniverseEntity;
@@ -35,6 +36,7 @@ import java.util.UUID;
 class PlaceController {
 
     private final PlaceService placeService;
+    private final GalleryService galleryService;
     private final CurrentUser currentUser;
     private final JsonMapper jsonMapper;
 
@@ -42,7 +44,8 @@ class PlaceController {
     List<PlaceSummary> list(@PathVariable UUID universeId) {
         List<UniverseEntity> places = placeService.list(currentUser.id(), universeId);
         Map<UUID, String> names = placeService.names(universeId);
-        return places.stream().map(place -> summary(place, names)).toList();
+        Map<UUID, String> portraits = galleryService.portraits(universeId);
+        return places.stream().map(place -> summary(place, names, portraits.get(place.getId()))).toList();
     }
 
     @PostMapping("/universes/{universeId}/places")
@@ -76,18 +79,20 @@ class PlaceController {
         placeService.delete(currentUser.id(), placeId);
     }
 
-    private PlaceSummary summary(UniverseEntity place, Map<UUID, String> names) {
+    private PlaceSummary summary(UniverseEntity place, Map<UUID, String> names, String portraitUrl) {
         JsonNode sheet = jsonMapper.readTree(place.getAttributes());
         UUID parentId = placeService.parentOf(place).orElse(null);
         return new PlaceSummary(place.getId(), place.getName(), Arrays.asList(place.getAliases()),
                 text(sheet, "type"), parentId, parentId == null ? null : names.get(parentId),
-                excerpt(text(sheet, "description")), place.getMapX(), place.getMapY(), place.getUpdatedAt());
+                excerpt(text(sheet, "description")), place.getMapX(), place.getMapY(), portraitUrl,
+                place.getUpdatedAt());
     }
 
     private PlaceResponse response(UniverseEntity place) {
         return new PlaceResponse(place.getId(), place.getUniverseId(), place.getName(),
                 Arrays.asList(place.getAliases()), jsonMapper.readTree(place.getAttributes()), place.getMapX(),
-                place.getMapY(), place.getVersion(), place.getUpdatedAt());
+                place.getMapY(), place.getPortraitId(), galleryService.portrait(place), place.getVersion(),
+                place.getUpdatedAt());
     }
 
     private static String text(JsonNode sheet, String key) {
@@ -117,10 +122,10 @@ class PlaceController {
     }
 
     record PlaceSummary(UUID id, String name, List<String> aliases, String type, UUID parentId, String parentName,
-                        String excerpt, Float mapX, Float mapY, Instant updatedAt) {
+                        String excerpt, Float mapX, Float mapY, String portraitUrl, Instant updatedAt) {
     }
 
     record PlaceResponse(UUID id, UUID universeId, String name, List<String> aliases, JsonNode sheet, Float mapX,
-                         Float mapY, long version, Instant updatedAt) {
+                         Float mapY, UUID portraitId, String portraitUrl, long version, Instant updatedAt) {
     }
 }

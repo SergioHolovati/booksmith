@@ -36,9 +36,11 @@ public class UniverseService implements Universes {
     private final UniverseRepository universeRepository;
     private final UniverseEntityRepository entityRepository;
     private final TimelineEventRepository timelineRepository;
+    private final RelationRepository relationRepository;
     private final AppearanceForm appearanceForm;
     private final UniverseForm universeForm;
     private final ImageStorage imageStorage;
+    private final UniverseImageRepository imageRepository;
     private final JsonMapper jsonMapper;
 
     @Override
@@ -90,6 +92,8 @@ public class UniverseService implements Universes {
         }
         int events = timelineRepository.moveAll(from, into, offset);
         int entities = entityRepository.moveAll(from, into);
+        relationRepository.moveAll(from, into);
+        imageRepository.moveAll(from, into);
 
         // O conteúdo do construtor também vem: campos que o destino não tem, magias e leis somadas, e o mapa se
         // o destino ainda não tiver um

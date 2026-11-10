@@ -51,6 +51,19 @@ public class TimelineEvent {
     @Column(nullable = false, columnDefinition = "uuid[]")
     private UUID[] characterIds = new UUID[0];
 
+    /** Tipo do acontecimento (birth, death, war…); nulo para um evento comum. */
+    private String kind;
+
+    /** Data no calendário do mundo ({@link WorldCalendar.WorldDate}); nula quando só há o "quando" em texto. */
+    @Column(name = "world_date", columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
+    private String worldDate;
+
+    /** Religiões, governos e organizações envolvidos. */
+    @Builder.Default
+    @Column(name = "lore_ids", nullable = false, columnDefinition = "uuid[]")
+    private UUID[] loreIds = new UUID[0];
+
     @Column(nullable = false)
     private BigDecimal sortKey;
 

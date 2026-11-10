@@ -12,6 +12,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ public class ChapterService {
     private final ChapterRepository chapterRepository;
     private final ChapterVersionRepository versionRepository;
     private final ChapterHistory history;
+    private final WritingStatsService writingStats;
     private final JsonMapper jsonMapper;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -60,6 +62,12 @@ public class ChapterService {
      */
     @Transactional
     public Chapter saveContent(UUID ownerId, UUID chapterId, long expectedVersion, JsonNode content) {
+        return saveContent(ownerId, chapterId, expectedVersion, content, WritingStatsService.DEFAULT_ZONE);
+    }
+
+    /** Como acima; o saldo de palavras entra na meta do dia, no fuso {@code zone} de quem escreve. */
+    @Transactional
+    public Chapter saveContent(UUID ownerId, UUID chapterId, long expectedVersion, JsonNode content, ZoneId zone) {
         Chapter chapter = require(ownerId, chapterId);
         requireVersion(chapter, expectedVersion);
 
@@ -69,7 +77,10 @@ public class ChapterService {
         }
 
         history.snapshotIfDue(chapter, document);
-        return applyAndPublish(ownerId, chapter, document);
+        int before = chapter.getWordCount();
+        Chapter saved = applyAndPublish(ownerId, chapter, document);
+        writingStats.record(ownerId, saved.getWordCount() - before, zone);
+        return saved;
     }
 
     @Transactional

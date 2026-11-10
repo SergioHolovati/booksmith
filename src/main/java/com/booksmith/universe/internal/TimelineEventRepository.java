@@ -16,6 +16,17 @@ public interface TimelineEventRepository extends JpaRepository<TimelineEvent, UU
 
     Optional<TimelineEvent> findByIdAndDeletedAtIsNull(UUID id);
 
+
+    /** Excluídos depois de {@code cutoff}, dos universos do usuário, mais recentes primeiro (lixeira). */
+    @Query("select x from TimelineEvent x where x.deletedAt > :cutoff and x.universeId in "
+            + "(select u.id from Universe u where u.ownerId = :ownerId) order by x.deletedAt desc")
+    List<TimelineEvent> findTrashed(UUID ownerId, java.time.Instant cutoff);
+
+    /** Apaga de vez os eventos que passaram do prazo da lixeira. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from TimelineEvent t where t.deletedAt < :cutoff")
+    int purgeDeletedBefore(java.time.Instant cutoff);
+
     /** Linhas [universeId, quantidade], sem os excluídos. */
     @Query("select t.universeId, count(t) from TimelineEvent t "
             + "where t.universeId in :ids and t.deletedAt is null group by t.universeId")

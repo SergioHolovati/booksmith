@@ -36,8 +36,9 @@ class ChapterServiceTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-11-06T12:00:00Z"), ZoneOffset.UTC);
     private final ChapterHistory history = new ChapterHistory(versionRepository, clock);
 
+    private final WritingStatsService writingStats = mock(WritingStatsService.class);
     private final ChapterService service = new ChapterService(bookService, chapterRepository, versionRepository,
-            history, mapper, events, clock);
+            history, writingStats, mapper, events, clock);
 
     private final UUID ownerId = UUID.randomUUID();
     private final UUID bookId = UUID.randomUUID();
@@ -126,6 +127,8 @@ class ChapterServiceTest {
         assertThat(saved.getWordCount()).isEqualTo(3);
         assertThat(saved.getContentText()).isEqualTo("Era uma vez");
         verify(events).publishEvent(any(ChapterSaved.class));
+        // As 3 palavras novas entram na meta do dia
+        verify(writingStats).record(ownerId, 3, WritingStatsService.DEFAULT_ZONE);
     }
 
     @Test

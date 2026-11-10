@@ -75,6 +75,10 @@ public class UniverseEntity {
     @Column(name = "map_y")
     private Float mapY;
 
+    /** Retrato (personagem ou lugar): uma imagem da biblioteca ({@link GalleryService}). */
+    @Column(name = "portrait_id")
+    private UUID portraitId;
+
     @Version
     private long version;
 

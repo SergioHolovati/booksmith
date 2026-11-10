@@ -55,7 +55,7 @@ if (Listening 4200) {
 } else {
     $web = Join-Path $project "booksmith-web"
     $log = Join-Path $logs "web.log"
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx ng serve --port 4200 > `"$log`" 2>&1" `
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx ng serve --port 4200 --host 0.0.0.0 > `"$log`" 2>&1" `
         -WorkingDirectory $web -WindowStyle Hidden
     Write-Host -NoNewline "Iniciando o app"
     for ($i = 0; $i -lt 60; $i++) {

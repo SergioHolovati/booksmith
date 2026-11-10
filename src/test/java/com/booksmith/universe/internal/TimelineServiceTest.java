@@ -24,7 +24,8 @@ class TimelineServiceTest {
     private final UniverseRepository universes = mock(UniverseRepository.class);
     private final UniverseEntityRepository entities = mock(UniverseEntityRepository.class);
     private final TimelineEventRepository events = mock(TimelineEventRepository.class);
-    private final TimelineService service = new TimelineService(universes, entities, events,
+    private final tools.jackson.databind.json.JsonMapper mapper = tools.jackson.databind.json.JsonMapper.builder().build();
+    private final TimelineService service = new TimelineService(universes, entities, events, mapper,
             Clock.fixed(Instant.parse("2026-11-08T12:00:00Z"), ZoneOffset.UTC));
 
     private final UUID owner = UUID.randomUUID();
@@ -97,11 +98,41 @@ class TimelineServiceTest {
                 UniverseEntity.builder().id(strangerPlace).universeId(UUID.randomUUID()).kind("place").name("X").build()));
 
         assertThatThrownBy(() -> service.update(owner, event.getId(), 0,
-                new TimelineService.EventData("Encontro", null, null, null, strangerPlace, List.of())))
+                new TimelineService.EventData("Encontro", null, null, null, strangerPlace, List.of(), null, null, null)))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("event_invalid"));
         assertThatThrownBy(() -> service.update(owner, event.getId(), 0,
-                new TimelineService.EventData("Encontro", null, null, null, null, List.of(UUID.randomUUID()))))
+                new TimelineService.EventData("Encontro", null, null, null, null, List.of(UUID.randomUUID()), null, null, null)))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("event_invalid"));
+    }
+
+    @Test
+    void sortByDateOrdersOnlyTheDatedEventsAndKeepsTheOthersInPlace() {
+        when(universes.findById(universeId)).thenReturn(Optional.of(Universe.builder().id(universeId).build()));
+        TimelineEvent war = event("Guerra", "{\"era\":\"e1\",\"year\":300}");
+        TimelineEvent vague = event("Três dias depois", null);
+        TimelineEvent birth = event("Lia nasce", "{\"era\":\"e1\",\"year\":295,\"month\":3}");
+        TimelineEvent end = event("Paz", "{\"era\":\"e1\",\"year\":310}");
+
+        service.sortByDate(owner, universeId);
+
+        assertThat(service.list(owner, universeId)).extracting(TimelineEvent::getTitle)
+                .containsExactly("Lia nasce", "Três dias depois", "Guerra", "Paz");
+        assertThat(war.getSortKey()).isGreaterThan(vague.getSortKey());
+        assertThat(end.getSortKey()).isGreaterThan(war.getSortKey());
+        assertThat(birth.getSortKey()).isLessThan(vague.getSortKey());
+    }
+
+    @Test
+    void birthsComeFromDatedBirthEvents() {
+        UUID lia = UUID.randomUUID();
+        TimelineEvent birth = event("Lia nasce", "{\"era\":\"e1\",\"year\":295}");
+        birth.setKind("birth");
+        birth.setCharacterIds(new UUID[]{lia});
+        TimelineEvent undated = event("Kael nasce", null);
+        undated.setKind("birth");
+        undated.setCharacterIds(new UUID[]{UUID.randomUUID()});
+
+        assertThat(service.births(List.of(birth, undated))).containsOnlyKeys(lia);
     }
 
     @Test
@@ -116,5 +147,12 @@ class TimelineServiceTest {
     private List<String> titles() {
         return events.findAllByUniverseIdAndDeletedAtIsNullOrderBySortKeyAsc(universeId).stream()
                 .map(TimelineEvent::getTitle).toList();
+    }
+
+    private TimelineEvent event(String title, String date) {
+        TimelineEvent event = TimelineEvent.builder().id(UUID.randomUUID()).universeId(universeId).title(title)
+                .worldDate(date).sortKey(java.math.BigDecimal.valueOf((stored.size() + 1) * 1000L)).build();
+        stored.add(event);
+        return event;
     }
 }

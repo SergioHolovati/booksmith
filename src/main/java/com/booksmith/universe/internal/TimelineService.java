@@ -4,6 +4,8 @@ import com.booksmith.common.error.ApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,10 +31,15 @@ public class TimelineService {
     static final int MAX_SCALE = 18;
     static final int MAX_EVENTS = 2_000;
     static final int MAX_CHARACTERS_PER_EVENT = 50;
+    static final int MAX_LORE_PER_EVENT = 20;
+    /** Tipos de acontecimento: o app mostra ícone e rótulo; "birth" alimenta o cálculo de idade. */
+    static final Set<String> KINDS = Set.of("birth", "death", "war", "battle", "founding", "coronation", "treaty",
+            "catastrophe", "discovery", "journey", "wedding");
 
     private final UniverseRepository universeRepository;
     private final UniverseEntityRepository entityRepository;
     private final TimelineEventRepository eventRepository;
+    private final JsonMapper jsonMapper;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -73,6 +80,13 @@ public class TimelineService {
         event.setChapterId(data.chapterId());
         event.setPlaceId(checkPlace(event.getUniverseId(), data.placeId()));
         event.setCharacterIds(checkCharacters(event.getUniverseId(), data.characterIds()));
+        if (data.kind() != null && !data.kind().isBlank() && !KINDS.contains(data.kind())) {
+            throw invalid("tipo \"%s\" não existe".formatted(data.kind()));
+        }
+        event.setKind(data.kind() == null || data.kind().isBlank() ? null : data.kind());
+        WorldCalendar.WorldDate date = calendar(event.getUniverseId()).parseDate(data.date());
+        event.setWorldDate(date == null ? null : jsonMapper.writeValueAsString(WorldCalendar.dateJson(date, jsonMapper)));
+        event.setLoreIds(checkLore(event.getUniverseId(), data.loreIds()));
         return eventRepository.saveAndFlush(event);
     }
 
@@ -92,6 +106,88 @@ public class TimelineService {
         return eventRepository.saveAndFlush(event);
     }
 
+    /**
+     * Põe os eventos com data em ordem cronológica. Os sem data (ou com data numa era que não existe mais) ficam
+     * onde estavam; os datados ocupam as próprias posições, agora em ordem. Empate mantém a ordem de antes.
+     */
+    @Transactional
+    public void sortByDate(UUID ownerId, UUID universeId) {
+        requireUniverse(ownerId, universeId);
+        WorldCalendar calendar = calendar(universeId);
+        List<TimelineEvent> events = new ArrayList<>(events(universeId));
+        List<Integer> slots = new ArrayList<>();
+        List<TimelineEvent> dated = new ArrayList<>();
+        Map<UUID, Long> day = new java.util.HashMap<>();
+        for (int i = 0; i < events.size(); i++) {
+            WorldCalendar.WorldDate date = dateOf(events.get(i));
+            Long absolute = date == null ? null : calendar.absoluteDay(date);
+            if (absolute != null) {
+                slots.add(i);
+                dated.add(events.get(i));
+                day.put(events.get(i).getId(), absolute);
+            }
+        }
+        dated.sort(java.util.Comparator.comparing(e -> day.get(e.getId())));
+        for (int k = 0; k < slots.size(); k++) {
+            events.set(slots.get(k), dated.get(k));
+        }
+        for (int i = 0; i < events.size(); i++) {
+            events.get(i).setSortKey(STEP.multiply(BigDecimal.valueOf(i + 1L)));
+        }
+        eventRepository.flush();
+    }
+
+    // ===== Calendário e idades =====
+
+    @Transactional(readOnly = true)
+    public WorldCalendar calendar(UUID universeId) {
+        String json = universeRepository.findById(universeId).map(Universe::getCalendar).orElse(null);
+        return json == null ? WorldCalendar.DEFAULT : WorldCalendar.parse(jsonMapper.readTree(json));
+    }
+
+    @Transactional(readOnly = true)
+    public WorldCalendar calendar(UUID ownerId, UUID universeId) {
+        requireUniverse(ownerId, universeId);
+        return calendar(universeId);
+    }
+
+    /**
+     * Troca o calendário. Datas que ficariam fora dele (mês que deixou de existir, dia além do novo tamanho do
+     * mês) continuam guardadas como estão; o app mostra o que conseguir e o autor ajusta.
+     */
+    @Transactional
+    public WorldCalendar setCalendar(UUID ownerId, UUID universeId, JsonNode calendar) {
+        Universe universe = universeRepository.findByIdAndOwnerId(universeId, ownerId)
+                .orElseThrow(() -> ApiException.notFound("universe_not_found", "Universo não encontrado."));
+        WorldCalendar parsed = WorldCalendar.parse(calendar);
+        universe.setCalendar(jsonMapper.writeValueAsString(parsed.toJson(jsonMapper)));
+        return parsed;
+    }
+
+    public WorldCalendar.WorldDate dateOf(TimelineEvent event) {
+        if (event.getWorldDate() == null) {
+            return null;
+        }
+        JsonNode node = jsonMapper.readTree(event.getWorldDate());
+        return new WorldCalendar.WorldDate(node.path("era").asString(""), node.path("year").asInt(),
+                node.path("month").isIntegralNumber() ? node.path("month").intValue() : null,
+                node.path("day").isIntegralNumber() ? node.path("day").intValue() : null);
+    }
+
+    /** Data de nascimento de cada personagem: o primeiro evento "birth" datado em que ele aparece. */
+    public Map<UUID, WorldCalendar.WorldDate> births(List<TimelineEvent> events) {
+        Map<UUID, WorldCalendar.WorldDate> births = new java.util.HashMap<>();
+        for (TimelineEvent event : events) {
+            WorldCalendar.WorldDate date = dateOf(event);
+            if ("birth".equals(event.getKind()) && date != null) {
+                for (UUID character : event.getCharacterIds()) {
+                    births.putIfAbsent(character, date);
+                }
+            }
+        }
+        return births;
+    }
+
     @Transactional
     public void delete(UUID ownerId, UUID eventId) {
         require(ownerId, eventId).setDeletedAt(Instant.now(clock));
@@ -101,7 +197,7 @@ public class TimelineService {
     @Transactional(readOnly = true)
     public Map<UUID, String> entityNames(UUID universeId) {
         Map<UUID, String> names = new java.util.HashMap<>();
-        for (String kind : List.of(UniverseEntity.CHARACTER, UniverseEntity.PLACE)) {
+        for (String kind : List.of(UniverseEntity.CHARACTER, UniverseEntity.PLACE, UniverseEntity.LORE)) {
             entityRepository.findAllByUniverseIdAndKindAndDeletedAtIsNullOrderByNameAsc(universeId, kind)
                     .forEach(e -> names.put(e.getId(), e.getName()));
         }
@@ -171,6 +267,24 @@ public class TimelineService {
         return unique.toArray(UUID[]::new);
     }
 
+    private UUID[] checkLore(UUID universeId, List<UUID> loreIds) {
+        if (loreIds == null || loreIds.isEmpty()) {
+            return new UUID[0];
+        }
+        Set<UUID> unique = new LinkedHashSet<>(loreIds);
+        if (unique.size() > MAX_LORE_PER_EVENT) {
+            throw invalid("no máximo %d religiões, governos e organizações por evento".formatted(MAX_LORE_PER_EVENT));
+        }
+        for (UUID id : unique) {
+            boolean ok = entityRepository.findByIdAndKindAndDeletedAtIsNull(id, UniverseEntity.LORE)
+                    .filter(l -> l.getUniverseId().equals(universeId)).isPresent();
+            if (!ok) {
+                throw invalid("religiões, governos e organizações precisam ser deste universo");
+            }
+        }
+        return unique.toArray(UUID[]::new);
+    }
+
     private static String text(String value, String field, int limit, boolean required) {
         String text = value == null ? "" : value.strip();
         if (required && text.isEmpty()) {
@@ -207,7 +321,8 @@ public class TimelineService {
         return ApiException.unprocessable("event_invalid", "Evento inválido: " + reason + ".");
     }
 
+    /** {@code date}: objeto {era, year, month?, day?} conferido contra o calendário do universo. */
     public record EventData(String title, String whenLabel, String description, UUID chapterId, UUID placeId,
-                            List<UUID> characterIds) {
+                            List<UUID> characterIds, String kind, JsonNode date, List<UUID> loreIds) {
     }
 }

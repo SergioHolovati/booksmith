@@ -4,6 +4,7 @@ import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.api.CurrentUser;
 import com.booksmith.manuscript.internal.Chapter;
 import com.booksmith.manuscript.internal.ChapterService;
+import com.booksmith.manuscript.internal.WritingStatsService;
 import com.booksmith.manuscript.web.ManuscriptDtos.ChapterResponse;
 import com.booksmith.manuscript.web.ManuscriptDtos.ChapterSummary;
 import com.booksmith.manuscript.web.ManuscriptDtos.CreateChapterRequest;
@@ -68,8 +69,10 @@ class ChapterController {
     @PutMapping("/chapters/{chapterId}/content")
     ResponseEntity<SaveResult> saveContent(@PathVariable UUID chapterId,
                                            @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
+                                           @RequestHeader(value = WritingStatsController.TIME_ZONE_HEADER, required = false) String timeZone,
                                            @RequestBody @Valid SaveContentRequest request) {
-        Chapter chapter = chapterService.saveContent(currentUser.id(), chapterId, parseVersion(ifMatch), request.content());
+        Chapter chapter = chapterService.saveContent(currentUser.id(), chapterId, parseVersion(ifMatch), request.content(),
+                WritingStatsService.zone(timeZone));
         return ResponseEntity.ok().eTag(etag(chapter)).body(SaveResult.from(chapter));
     }
 

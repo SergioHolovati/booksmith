@@ -46,6 +46,8 @@ Para subir tudo de uma vez (Docker, API e app), mesmo depois de reiniciar o comp
 
 Serviços: API `http://localhost:8090`, MinIO `http://localhost:9001` (console), Postgres `5432`, Redis `6379`.
 
+Pelo celular, na mesma rede Wi-Fi: `http://IP-do-PC:4200` (veja o IP com `ipconfig`). O app faz proxy da API e das imagens; por isso, em desenvolvimento, as URLs de imagem são relativas (`/media/...`).
+
 Em desenvolvimento os e-mails não são enviados: o conteúdo (código de verificação, link de senha) aparece no log.
 
 ## Dados locais e backups

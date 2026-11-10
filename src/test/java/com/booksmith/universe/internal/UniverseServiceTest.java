@@ -25,8 +25,10 @@ class UniverseServiceTest {
     private final UniverseEntityRepository entities = mock(UniverseEntityRepository.class);
     private final TimelineEventRepository timeline = mock(TimelineEventRepository.class);
     private final ImageStorage images = mock(ImageStorage.class);
-    private final UniverseService service = new UniverseService(universes, entities, timeline,
-            new AppearanceForm(mapper), new UniverseForm(mapper), images, mapper);
+    private final RelationRepository relations = mock(RelationRepository.class);
+    private final UniverseImageRepository gallery = mock(UniverseImageRepository.class);
+    private final UniverseService service = new UniverseService(universes, entities, timeline, relations,
+            new AppearanceForm(mapper), new UniverseForm(mapper), images, gallery, mapper);
 
     private final UUID owner = UUID.randomUUID();
     private final UUID series = UUID.randomUUID();
@@ -49,6 +51,7 @@ class UniverseServiceTest {
         // 1000 → 3001: o primeiro evento do livro novo vem logo depois do último da série
         verify(timeline).moveAll(sequel, series, new BigDecimal("2001"));
         verify(entities).moveAll(sequel, series);
+        verify(relations).moveAll(sequel, series);
         verify(universes).delete(universeSequel);
     }
 

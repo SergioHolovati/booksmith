@@ -1,6 +1,8 @@
 package com.booksmith.universe.web;
 
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.universe.internal.GalleryService;
+import java.util.Map;
 import com.booksmith.universe.internal.AppearanceForm;
 import com.booksmith.universe.internal.CharacterService;
 import com.booksmith.universe.internal.CharacterService.CharacterData;
@@ -35,6 +37,7 @@ import java.util.UUID;
 class CharacterController {
 
     private final CharacterService characterService;
+    private final GalleryService galleryService;
     private final AppearanceForm appearanceForm;
     private final CurrentUser currentUser;
     private final JsonMapper jsonMapper;
@@ -47,7 +50,9 @@ class CharacterController {
 
     @GetMapping("/universes/{universeId}/characters")
     List<CharacterSummary> list(@PathVariable UUID universeId) {
-        return characterService.list(currentUser.id(), universeId).stream().map(this::summary).toList();
+        List<UniverseEntity> characters = characterService.list(currentUser.id(), universeId);
+        Map<UUID, String> portraits = galleryService.portraits(universeId);
+        return characters.stream().map(c -> summary(c, portraits.get(c.getId()))).toList();
     }
 
     @PostMapping("/universes/{universeId}/characters")
@@ -74,19 +79,20 @@ class CharacterController {
         characterService.delete(currentUser.id(), characterId);
     }
 
-    private CharacterSummary summary(UniverseEntity character) {
+    private CharacterSummary summary(UniverseEntity character, String portraitUrl) {
         JsonNode sheet = jsonMapper.readTree(character.getAttributes());
         JsonNode role = sheet.get("role");
         return new CharacterSummary(character.getId(), character.getName(), Arrays.asList(character.getAliases()),
                 role == null ? null : role.stringValue(), characterService.appearanceSummary(character),
-                character.getUpdatedAt());
+                portraitUrl, character.getUpdatedAt());
     }
 
     private CharacterResponse response(UniverseEntity character) {
         return new CharacterResponse(character.getId(), character.getUniverseId(), character.getName(),
                 Arrays.asList(character.getAliases()), jsonMapper.readTree(character.getAttributes()),
                 jsonMapper.readTree(character.getAppearance()), character.getAppearanceFormVersion(),
-                characterService.appearanceSummary(character), character.getVersion(), character.getUpdatedAt());
+                characterService.appearanceSummary(character), character.getPortraitId(),
+                galleryService.portrait(character), character.getVersion(), character.getUpdatedAt());
     }
 
     record CreateCharacterRequest(@NotBlank(message = "Dê um nome ao personagem.") @Size(max = 120) String name) {
@@ -101,11 +107,11 @@ class CharacterController {
     }
 
     record CharacterSummary(UUID id, String name, List<String> aliases, String role, String appearanceSummary,
-                            Instant updatedAt) {
+                            String portraitUrl, Instant updatedAt) {
     }
 
     record CharacterResponse(UUID id, UUID universeId, String name, List<String> aliases, JsonNode sheet,
-                             JsonNode appearance, int appearanceFormVersion, String appearanceSummary, long version,
-                             Instant updatedAt) {
+                             JsonNode appearance, int appearanceFormVersion, String appearanceSummary,
+                             UUID portraitId, String portraitUrl, long version, Instant updatedAt) {
     }
 }

@@ -20,6 +20,9 @@ public interface Manuscripts {
      */
     BookContent bookContent(UUID ownerId, UUID bookId);
 
+    /** Livros ativos da pessoa (fora da lixeira), do mais novo ao mais antigo. */
+    java.util.List<UUID> bookIds(UUID ownerId);
+
     /** Confere que o livro existe e é do usuário, sem carregar o texto. 404 caso contrário. */
     void requireOwned(UUID ownerId, UUID bookId);
 
