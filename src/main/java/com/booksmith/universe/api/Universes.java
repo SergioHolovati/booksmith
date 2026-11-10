@@ -24,6 +24,12 @@ public interface Universes {
      */
     MergeResult merge(UUID ownerId, UUID from, UUID into);
 
+    /**
+     * Todos os nomes próprios do universo: o nome dele e os nomes e apelidos de personagens, lugares e fichas do
+     * mundo (religiões, idiomas, organizações...). O corretor ortográfico nunca marca estes como erro.
+     */
+    java.util.Set<String> vocabulary(UUID universeId);
+
     /** Personagens e lugares do universo, com nomes, outros nomes e (para personagens) a aparência. */
     List<KnownEntity> entities(UUID universeId);
 

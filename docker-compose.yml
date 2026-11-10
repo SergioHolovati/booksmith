@@ -121,6 +121,16 @@ services:
         sleep 21600;
       done'
 
+  spellcheck:
+    # Corretor próprio (§8.5, etapa 2): LanguageTool oficial, imagem construída aqui (docker/languagetool).
+    # Só a API fala com ele: a porta fica presa a 127.0.0.1 (nem a rede de casa enxerga). 8081, não 8080.
+    build: ./docker/languagetool
+    image: booksmith-spellcheck:6.6
+    restart: always
+    ports:
+      - "127.0.0.1:8081:8081"
+    mem_limit: 1536m
+
   app:
     build: .
     profiles: ["app"]   # suba com: docker compose --profile app up --build

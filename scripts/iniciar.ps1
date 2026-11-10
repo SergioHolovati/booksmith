@@ -25,7 +25,7 @@ Write-Host -NoNewline "Esperando o banco"
 for ($i = 0; $i -lt 90; $i++) {
     $status = docker ps --filter "name=booksmith-postgres-1" --format "{{.Status}}" 2>$null
     if ($status -match "healthy") { break }
-    if ($i -eq 20 -and -not $status) { docker compose -f (Join-Path $root "docker-compose.yml") up -d postgres redis minio backup-db backup-media *> $null }
+    if ($i -eq 20 -and -not $status) { docker compose -f (Join-Path $root "docker-compose.yml") up -d postgres redis minio backup-db backup-media spellcheck *> $null }
     Write-Host -NoNewline "."
     Start-Sleep -Seconds 3
 }
