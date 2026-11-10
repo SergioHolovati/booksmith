@@ -85,6 +85,16 @@ class ExportWritersTest {
     }
 
     @Test
+    void proofreadOffDoesNotChangeTheExportedText() {
+        var chapter = JSON.readTree("""
+                {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
+                  {"type":"text","text":"Ele disse: "},
+                  {"type":"text","marks":[{"type":"proofreadOff"}],"text":"nóis vai"}]}]}""");
+
+        assertThat(BookHtml.body(chapter)).contains("<p>Ele disse: nóis vai</p>");
+    }
+
+    @Test
     void untitledChapterGetsItsNumber() {
         assertThat(BookHtml.chapterTitle("  ", 2)).isEqualTo("Capítulo 2");
         assertThat(BookHtml.chapterTitle(" O Encontro ", 1)).isEqualTo("O Encontro");

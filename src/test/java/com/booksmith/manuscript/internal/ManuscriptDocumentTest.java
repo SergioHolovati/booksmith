@@ -73,6 +73,14 @@ class ManuscriptDocumentTest {
     }
 
     @Test
+    void proofreadOffIsAcceptedAndKeepsTheText() {
+        String doc = """
+                {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
+                  {"type":"text","marks":[{"type":"proofreadOff"}],"text":"Nóis vai amanhã"}]}]}""";
+        assertThat(ManuscriptDocument.parse(json(doc), mapper).plainText()).isEqualTo("Nóis vai amanhã");
+    }
+
+    @Test
     void invalidMentionIsRefused() {
         for (String attrs : new String[]{
                 "{\"id\":\"nao-e-uuid\",\"kind\":\"character\",\"label\":\"Lia\"}",

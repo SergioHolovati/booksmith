@@ -32,7 +32,12 @@ public final class ManuscriptDocument {
     private static final Pattern BLOCK_ID = Pattern.compile("[A-Za-z0-9_-]{4,64}");
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+(?:['’-][\\p{L}\\p{N}]+)*");
 
-    private static final Set<String> MARKS = Set.of("bold", "italic", "underline", "strike", "commentAnchor");
+    /**
+     * {@code proofreadOff}: trecho que o corretor não revisa (a fala de um personagem que "fala errado"). Sem
+     * atributos; os exportadores o ignoram.
+     */
+    private static final Set<String> MARKS = Set.of("bold", "italic", "underline", "strike", "commentAnchor",
+            "proofreadOff");
 
     /** Trecho com nota do autor: {@code threadId} é o id da nota ({@code manuscript.chapter_notes}). */
     public static final String COMMENT_ANCHOR = "commentAnchor";
