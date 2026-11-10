@@ -76,6 +76,15 @@ class ExportWritersTest {
     }
 
     @Test
+    void authorNotesNeverReachTheExportedBook() {
+        var chapter = JSON.readTree("""
+                {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
+                  {"type":"text","marks":[{"type":"commentAnchor","attrs":{"threadId":"0196f000-0000-7000-8000-00003f9a2c71"}}],"text":"Era uma vez"}]}]}""");
+
+        assertThat(BookHtml.body(chapter)).contains(">Era uma vez<").doesNotContain("threadId").doesNotContain("comment");
+    }
+
+    @Test
     void untitledChapterGetsItsNumber() {
         assertThat(BookHtml.chapterTitle("  ", 2)).isEqualTo("Capítulo 2");
         assertThat(BookHtml.chapterTitle(" O Encontro ", 1)).isEqualTo("O Encontro");

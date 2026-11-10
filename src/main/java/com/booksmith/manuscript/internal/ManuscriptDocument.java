@@ -32,7 +32,10 @@ public final class ManuscriptDocument {
     private static final Pattern BLOCK_ID = Pattern.compile("[A-Za-z0-9_-]{4,64}");
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+(?:['’-][\\p{L}\\p{N}]+)*");
 
-    private static final Set<String> MARKS = Set.of("bold", "italic", "underline", "strike");
+    private static final Set<String> MARKS = Set.of("bold", "italic", "underline", "strike", "commentAnchor");
+
+    /** Trecho com nota do autor: {@code threadId} é o id da nota ({@code manuscript.chapter_notes}). */
+    public static final String COMMENT_ANCHOR = "commentAnchor";
 
     /**
      * Menção a algo do universo, digitada com "@" (§4.1 do produto): {@code id} (UUID), {@code kind} (character,
@@ -332,6 +335,14 @@ public final class ManuscriptDocument {
                 String mark = type(marks.get(i));
                 if (mark == null || !MARKS.contains(mark)) {
                     throw invalid("formatação \"%s\" não permitida".formatted(mark));
+                }
+                if (COMMENT_ANCHOR.equals(mark)) {
+                    JsonNode attrs = marks.get(i).get("attrs");
+                    JsonNode thread = attrs == null ? null : attrs.get("threadId");
+                    if (thread == null || !thread.isString() || !UUID_TEXT.matcher(thread.stringValue()).matches()
+                            || attrs.size() != 1) {
+                        throw invalid("nota com marca inválida");
+                    }
                 }
             }
         }

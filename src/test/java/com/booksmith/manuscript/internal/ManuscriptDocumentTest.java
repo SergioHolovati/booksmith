@@ -44,6 +44,19 @@ class ManuscriptDocumentTest {
     }
 
     @Test
+    void noteAnchorNeedsOnlyAThreadIdThatIsAUuid() {
+        String ok = """
+                {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
+                  {"type":"text","marks":[{"type":"commentAnchor","attrs":{"threadId":"0196f000-0000-7000-8000-00003f9a2c71"}}],"text":"a guerra"}]}]}""";
+        assertThat(ManuscriptDocument.parse(json(ok), mapper).plainText()).isEqualTo("a guerra");
+
+        String noId = ok.replace("\"attrs\":{\"threadId\":\"0196f000-0000-7000-8000-00003f9a2c71\"}", "\"attrs\":{}");
+        String extra = ok.replace("\"threadId\"", "\"color\":\"red\",\"threadId\"");
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(noId), mapper)).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(extra), mapper)).isInstanceOf(ApiException.class);
+    }
+
+    @Test
     void invalidMentionIsRefused() {
         for (String attrs : new String[]{
                 "{\"id\":\"nao-e-uuid\",\"kind\":\"character\",\"label\":\"Lia\"}",

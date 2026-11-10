@@ -25,6 +25,7 @@ class BooksDataContributor implements PersonalDataContributor {
 
     private final BookRepository bookRepository;
     private final ChapterRepository chapterRepository;
+    private final ChapterNoteRepository noteRepository;
     private final ImageStorage imageStorage;
     private final JsonMapper jsonMapper;
 
@@ -50,7 +51,11 @@ class BooksDataContributor implements PersonalDataContributor {
             }
             List<ChapterData> chapterData = chapters.stream()
                     .map(c -> new ChapterData(c.getId(), c.getPosition(), c.getTitle(), c.getWordCount(),
-                            c.getUpdatedAt(), jsonMapper.readTree(c.getContent())))
+                            c.getUpdatedAt(), jsonMapper.readTree(c.getContent()),
+                            noteRepository.findAllByChapterIdOrderByCreatedAtAsc(c.getId()).stream()
+                                    .map(n -> new NoteData(n.getId(), n.getQuote(), n.getBody(), n.isResolved(),
+                                            n.getCreatedAt()))
+                                    .toList()))
                     .toList();
             archive.json(folder + "livro.json", new BookData(book.getId(), book.getTitle(), book.getSynopsis(),
                     book.getKind() == null ? null : book.getKind().name(), book.getFandom(),
@@ -72,8 +77,15 @@ class BooksDataContributor implements PersonalDataContributor {
         return text.toString();
     }
 
-    /** {@code document}: JSON ProseMirror do capítulo, o formato do editor. */
-    record ChapterData(UUID id, int position, String title, int wordCount, Instant updatedAt, JsonNode document) {
+    /**
+     * {@code document}: JSON ProseMirror do capítulo, o formato do editor. {@code notes}: as notas do autor; o
+     * trecho de cada uma tem a marca commentAnchor com o mesmo id no documento.
+     */
+    record ChapterData(UUID id, int position, String title, int wordCount, Instant updatedAt, JsonNode document,
+                       List<NoteData> notes) {
+    }
+
+    record NoteData(UUID id, String quote, String body, boolean resolved, Instant createdAt) {
     }
 
     /** {@code cover}: nome do arquivo da capa na pasta do livro. */
