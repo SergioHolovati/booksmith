@@ -102,7 +102,7 @@ final class BookHtml {
                 html.append("<br/>");
                 continue;
             }
-            JsonNode text = node.get("text");
+            JsonNode text = textOf(node);
             if (text == null) {
                 continue;
             }
@@ -115,6 +115,15 @@ final class BookHtml {
                 html.append("</").append(tag(marks.get(i))).append('>');
             }
         }
+    }
+
+    /** Texto do nó; a menção ("@Lia") sai só com o nome, como texto comum. */
+    static JsonNode textOf(JsonNode node) {
+        JsonNode text = node.get("text");
+        if (text == null && "mention".equals(type(node)) && node.get("attrs") != null) {
+            return node.get("attrs").get("label");
+        }
+        return text;
     }
 
     private static List<String> marks(JsonNode node) {

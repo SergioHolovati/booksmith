@@ -65,6 +65,17 @@ class ExportWritersTest {
     }
 
     @Test
+    void mentionIsExportedAsPlainName() {
+        var chapter = JSON.readTree("""
+                {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
+                  {"type":"text","text":"Então "},
+                  {"type":"mention","attrs":{"id":"0196f000-0000-7000-8000-00003f9a2c71","kind":"character","label":"Lia"}},
+                  {"type":"text","text":" sorriu."}]}]}""");
+
+        assertThat(BookHtml.body(chapter)).contains("Então Lia sorriu.").doesNotContain("mention");
+    }
+
+    @Test
     void untitledChapterGetsItsNumber() {
         assertThat(BookHtml.chapterTitle("  ", 2)).isEqualTo("Capítulo 2");
         assertThat(BookHtml.chapterTitle(" O Encontro ", 1)).isEqualTo("O Encontro");

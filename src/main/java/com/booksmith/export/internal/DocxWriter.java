@@ -165,7 +165,7 @@ final class DocxWriter {
                 runs.append("<w:r><w:br/></w:r>");
                 continue;
             }
-            JsonNode text = node.get("text");
+            JsonNode text = BookHtml.textOf(node);
             if (text == null) {
                 continue;
             }

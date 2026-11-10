@@ -34,6 +34,15 @@ public final class ManuscriptDocument {
 
     private static final Set<String> MARKS = Set.of("bold", "italic", "underline", "strike");
 
+    /**
+     * Menção a algo do universo, digitada com "@" (§4.1 do produto): {@code id} (UUID), {@code kind} (character,
+     * place ou lore) e {@code label} (o nome, que vale como texto: conta palavra e sai na exportação).
+     */
+    public static final String MENTION = "mention";
+    private static final Set<String> MENTION_KINDS = Set.of("character", "place", "lore");
+    private static final int MAX_MENTION_LABEL = 120;
+    private static final Pattern UUID_TEXT = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+
     /** Atributos permitidos por tipo de bloco. Todo bloco tem {@code id}. */
     private static final Map<String, Set<String>> BLOCK_ATTRS = Map.of(
             "paragraph", Set.of("id", "indent"),
@@ -277,10 +286,39 @@ public final class ManuscriptDocument {
                     }
                     marks(node.get("marks"));
                     text.append(value.stringValue());
+                } else if (MENTION.equals(type)) {
+                    text.append(mention(node));
                 } else {
                     throw invalid("elemento \"%s\" não permitido dentro do texto".formatted(type));
                 }
             }
+        }
+
+        /** Valida a menção e devolve o nome, que entra no texto do capítulo. */
+        private static String mention(JsonNode node) {
+            JsonNode attrs = node.get("attrs");
+            if (attrs == null || !attrs.isObject()) {
+                throw invalid("menção sem dados");
+            }
+            for (String name : attrs.propertyNames()) {
+                if (!Set.of("id", "kind", "label").contains(name)) {
+                    throw invalid("atributo \"%s\" não permitido na menção".formatted(name));
+                }
+            }
+            JsonNode id = attrs.get("id");
+            JsonNode kind = attrs.get("kind");
+            JsonNode label = attrs.get("label");
+            if (id == null || !id.isString() || !UUID_TEXT.matcher(id.stringValue()).matches()) {
+                throw invalid("menção com id inválido");
+            }
+            if (kind == null || !kind.isString() || !MENTION_KINDS.contains(kind.stringValue())) {
+                throw invalid("menção com tipo inválido");
+            }
+            if (label == null || !label.isString() || label.stringValue().isBlank()
+                    || label.stringValue().length() > MAX_MENTION_LABEL) {
+                throw invalid("menção sem nome");
+            }
+            return label.stringValue();
         }
 
         private void marks(JsonNode marks) {

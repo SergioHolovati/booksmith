@@ -33,6 +33,30 @@ class ManuscriptDocumentTest {
     }
 
     @Test
+    void mentionCountsAsTheNameInTextAndWords() {
+        var document = ManuscriptDocument.parse(json("""
+                {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
+                  {"type":"mention","attrs":{"id":"0196f000-0000-7000-8000-00003f9a2c71","kind":"character","label":"Lia Moreau"}},
+                  {"type":"text","text":" chegou ao porto."}]}]}"""), mapper);
+
+        assertThat(document.plainText()).isEqualTo("Lia Moreau chegou ao porto.");
+        assertThat(document.wordCount()).isEqualTo(5);
+    }
+
+    @Test
+    void invalidMentionIsRefused() {
+        for (String attrs : new String[]{
+                "{\"id\":\"nao-e-uuid\",\"kind\":\"character\",\"label\":\"Lia\"}",
+                "{\"id\":\"0196f000-0000-7000-8000-00003f9a2c71\",\"kind\":\"book\",\"label\":\"Lia\"}",
+                "{\"id\":\"0196f000-0000-7000-8000-00003f9a2c71\",\"kind\":\"place\",\"label\":\" \"}",
+                "{\"id\":\"0196f000-0000-7000-8000-00003f9a2c71\",\"kind\":\"place\",\"label\":\"Porto\",\"href\":\"x\"}"}) {
+            String doc = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"id\":\"b_p1\"},"
+                    + "\"content\":[{\"type\":\"mention\",\"attrs\":" + attrs + "}]}]}";
+            assertThatThrownBy(() -> ManuscriptDocument.parse(json(doc), mapper)).isInstanceOf(ApiException.class);
+        }
+    }
+
+    @Test
     void sameContentProducesSameHash() {
         String doc = """
                 {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_1234"},"content":[{"type":"text","text":"oi"}]}]}""";

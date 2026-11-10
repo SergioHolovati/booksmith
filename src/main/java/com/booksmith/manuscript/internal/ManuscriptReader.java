@@ -78,6 +78,9 @@ class ManuscriptReader implements Manuscripts {
             if (content != null) {
                 for (JsonNode inline : content) {
                     JsonNode value = inline.get("text");
+                    if (value == null && inline.get("attrs") != null && inline.get("attrs").get("label") != null) {
+                        value = inline.get("attrs").get("label"); // menção: o nome do personagem ou lugar
+                    }
                     text.append(value != null ? value.stringValue() : " ");
                 }
             }
