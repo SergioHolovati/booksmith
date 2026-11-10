@@ -74,7 +74,7 @@ public class JwtTokenProvider {
             }
             return new RefreshCandidate(UUID.fromString(jwt.getSubject()), jwt);
         } catch (JWTVerificationException | IllegalArgumentException e) {
-            throw ApiException.unauthorized("Token inválido.");
+            throw ApiException.unauthorized("Token inválido.").causedBy(e);
         }
     }
 

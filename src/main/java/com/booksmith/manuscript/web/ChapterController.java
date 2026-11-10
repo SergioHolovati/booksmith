@@ -144,7 +144,7 @@ class ChapterController {
         try {
             return Long.parseLong(value);
         } catch (NumberFormatException e) {
-            throw ApiException.badRequest("if_match_invalid", "If-Match inválido.");
+            throw ApiException.badRequest("if_match_invalid", "If-Match inválido.").causedBy(e);
         }
     }
 }

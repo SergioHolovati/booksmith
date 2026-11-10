@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Exceções do SpotBugs, cada uma com o motivo, revisadas em 2026-11-10 (triagem completa no relatório de saúde
+  do código, arquitetura §27.4). Só falsos positivos conhecidos; nunca para "calar" um achado real. Exceção por
+  classe sempre que possível: código novo continua sendo verificado.
+-->
+<FindBugsFilter>
+    <!--
+      EI_EXPOSE_REP / EI_EXPOSE_REP2: getters e construtores gerados pelo Lombok e records com List. Nas entidades
+      JPA e nos DTOs é o esperado (o Hibernate gerencia as coleções; copiar a cada acesso quebraria o rastreamento).
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <!-- CT_CONSTRUCTOR_THROW: o ataque (finalizer em subclasse) não se aplica a beans do Spring. -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+    <!--
+      VA_FORMAT_STRING_USES_NEWLINE: "\n" em String.format. Geramos XML, XHTML e texto para arquivos (ePub, Word,
+      .txt), onde a quebra tem de ser \n em qualquer sistema; %n daria \r\n no Windows.
+    -->
+    <Match>
+        <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE"/>
+    </Match>
+    <!--
+      CRLF_INJECTION_LOGS: neutralizado para todo o sistema no padrão de log (application.yaml, %replace tira \r\n
+      da mensagem). Na triagem, os logs apontados só registravam ids, números e tipos.
+    -->
+    <Match>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <!--
+      UNVALIDATED_REDIRECT: o destino é booksmith.security.frontend-url (configuração do servidor) mais um caminho
+      fixo; nada vem da requisição, então não há redirecionamento aberto.
+    -->
+    <Match>
+        <Bug pattern="UNVALIDATED_REDIRECT"/>
+        <Or>
+            <Class name="com.booksmith.identity.internal.security.OAuth2SuccessHandler"/>
+            <Class name="~com\.booksmith\.identity\.internal\.security\.SecurityConfig.*"/>
+        </Or>
+    </Match>
+    <!--
+      REDOS: [\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)* exige um separador entre as repetições, então não há caminhos
+      ambíguos (o padrão que causa retrocesso exponencial).
+    -->
+    <Match>
+        <Bug pattern="REDOS"/>
+        <Or>
+            <Class name="com.booksmith.continuity.internal.TextScan"/>
+            <Class name="com.booksmith.manuscript.internal.ManuscriptDocument"/>
+        </Or>
+    </Match>
+    <!--
+      HRS_REQUEST_PARAMETER_TO_HTTP_HEADER: o trace id só volta no cabeçalho depois de validado contra
+      [A-Za-z0-9-]{8,64}, que não admite \r nem \n.
+    -->
+    <Match>
+        <Bug pattern="HRS_REQUEST_PARAMETER_TO_HTTP_HEADER"/>
+        <Class name="com.booksmith.common.web.RequestTraceFilter"/>
+    </Match>
+    <!--
+      POTENTIAL_XML_INJECTION: o XML do Word e do ePub junta texto do autor sempre por escape() (BookHtml.escape,
+      escapedRun) e o resto é constante do código ou gerado pelo servidor (tipo e extensão da imagem detectados
+      pelos bytes). Há teste com "&" no texto (ExportWritersTest).
+    -->
+    <Match>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+        <Or>
+            <Class name="com.booksmith.export.internal.DocxWriter"/>
+            <Class name="com.booksmith.export.internal.EpubWriter"/>
+        </Or>
+    </Match>
+    <!-- NP_BOOLEAN_RETURN_NULL: Boolean de três estados de propósito (null = o estilo não define; herda do pai). -->
+    <Match>
+        <Bug pattern="NP_BOOLEAN_RETURN_NULL"/>
+        <Class name="com.booksmith.manuscript.internal.OdtReader$Styles"/>
+    </Match>
+</FindBugsFilter>

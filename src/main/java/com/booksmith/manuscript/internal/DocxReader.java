@@ -33,8 +33,6 @@ final class DocxReader {
     static final String W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private static final String MC = "http://schemas.openxmlformats.org/markup-compatibility/2006";
 
-    private static final long MAX_PART_BYTES = 64L * 1024 * 1024;
-    private static final int MAX_ENTRIES = 5_000;
     private static final Pattern HEADING_NAME = Pattern.compile("heading ([1-9])");
 
     /** Elementos cujo conteúdo não é texto do livro. */
@@ -254,7 +252,7 @@ final class DocxReader {
                     }
                 }
             } catch (XMLStreamException e) {
-                throw notDocx();
+                throw notDocx().causedBy(e);
             }
             return new Result(List.copyOf(paragraphs), images, tables, footnotes);
         }

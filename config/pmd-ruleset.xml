@@ -1,0 +1,154 @@
+<?xml version="1.0"?>
+<!--
+  Regras de saúde do código (PMD) do Booksmith: verbosidade, complexidade, código morto e erros comuns.
+  De propósito NÃO inclui regras de gosto (nome de variável, ordem de modificadores, "final" em tudo): regra que
+  gera barulho acaba ignorada. Para mudar um limite, ajuste aqui e diga o porquê no comentário.
+-->
+<ruleset name="booksmith"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>Saúde do código do Booksmith</description>
+
+    <!--
+      Prioridade 2 = bloqueia o build (objetivo e fácil de manter em zero).
+      Prioridade 3 = só relatório (complexidade, classe grande): mostra onde refatorar aos poucos.
+      O build quebra em prioridade <= 2 (failurePriority no pom).
+    -->
+
+    <!-- ===== Código morto e verbosidade ===== -->
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateField">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/UnusedLocalVariable">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/UnusedAssignment">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/codestyle.xml/UnnecessaryImport">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/codestyle.xml/UnnecessaryFullyQualifiedName">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/codestyle.xml/UnnecessaryLocalBeforeReturn">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/codestyle.xml/UnnecessaryModifier">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/codestyle.xml/UnnecessaryReturn">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/codestyle.xml/UselessParentheses">
+        <priority>3</priority>
+    </rule>
+    <rule ref="category/java/design.xml/SimplifyBooleanReturns">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/design.xml/SimplifiedTernary">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/design.xml/CollapsibleIfStatements">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/design.xml/UselessOverridingMethod">
+        <priority>2</priority>
+    </rule>
+
+    <!-- ===== Complexidade: método difícil de ler é onde mora o bug ===== -->
+    <rule ref="category/java/design.xml/CognitiveComplexity">
+        <priority>3</priority>
+        <properties>
+            <!-- 15 é o padrão do Sonar; acima disso, quebrar em métodos com nome -->
+            <property name="reportLevel" value="15"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/design.xml/CyclomaticComplexity">
+        <priority>3</priority>
+        <properties>
+            <property name="methodReportLevel" value="15"/>
+            <property name="classReportLevel" value="200"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/design.xml/NPathComplexity">
+        <priority>3</priority>
+    </rule>
+    <rule ref="category/java/design.xml/AvoidDeeplyNestedIfStmts">
+        <priority>3</priority>
+        <properties>
+            <property name="problemDepth" value="4"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/design.xml/ExcessiveParameterList">
+        <priority>3</priority>
+        <properties>
+            <!-- Records de resposta têm muitos campos de propósito: o limite vale para métodos -->
+            <property name="minimum" value="8"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/design.xml/GodClass">
+        <priority>3</priority>
+    </rule>
+
+    <!-- ===== Erros comuns ===== -->
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
+        <priority>2</priority>
+        <properties>
+            <!-- catch vazio só com um comentário explicando por que é seguro ignorar -->
+            <property name="allowCommentedBlocks" value="true"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/errorprone.xml/CompareObjectsWithEquals">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/errorprone.xml/ReturnEmptyCollectionRatherThanNull">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/errorprone.xml/AvoidCatchingNPE">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/errorprone.xml/AvoidLiteralsInIfCondition">
+        <priority>3</priority>
+        <properties>
+            <property name="ignoreMagicNumbers" value="-1,0,1,2"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/errorprone.xml/CloseResource">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/errorprone.xml/EqualsNull">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/errorprone.xml/ImplicitSwitchFallThrough">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/errorprone.xml/AvoidBranchingStatementAsLastInLoop">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/PreserveStackTrace">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/AvoidPrintStackTrace">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/SystemPrintln">
+        <priority>2</priority>
+    </rule>
+
+    <!-- ===== Segurança básica (o SpotBugs + Find Security Bugs cobre o resto) ===== -->
+    <rule ref="category/java/security.xml/HardCodedCryptoKey">
+        <priority>2</priority>
+    </rule>
+    <rule ref="category/java/security.xml/InsecureCryptoIv">
+        <priority>2</priority>
+    </rule>
+</ruleset>

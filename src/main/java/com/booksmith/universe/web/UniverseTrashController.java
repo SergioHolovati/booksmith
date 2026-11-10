@@ -37,7 +37,7 @@ class UniverseTrashController {
         try {
             itemType = ItemType.valueOf(type.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw ApiException.notFound("trash_item_not_found", "Este item não está mais na lixeira.");
+            throw ApiException.notFound("trash_item_not_found", "Este item não está mais na lixeira.").causedBy(e);
         }
         return trashService.restore(currentUser.id(), itemType, id);
     }

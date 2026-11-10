@@ -35,45 +35,22 @@ final class PlaceSheet {
 
     static ObjectNode normalize(JsonNode sheet, JsonMapper mapper) {
         ObjectNode result = mapper.createObjectNode();
-        if (sheet == null || sheet.isNull()) {
-            return result;
-        }
-        if (!sheet.isObject()) {
-            throw invalid("envie um objeto com os campos da ficha");
-        }
-        for (var entry : sheet.properties()) {
-            String key = entry.getKey();
-            Integer limit = FIELDS.get(key);
-            if (limit == null) {
-                throw invalid("campo \"%s\" desconhecido".formatted(key));
-            }
-            JsonNode value = entry.getValue();
-            if (value == null || value.isNull()) {
-                continue;
-            }
-            if (!value.isString()) {
-                throw invalid("\"%s\" precisa ser texto".formatted(key));
-            }
-            String text = value.stringValue().strip();
-            if (text.isEmpty()) {
-                continue;
-            }
-            if (text.length() > limit) {
-                throw invalid("\"%s\" passou de %d caracteres".formatted(key, limit));
-            }
+        SheetText.read(sheet, FIELDS, PlaceSheet::invalid).forEach((key, text) -> {
             if (key.equals("type") && !TYPES.contains(text)) {
                 throw invalid("tipo de lugar \"%s\" não existe".formatted(text));
             }
-            if (key.equals("parentId")) {
-                try {
-                    text = UUID.fromString(text).toString();
-                } catch (IllegalArgumentException e) {
-                    throw invalid("\"dentro de\" precisa ser um lugar deste universo");
-                }
-            }
-            result.put(key, text);
-        }
+            result.put(key, key.equals("parentId") ? parentId(text) : text);
+        });
         return result;
+    }
+
+    /** "Dentro de": o id de outro lugar, em forma canônica. */
+    private static String parentId(String text) {
+        try {
+            return UUID.fromString(text).toString();
+        } catch (IllegalArgumentException e) {
+            throw invalid("\"dentro de\" precisa ser um lugar deste universo").causedBy(e);
+        }
     }
 
     static ApiException invalid(String reason) {

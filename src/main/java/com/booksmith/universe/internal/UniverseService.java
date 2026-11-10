@@ -123,8 +123,8 @@ public class UniverseService implements Universes {
 
     @Override
     @Transactional(readOnly = true)
-    public java.util.Set<String> vocabulary(UUID universeId) {
-        java.util.Set<String> words = new java.util.LinkedHashSet<>();
+    public Set<String> vocabulary(UUID universeId) {
+        Set<String> words = new java.util.LinkedHashSet<>();
         universeRepository.findById(universeId).ifPresent(u -> words.add(u.getName()));
         for (String kind : List.of(UniverseEntity.CHARACTER, UniverseEntity.PLACE, UniverseEntity.LORE)) {
             for (UniverseEntity entity : entityRepository.findAllByUniverseIdAndKindAndDeletedAtIsNullOrderByNameAsc(universeId, kind)) {

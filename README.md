@@ -73,6 +73,14 @@ Outra pasta de backup: defina `BOOKSMITH_BACKUP_DIR` (ex.: uma pasta sincronizad
 .\mvnw.cmd test        # unitários + fronteiras dos módulos
 ```
 
+```powershell
+.\scripts\saude.ps1          # saúde do código: arquitetura, código limpo, segurança, dependências e segredos
+.\scripts\saude.ps1 -Rapido  # o mesmo, sem rodar os testes
+```
+
+Detalhes e regras em `arquitetura-tecnica.md` §27.4. O `mvnw verify` já roda ArchUnit, PMD, duplicação e SpotBugs
+e quebra o build em problema novo.
+
 Os testes de integração (API e app juntos, em Robot Framework) ficam em [`../booksmith-tests`](../booksmith-tests).
 O perfil `dev` usa limites de requisição folgados justamente para eles; staging e produção usam os limites
 reais (`RATE_LIMIT_AUTH_PER_MINUTE`, padrão 20).

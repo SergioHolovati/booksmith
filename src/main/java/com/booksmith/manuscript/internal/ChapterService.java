@@ -214,7 +214,7 @@ public class ChapterService {
         try {
             bookService.require(ownerId, chapter.getBookId());
         } catch (ApiException e) {
-            throw notFound();
+            throw notFound().causedBy(e);
         }
         return chapter;
     }

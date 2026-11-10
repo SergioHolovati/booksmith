@@ -27,6 +27,15 @@ public class ApiException extends RuntimeException {
         this.properties = properties;
     }
 
+    /**
+     * Guarda a exceção original como causa: aparece no log (para achar onde o erro começou), nunca na resposta ao
+     * cliente, que só vê o {@code code} e a mensagem.
+     */
+    public ApiException causedBy(Throwable cause) {
+        initCause(cause);
+        return this;
+    }
+
     public static ApiException notFound(String code, String message) {
         return new ApiException(HttpStatus.NOT_FOUND, code, message);
     }

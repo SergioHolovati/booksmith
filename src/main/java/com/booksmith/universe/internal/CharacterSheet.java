@@ -39,36 +39,12 @@ final class CharacterSheet {
 
     static ObjectNode normalize(JsonNode sheet, JsonMapper mapper) {
         ObjectNode result = mapper.createObjectNode();
-        if (sheet == null || sheet.isNull()) {
-            return result;
-        }
-        if (!sheet.isObject()) {
-            throw invalid("envie um objeto com os campos da ficha");
-        }
-        for (var entry : sheet.properties()) {
-            String key = entry.getKey();
-            Integer limit = FIELDS.get(key);
-            if (limit == null) {
-                throw invalid("campo \"%s\" desconhecido".formatted(key));
-            }
-            JsonNode value = entry.getValue();
-            if (value == null || value.isNull()) {
-                continue;
-            }
-            if (!value.isString()) {
-                throw invalid("\"%s\" precisa ser texto".formatted(key));
-            }
-            String text = value.stringValue().strip();
-            if (text.length() > limit) {
-                throw invalid("\"%s\" passou de %d caracteres".formatted(key, limit));
-            }
-            if (key.equals("role") && !text.isEmpty() && !ROLES.contains(text)) {
+        SheetText.read(sheet, FIELDS, CharacterSheet::invalid).forEach((key, text) -> {
+            if (key.equals("role") && !ROLES.contains(text)) {
                 throw invalid("papel \"%s\" não existe".formatted(text));
             }
-            if (!text.isEmpty()) {
-                result.put(key, text);
-            }
-        }
+            result.put(key, text);
+        });
         return result;
     }
 

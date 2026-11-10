@@ -36,7 +36,11 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException {
-        OAuth2User oauthUser = (OAuth2User) authentication.getPrincipal();
+        // Hoje só o Google entra por aqui; outro provedor (ou nenhum) volta para o login, em vez de erro 500
+        if (!(authentication.getPrincipal() instanceof OAuth2User oauthUser)) {
+            response.sendRedirect(properties.frontendUrl() + "/login?error=google");
+            return;
+        }
         String email = oauthUser.getAttribute("email");
 
         endHttpSession(request);

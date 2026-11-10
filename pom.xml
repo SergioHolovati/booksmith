@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.6</version>
+		<version>4.0.9</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.booksmith</groupId>
@@ -18,7 +18,16 @@
 		<java.version>25</java.version>
 		<commonmark.version>0.22.0</commonmark.version>
 		<lombok.version>1.18.42</lombok.version>
-		<spring-modulith.version>2.0.5</spring-modulith.version>
+		<spring-modulith.version>2.0.9</spring-modulith.version>
+		<!-- Saúde do código (scripts/saude.ps1). Versões conferidas no Maven Central em 2026-11-10 -->
+		<archunit.version>1.5.1</archunit.version>
+		<pmd-plugin.version>3.28.0</pmd-plugin.version>
+		<pmd.version>7.29.0</pmd.version>
+		<spotbugs-plugin.version>4.10.5.0</spotbugs-plugin.version>
+		<findsecbugs.version>1.14.0</findsecbugs.version>
+		<jacoco.version>0.8.16</jacoco.version>
+		<!-- true: PMD (prioridade 1-2) e SpotBugs quebram o build. false: só mede (relatório) -->
+		<saude.bloqueia>true</saude.bloqueia>
 	</properties>
 
 	<dependencyManagement>
@@ -29,6 +38,26 @@
 				<version>${spring-modulith.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
+			</dependency>
+			<!--
+			  Versões corrigidas de dependências indiretas com falha conhecida (OSV, 2026-11-10). Vêm pelo SDK do Resend
+			  (já na última versão): okio 3.2.0 e org.json 20250517 tinham vulnerabilidades. Remover quando o SDK
+			  trouxer versões novas sozinho (scripts/saude.ps1 avisa).
+			-->
+			<dependency>
+				<groupId>com.squareup.okio</groupId>
+				<artifactId>okio</artifactId>
+				<version>3.18.2</version>
+			</dependency>
+			<dependency>
+				<groupId>com.squareup.okio</groupId>
+				<artifactId>okio-jvm</artifactId>
+				<version>3.18.2</version>
+			</dependency>
+			<dependency>
+				<groupId>org.json</groupId>
+				<artifactId>json</artifactId>
+				<version>20260814</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -144,6 +173,13 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<!-- Regras de arquitetura além das fronteiras do Modulith (camadas, nomes, dependências) -->
+			<groupId>com.tngtech.archunit</groupId>
+			<artifactId>archunit-junit5</artifactId>
+			<version>${archunit.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.modulith</groupId>
 			<artifactId>spring-modulith-starter-test</artifactId>
 			<scope>test</scope>
@@ -175,6 +211,84 @@
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
+			</plugin>
+			<plugin>
+				<!-- Cobertura dos testes: target/site/jacoco/index.html -->
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco.version}</version>
+				<executions>
+					<execution>
+						<id>agente</id>
+						<goals><goal>prepare-agent</goal></goals>
+					</execution>
+					<execution>
+						<id>relatorio</id>
+						<phase>verify</phase>
+						<goals><goal>report</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!-- Verbosidade, complexidade, código morto e duplicado (config/pmd-ruleset.xml) -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-pmd-plugin</artifactId>
+				<version>${pmd-plugin.version}</version>
+				<dependencies>
+					<dependency>
+						<groupId>net.sourceforge.pmd</groupId>
+						<artifactId>pmd-java</artifactId>
+						<version>${pmd.version}</version>
+					</dependency>
+					<dependency>
+						<groupId>net.sourceforge.pmd</groupId>
+						<artifactId>pmd-core</artifactId>
+						<version>${pmd.version}</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<targetJdk>${java.version}</targetJdk>
+					<rulesets><ruleset>config/pmd-ruleset.xml</ruleset></rulesets>
+					<includeTests>false</includeTests>
+					<minimumTokens>100</minimumTokens>
+					<printFailingErrors>true</printFailingErrors>
+					<failOnViolation>${saude.bloqueia}</failOnViolation>
+					<!-- só prioridade 1 e 2 quebram o build; complexidade (3) vai para o relatório -->
+					<failurePriority>2</failurePriority>
+					<excludeRoots><excludeRoot>target/generated-sources</excludeRoot></excludeRoots>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>verify</phase>
+						<goals><goal>check</goal><goal>cpd-check</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!-- Bugs e falhas de segurança no bytecode: SpotBugs + Find Security Bugs (OWASP) -->
+				<groupId>com.github.spotbugs</groupId>
+				<artifactId>spotbugs-maven-plugin</artifactId>
+				<version>${spotbugs-plugin.version}</version>
+				<configuration>
+					<effort>Max</effort>
+					<threshold>Medium</threshold>
+					<excludeFilterFile>config/spotbugs-exclude.xml</excludeFilterFile>
+					<failOnError>${saude.bloqueia}</failOnError>
+					<xmlOutput>true</xmlOutput>
+					<plugins>
+						<plugin>
+							<groupId>com.h3xstream.findsecbugs</groupId>
+							<artifactId>findsecbugs-plugin</artifactId>
+							<version>${findsecbugs.version}</version>
+						</plugin>
+					</plugins>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>verify</phase>
+						<goals><goal>check</goal></goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

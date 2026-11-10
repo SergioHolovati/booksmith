@@ -101,7 +101,7 @@ class S3ImageStorage implements ImageStorage {
         try {
             return Base64.getDecoder().decode(base64.strip());
         } catch (IllegalArgumentException e) {
-            throw ApiException.unprocessable("image_invalid", "Não foi possível ler a imagem enviada.");
+            throw ApiException.unprocessable("image_invalid", "Não foi possível ler a imagem enviada.").causedBy(e);
         }
     }
 }

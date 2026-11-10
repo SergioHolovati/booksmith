@@ -54,7 +54,7 @@ public class TrashService {
         try {
             bookService.require(ownerId, chapter.getBookId());
         } catch (ApiException e) {
-            throw notFound(); // de outra pessoa, ou o livro também está na lixeira (restaure o livro)
+            throw notFound().causedBy(e); // de outra pessoa, ou o livro também está na lixeira (restaure o livro)
         }
         chapter.setPosition(chapterRepository.maxPosition(chapter.getBookId()) + 1);
         chapter.setDeletedAt(null);

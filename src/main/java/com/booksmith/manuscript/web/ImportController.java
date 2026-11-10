@@ -55,7 +55,7 @@ class ImportController {
         try {
             return file.getBytes();
         } catch (IOException e) {
-            throw ApiException.unprocessable("import_failed", "Não conseguimos receber o arquivo. Tente de novo.");
+            throw ApiException.unprocessable("import_failed", "Não conseguimos receber o arquivo. Tente de novo.").causedBy(e);
         }
     }
 }

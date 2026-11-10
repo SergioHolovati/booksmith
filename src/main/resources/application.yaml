@@ -57,7 +57,10 @@ management:
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} requestTraceId : %X{requestTraceId:-} - %msg%n"
+    # %replace tira quebras de linha da mensagem: um texto do usuário no log não consegue forjar linhas falsas
+    # (CRLF injection). A pilha de erro (%ex) continua em várias linhas, como deve.
+    # No YAML entre aspas duplas, \\r vira \r para o logback (a expressão [\r\n]+)
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} requestTraceId : %X{requestTraceId:-} - %replace(%msg){'[\\r\\n]+',' | '}%n"
 
 booksmith:
   # Corretor próprio (§8.5, etapa 2): o container spellcheck do docker-compose (LanguageTool)
@@ -94,11 +97,18 @@ spring:
     activate:
       on-profile: dev
 
+# Só saúde e informação, também em desenvolvimento: com "*", qualquer conta criada lia /actuator/env e
+# /actuator/beans (achado do Semgrep, 2026-11-10; os valores sensíveis vinham mascarados).
 management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: health,info
+
+# Em desenvolvimento a API só ouve o próprio PC: o celular chega pelo proxy do app (que roda no PC). Assim a
+# rede de casa não enxerga a API direto.
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
 
 booksmith:
   security:

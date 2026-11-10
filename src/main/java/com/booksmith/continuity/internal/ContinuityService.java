@@ -112,7 +112,7 @@ public class ContinuityService {
         try {
             manuscripts.requireOwned(ownerId, alert.getBookId());
         } catch (ApiException e) {
-            throw ApiException.notFound("alert_not_found", "Alerta não encontrado.");
+            throw ApiException.notFound("alert_not_found", "Alerta não encontrado.").causedBy(e);
         }
         alert.setStatus(status);
         alert.setResolvedAt(Alert.OPEN.equals(status) ? null : Instant.now(clock));

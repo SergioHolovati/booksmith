@@ -201,7 +201,7 @@ final class ChapterSplitter {
             if ("document_too_large".equals(e.getCode())) {
                 throw ApiException.unprocessable("import_chapter_too_large",
                         "O capítulo \"%s\" é grande demais para um capítulo só. Separe-o com títulos e importe de novo."
-                                .formatted(section.title));
+                                .formatted(section.title)).causedBy(e);
             }
             throw e;
         }

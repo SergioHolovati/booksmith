@@ -56,7 +56,7 @@ class LanguageToolClient {
         } catch (RestClientException e) {
             log.warn("Corretor fora do ar: {}", e.getMessage());
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "spellcheck_unavailable",
-                    "O corretor está indisponível agora. O do navegador continua funcionando.");
+                    "O corretor está indisponível agora. O do navegador continua funcionando.").causedBy(e);
         }
         List<Match> matches = new ArrayList<>();
         for (JsonNode m : jsonMapper.readTree(body).path("matches")) {

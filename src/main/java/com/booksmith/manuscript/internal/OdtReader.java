@@ -184,7 +184,7 @@ final class OdtReader {
                     }
                 }
             } catch (XMLStreamException e) {
-                throw invalid();
+                throw invalid().causedBy(e);
             }
             return new Result(List.copyOf(paragraphs), images, tables, footnotes);
         }

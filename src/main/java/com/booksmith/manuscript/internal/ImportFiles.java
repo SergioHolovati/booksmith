@@ -48,7 +48,7 @@ final class ImportFiles {
                 }
             }
         } catch (IOException e) {
-            throw invalid.get();
+            throw invalid.get().causedBy(e);
         }
         return parts;
     }

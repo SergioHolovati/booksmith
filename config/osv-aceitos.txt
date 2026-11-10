@@ -1,0 +1,13 @@
+# Vulnerabilidades conhecidas ACEITAS, com o motivo (revisadas em 2026-11-10).
+# Formato: ecossistema nome@versão | motivo. Uma versão nova do pacote deixa de casar: volta a ser avisada.
+# Só entra aqui o que não roda no servidor nem no navegador de quem usa o Booksmith.
+
+Maven org.apache.httpcomponents.core5:httpcore5@5.3.6 | só nos testes, pelo EpubCheck (validador do ePub)
+Maven org.apache.httpcomponents.core5:httpcore5-h2@5.3.6 | só nos testes, pelo EpubCheck
+Maven org.apache.httpcomponents.client5:httpclient5@5.5.2 | só nos testes, pelo EpubCheck
+Maven com.google.guava:guava@33.4.8-jre | só nos testes, pelo EpubCheck
+npm vitest@4.1.6 | executor de testes do app; a correção exige a versão 5 (troca de executor)
+npm @vitest/mocker@4.1.6 | idem, parte do Vitest
+npm minimatch@10.2.6 | ferramenta de build (Angular CLI); correção só na versão principal 11
+npm glob@13.0.7 | ferramenta de build (Angular CLI); correção só na versão principal 14
+npm esbuild@0.27.3 | compilador do build, versão fixada pelo @angular/build 21

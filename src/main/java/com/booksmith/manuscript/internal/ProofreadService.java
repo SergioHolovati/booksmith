@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -87,9 +88,9 @@ public class ProofreadService {
         Map<String, List<Issue>> byBlock = new LinkedHashMap<>();
         List<BlockText> missing = new ArrayList<>();
         for (BlockText block : blocks) {
-            List<Issue> cached = cached(language, block.text());
-            if (cached != null) {
-                byBlock.put(block.id(), cached);
+            Optional<List<Issue>> cached = cached(language, block.text());
+            if (cached.isPresent()) {
+                byBlock.put(block.id(), cached.get());
             } else if (block.text().isBlank()) {
                 byBlock.put(block.id(), List.of());
             } else {
@@ -215,12 +216,14 @@ public class ProofreadService {
         return Normalizer.normalize(word.strip(), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 
-    private List<Issue> cached(String language, String text) {
+    /** Erros já guardados para este texto; vazio quando não há cache (ou o Redis falhou: corrige de novo). */
+    private Optional<List<Issue>> cached(String language, String text) {
         try {
             String json = redis.opsForValue().get(key(language, text));
-            return json == null ? null : jsonMapper.readValue(json, new TypeReference<List<Issue>>() { });
+            return json == null ? Optional.empty()
+                    : Optional.of(jsonMapper.readValue(json, new TypeReference<List<Issue>>() { }));
         } catch (RuntimeException e) {
-            return null; // sem cache, corrige de novo
+            return Optional.empty();
         }
     }
 

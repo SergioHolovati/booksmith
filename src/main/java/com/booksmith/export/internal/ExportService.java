@@ -81,7 +81,7 @@ public class ExportService {
                     continue;
                 }
                 try {
-                    universes.imageUrl(content.universeId(), java.util.UUID.fromString(id))
+                    universes.imageUrl(content.universeId(), UUID.fromString(id))
                             .flatMap(imageStorage::read)
                             .ifPresent(image -> images.put(id, image));
                 } catch (IllegalArgumentException e) {
