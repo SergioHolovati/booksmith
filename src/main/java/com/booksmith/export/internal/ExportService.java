@@ -5,6 +5,7 @@ import com.booksmith.common.text.SlugUtils;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.api.Manuscripts.BookContent;
 import com.booksmith.media.api.ImageStorage;
+import com.booksmith.universe.api.Universes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ExportService {
 
     private final Manuscripts manuscripts;
     private final ImageStorage imageStorage;
+    private final Universes universes;
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
@@ -63,7 +65,30 @@ public class ExportService {
                 : null;
         var cover = content.coverUrl() == null ? null : imageStorage.read(content.coverUrl()).orElse(null);
         return new ExportBook(content.bookId(), content.title().strip(), author, content.language(),
-                content.synopsis(), fandom, cover, Instant.now(clock), chapters);
+                content.synopsis(), fandom, cover, Instant.now(clock), chapters, illustrations(content, chapters));
+    }
+
+    /** Imagens das ilustrações, lidas uma vez cada; a que saiu da biblioteca (ou do universo) fica de fora. */
+    private java.util.Map<String, ImageStorage.ImageData> illustrations(BookContent content, List<ExportBook.Chapter> chapters) {
+        java.util.Map<String, ImageStorage.ImageData> images = new java.util.LinkedHashMap<>();
+        if (content.universeId() == null) {
+            return images;
+        }
+        for (ExportBook.Chapter chapter : chapters) {
+            for (String id : BookHtml.illustrationIds(chapter.document())) {
+                if (images.containsKey(id)) {
+                    continue;
+                }
+                try {
+                    universes.imageUrl(content.universeId(), java.util.UUID.fromString(id))
+                            .flatMap(imageStorage::read)
+                            .ifPresent(image -> images.put(id, image));
+                } catch (IllegalArgumentException e) {
+                    log.debug("Ilustração com id inválido: {}", id);
+                }
+            }
+        }
+        return images;
     }
 
     /** "A Conversão" → "a-conversao.epub". */

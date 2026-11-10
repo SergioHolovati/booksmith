@@ -17,11 +17,40 @@ final class BookHtml {
     private BookHtml() {
     }
 
-    /** O corpo do capítulo (sem o título), como fragmento XHTML. */
+    /** O corpo do capítulo (sem o título), como fragmento XHTML. Ilustração sai só com a legenda. */
     static String body(JsonNode document) {
+        return body(document, id -> null);
+    }
+
+    /** Idem, com o endereço de cada ilustração: {@code src(imageId)}, ou null quando a imagem não pode ir. */
+    static String body(JsonNode document, java.util.function.Function<String, String> src) {
         StringBuilder html = new StringBuilder();
-        children(document, html);
+        IMAGE_SRC.set(src);
+        try {
+            children(document, html);
+        } finally {
+            IMAGE_SRC.remove();
+        }
         return html.toString();
+    }
+
+    private static final ThreadLocal<java.util.function.Function<String, String>> IMAGE_SRC = new ThreadLocal<>();
+
+    /** Ids das imagens das ilustrações do documento, na ordem. */
+    static List<String> illustrationIds(JsonNode node) {
+        List<String> ids = new java.util.ArrayList<>();
+        collectIllustrations(node, ids);
+        return ids;
+    }
+
+    private static void collectIllustrations(JsonNode node, List<String> ids) {
+        if ("illustration".equals(type(node)) && node.get("attrs") != null && node.get("attrs").get("imageId") != null) {
+            ids.add(node.get("attrs").get("imageId").stringValue());
+        }
+        JsonNode content = node.get("content");
+        if (content != null) {
+            content.forEach(child -> collectIllustrations(child, ids));
+        }
     }
 
     /** O título que o leitor vê: o do capítulo ou, sem título, "Capítulo N". */
@@ -55,6 +84,7 @@ final class BookHtml {
                 html.append("</blockquote>\n");
             }
             case "sceneBreak" -> html.append("<p class=\"scene-break\">* * *</p>\n");
+            case "illustration" -> illustration(node, html);
             case "bulletList" -> list(node, "ul", html);
             case "orderedList" -> list(node, "ol", html);
             case "listItem" -> {
@@ -64,6 +94,26 @@ final class BookHtml {
             }
             default -> children(node, html);
         }
+    }
+
+    private static void illustration(JsonNode node, StringBuilder html) {
+        JsonNode attrs = node.get("attrs");
+        String imageId = attrs.get("imageId").stringValue();
+        String caption = attrs.get("caption") == null || attrs.get("caption").isNull() ? "" : attrs.get("caption").stringValue().strip();
+        var src = IMAGE_SRC.get();
+        String url = src == null ? null : src.apply(imageId);
+        if (url == null && caption.isEmpty()) {
+            return; // sem imagem e sem legenda, não sobra nada para mostrar
+        }
+        html.append("<figure class=\"illustration\">");
+        if (url != null) {
+            html.append("<img src=\"").append(escape(url)).append("\" alt=\"")
+                    .append(escape(caption.isEmpty() ? "Ilustração" : caption)).append("\"/>");
+        }
+        if (!caption.isEmpty()) {
+            html.append("<figcaption>").append(escape(caption)).append("</figcaption>");
+        }
+        html.append("</figure>\n");
     }
 
     private static void paragraph(JsonNode node, StringBuilder html) {

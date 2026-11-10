@@ -59,12 +59,21 @@ final class EpubWriter {
                         <section epub:type="chapter" id="chapter-%d">
                         <h1>%s</h1>
                         %s</section>
-                        """.formatted(i + 1, escape(chapter.title()), chapter.html())));
+                        """.formatted(i + 1, escape(chapter.title()), chapter.html(id -> illustrationHref(book, id)))));
+            }
+            for (var image : book.illustrations().entrySet()) {
+                entry(zip, "EPUB/" + illustrationHref(book, image.getKey()), image.getValue().bytes());
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
         return bytes.toByteArray();
+    }
+
+    /** "images/ill-<id>.png", ou null se a imagem não veio. */
+    static String illustrationHref(ExportBook book, String imageId) {
+        var image = book.illustrations().get(imageId);
+        return image == null ? null : "images/ill-" + imageId + "." + image.extension();
     }
 
     static String chapterFile(int index) {
@@ -85,6 +94,10 @@ final class EpubWriter {
                         <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>
                     """.formatted(book.cover().extension(), book.cover().contentType()));
             spine.append("    <itemref idref=\"cover\"/>\n");
+        }
+        for (var image : book.illustrations().entrySet()) {
+            manifest.append("    <item id=\"ill-%s\" href=\"%s\" media-type=\"%s\"/>\n"
+                    .formatted(image.getKey(), illustrationHref(book, image.getKey()), image.getValue().contentType()));
         }
         manifest.append("    <item id=\"title\" href=\"title.xhtml\" media-type=\"application/xhtml+xml\"/>\n");
         spine.append("    <itemref idref=\"title\"/>\n");
@@ -238,6 +251,9 @@ final class EpubWriter {
             h3, h4 { font-size: 1.1em; margin: 1.2em 0 .6em; }
             blockquote { margin: 1em 1.5em; font-style: italic; }
             blockquote em { font-style: normal; }
+            figure.illustration { margin: 1.5em 0; text-align: center; page-break-inside: avoid; }
+            figure.illustration img { max-width: 100%; max-height: 80vh; }
+            figure.illustration figcaption { font-size: .85em; font-style: italic; margin-top: .5em; text-align: center; }
             .cover { text-align: center; margin: 0; padding: 0; }
             .cover img { max-width: 100%; max-height: 100%; }
             .title-page { text-align: center; padding-top: 30%; }

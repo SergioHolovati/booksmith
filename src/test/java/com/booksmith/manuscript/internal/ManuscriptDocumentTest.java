@@ -57,6 +57,22 @@ class ManuscriptDocumentTest {
     }
 
     @Test
+    void illustrationNeedsAnImageAndIsNotText() {
+        String ok = """
+                {"type":"doc","content":[
+                  {"type":"paragraph","attrs":{"id":"b_p1"},"content":[{"type":"text","text":"Antes."}]},
+                  {"type":"illustration","attrs":{"id":"b_il","imageId":"0196f000-0000-7000-8000-00003f9a2c71","caption":"O mapa"}}]}""";
+        var document = ManuscriptDocument.parse(json(ok), mapper);
+        assertThat(document.plainText()).isEqualTo("Antes.");
+        assertThat(document.wordCount()).isEqualTo(1);
+
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("0196f000-0000-7000-8000-00003f9a2c71", "x")), mapper))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("\"O mapa\"", "\"" + "x".repeat(301) + "\"")), mapper))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
     void invalidMentionIsRefused() {
         for (String attrs : new String[]{
                 "{\"id\":\"nao-e-uuid\",\"kind\":\"character\",\"label\":\"Lia\"}",

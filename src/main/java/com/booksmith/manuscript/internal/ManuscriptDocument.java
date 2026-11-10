@@ -52,12 +52,14 @@ public final class ManuscriptDocument {
             "heading", Set.of("id", "level"),
             "blockquote", Set.of("id"),
             "sceneBreak", Set.of("id"),
+            "illustration", Set.of("id", "imageId", "caption"),
             "bulletList", Set.of("id"),
             "orderedList", Set.of("id", "start", "type"),
             "listItem", Set.of("id"));
 
     private static final Set<String> TOP_LEVEL_BLOCKS =
-            Set.of("paragraph", "heading", "blockquote", "sceneBreak", "bulletList", "orderedList");
+            Set.of("paragraph", "heading", "blockquote", "sceneBreak", "illustration", "bulletList", "orderedList");
+    static final int MAX_CAPTION = 300;
     private static final Set<String> LIST_ITEM_BLOCKS =
             Set.of("paragraph", "bulletList", "orderedList", "blockquote");
 
@@ -230,6 +232,22 @@ public final class ManuscriptDocument {
                         throw invalid("quebra de cena não tem conteúdo");
                     }
                     text.append("* * *\n");
+                }
+                case "illustration" -> {
+                    // Imagem da biblioteca do universo (§4.4): não é texto, não conta palavra
+                    if (content != null && !content.isNull() && !content.isEmpty()) {
+                        throw invalid("ilustração não tem conteúdo");
+                    }
+                    JsonNode attrs = node.get("attrs");
+                    JsonNode image = attrs.get("imageId");
+                    if (image == null || !image.isString() || !UUID_TEXT.matcher(image.stringValue()).matches()) {
+                        throw invalid("ilustração sem imagem");
+                    }
+                    JsonNode caption = attrs.get("caption");
+                    if (caption != null && !caption.isNull()
+                            && (!caption.isString() || caption.stringValue().length() > MAX_CAPTION)) {
+                        throw invalid("legenda da ilustração inválida (até %d caracteres)".formatted(MAX_CAPTION));
+                    }
                 }
                 case "blockquote" -> blocks(requireNonEmpty(content, type), TOP_LEVEL_BLOCKS, depth + 1);
                 case "bulletList", "orderedList" -> blocks(requireNonEmpty(content, type), Set.of("listItem"), depth + 1);

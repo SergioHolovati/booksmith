@@ -58,7 +58,7 @@ final class PdfWriter {
                     <section class="chapter" id="%s">
                     <h1>%s</h1>
                     %s</section>
-                    """.formatted(id, title, chapter.html()));
+                    """.formatted(id, title, chapter.html(imageId -> dataUri(book, imageId))));
         }
         String cover = "";
         if (book.cover() != null && COVER_TYPES.contains(book.cover().contentType())) {
@@ -91,6 +91,15 @@ final class PdfWriter {
                 </html>
                 """.formatted(book.language(), escape(book.title()), escape(book.author()), CSS, bookmarks, cover,
                 notice, toc, chapters, cover.isEmpty() ? "" : "@page :first { margin: 0; }");
+    }
+
+    /** Ilustração como data URI; WebP o motor de PDF não lê, então sai só a legenda. */
+    static String dataUri(ExportBook book, String imageId) {
+        var image = book.illustrations().get(imageId);
+        if (image == null || !COVER_TYPES.contains(image.contentType())) {
+            return null;
+        }
+        return "data:%s;base64,%s".formatted(image.contentType(), Base64.getEncoder().encodeToString(image.bytes()));
     }
 
     private static void font(PdfRendererBuilder builder, String file, int weight, FontStyle style) {
@@ -127,6 +136,9 @@ final class PdfWriter {
             h3, h4 { font-size: 11.5pt; margin: 5mm 0 2mm; }
             p { margin: 0; text-align: justify; orphans: 2; widows: 2; }
             p.indent { text-indent: 1.5em; }
+            figure.illustration { margin: 6mm 0; text-align: center; page-break-inside: avoid; }
+            figure.illustration img { max-width: 100%; max-height: 140mm; }
+            figure.illustration figcaption { font-size: 9.5pt; font-style: italic; margin-top: 2mm; text-align: center; }
             p.scene-break { text-align: center; margin: 4mm 0; letter-spacing: 2mm; }
             blockquote { margin: 3mm 8mm; font-style: italic; }
             blockquote em { font-style: normal; }

@@ -103,6 +103,12 @@ final class DocxWriter {
                 }
                 case "blockquote" -> blocks(child, "Quote", body);
                 case "sceneBreak" -> body.append(paragraph(style, "<w:jc w:val=\"center\"/>", escapedRun("* * *")));
+                case "illustration" -> {
+                    JsonNode caption = child.get("attrs") == null ? null : child.get("attrs").get("caption");
+                    String text = caption == null || caption.isNull() || caption.stringValue().isBlank()
+                            ? "[Ilustração]" : "[Ilustração: " + caption.stringValue().strip() + "]";
+                    body.append(paragraph(style, "<w:jc w:val=\"center\"/>", escapedRun(text)));
+                }
                 case "bulletList", "orderedList" -> blocks(child, style, body);
                 case "listItem" -> {
                     // Sem numeração automática do Word: o marcador vai como texto, simples e fiel

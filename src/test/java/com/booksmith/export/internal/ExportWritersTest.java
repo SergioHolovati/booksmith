@@ -111,6 +111,55 @@ class ExportWritersTest {
         assertThat(entries).contains("EPUB/images/cover.png", "EPUB/fan-notice.xhtml", "EPUB/chapter-002.xhtml");
     }
 
+    private static final String IMAGE_ID = "0196f000-0000-7000-8000-00003f9a2c71";
+
+    private static ExportBook illustrated(String contentType) {
+        String doc = """
+                {"type":"doc","content":[
+                  {"type":"paragraph","attrs":{"id":"b_p1"},"content":[{"type":"text","text":"Ela olhou o mapa."}]},
+                  {"type":"illustration","attrs":{"id":"b_il","imageId":"%s","caption":"O mapa de Vel"}},
+                  {"type":"illustration","attrs":{"id":"b_i2","imageId":"0196f000-0000-7000-8000-000000000000","caption":""}}
+                ]}""".formatted(IMAGE_ID);
+        return new ExportBook(UUID.randomUUID(), "A Conversão", "Sérgio Holovati", "pt-BR", null, null, null,
+                Instant.parse("2026-11-10T12:00:00Z"), List.of(new ExportBook.Chapter("O mapa", JSON.readTree(doc))),
+                java.util.Map.of(IMAGE_ID, new ImageData(PNG, contentType, contentType.endsWith("png") ? "png" : "webp")));
+    }
+
+    @Test
+    void illustrationGoesIntoTheEpubAndPassesEpubcheck(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(illustrated("image/png"));
+        Path file = dir.resolve("ilustrado.epub");
+        Files.write(file, epub);
+
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        assertThat(entries(epub)).contains("EPUB/images/ill-" + IMAGE_ID + ".png");
+        assertThat(entry(epub, "EPUB/chapter-001.xhtml"))
+                .contains("<img src=\"images/ill-" + IMAGE_ID + ".png\" alt=\"O mapa de Vel\"/>")
+                .contains("<figcaption>O mapa de Vel</figcaption>");
+    }
+
+    @Test
+    void illustrationWithoutImageOrCaptionDisappears() {
+        String html = illustrated("image/png").chapters().getFirst().html();
+        // Sem endereço de imagem: só a legenda; a segunda (sem imagem e sem legenda) some
+        assertThat(html).contains("<figcaption>O mapa de Vel</figcaption>").doesNotContain("<img").containsOnlyOnce("<figure");
+    }
+
+    @Test
+    void pdfEmbedsPngIllustrationsButNotWebp() {
+        assertThat(PdfWriter.dataUri(illustrated("image/png"), IMAGE_ID)).startsWith("data:image/png;base64,");
+        assertThat(PdfWriter.dataUri(illustrated("image/webp"), IMAGE_ID)).isNull();
+        assertThat(PdfWriter.write(illustrated("image/png"))).isNotEmpty();
+    }
+
+    @Test
+    void wordManuscriptGetsAPlaceholder() throws Exception {
+        String document = entry(DocxWriter.write(illustrated("image/png")), "word/document.xml");
+        assertThat(document).contains("[Ilustração: O mapa de Vel]").contains("[Ilustração]");
+    }
+
     @Test
     void epubWithoutCoverIsValidToo(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("livro.epub");

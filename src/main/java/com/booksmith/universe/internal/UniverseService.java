@@ -115,6 +115,14 @@ public class UniverseService implements Universes {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.Optional<String> imageUrl(UUID universeId, UUID imageId) {
+        return imageRepository.findByIdAndDeletedAtIsNull(imageId)
+                .filter(image -> image.getUniverseId().equals(universeId))
+                .map(UniverseImage::getUrl);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public java.util.Set<String> vocabulary(UUID universeId) {
         java.util.Set<String> words = new java.util.LinkedHashSet<>();
         universeRepository.findById(universeId).ifPresent(u -> words.add(u.getName()));

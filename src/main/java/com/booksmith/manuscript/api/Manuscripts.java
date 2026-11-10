@@ -31,7 +31,7 @@ public interface Manuscripts {
 
     /** {@code language} é a tag BCP 47 (ex.: "pt-BR"); {@code fandom} só existe em fanfic. */
     record BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
-                       String coverUrl, List<ChapterContent> chapters) {
+                       String coverUrl, UUID universeId, List<ChapterContent> chapters) {
     }
 
     /** {@code document} é o JSON ProseMirror do capítulo, já validado contra o esquema (§8). */

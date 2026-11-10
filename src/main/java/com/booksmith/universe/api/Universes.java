@@ -30,6 +30,9 @@ public interface Universes {
      */
     java.util.Set<String> vocabulary(UUID universeId);
 
+    /** URL de uma imagem da biblioteca do universo (fora da lixeira), para a exportação embutir no livro. */
+    java.util.Optional<String> imageUrl(UUID universeId, UUID imageId);
+
     /** Personagens e lugares do universo, com nomes, outros nomes e (para personagens) a aparência. */
     List<KnownEntity> entities(UUID universeId);
 
