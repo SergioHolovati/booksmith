@@ -66,7 +66,8 @@ public class ExportService {
                 : null;
         var cover = content.coverUrl() == null ? null : imageStorage.read(content.coverUrl()).orElse(null);
         return new ExportBook(content.bookId(), content.title().strip(), author, content.language(),
-                content.synopsis(), fandom, cover, Instant.now(clock), chapters, illustrations(content, chapters));
+                content.synopsis(), fandom, cover, Instant.now(clock), chapters, illustrations(content, chapters),
+                content.pages() == null ? Manuscripts.BookPages.EMPTY : content.pages());
     }
 
     /** Imagens das ilustrações, lidas uma vez cada; a que saiu da biblioteca (ou do universo) fica de fora. */

@@ -2,6 +2,7 @@ package com.booksmith.manuscript.internal;
 
 import com.booksmith.common.error.ApiException;
 import com.booksmith.common.text.SlugUtils;
+import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.media.api.ImageCategory;
 import com.booksmith.media.api.ImageStorage;
 import com.booksmith.universe.api.Universes;
@@ -82,6 +83,14 @@ public class BookService {
             imageStorage.delete(previousCover);
         }
         return book;
+    }
+
+    /** Troca as páginas antes e depois da história (créditos, dedicatória...); vazio tira a página do livro. */
+    @Transactional
+    public Manuscripts.BookPages updatePages(UUID ownerId, UUID bookId, Manuscripts.BookPages pages) {
+        Book book = require(ownerId, bookId);
+        book.setPages(pages);
+        return book.pages();
     }
 
     /**

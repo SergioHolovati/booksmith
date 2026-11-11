@@ -207,6 +207,74 @@ class ExportWritersTest {
         assertThat(plan).containsExactly("Prólogo|", "O Encontro|Parte I — A partida", "A Estrada|", "O Retorno|Parte II — A volta");
     }
 
+    private static ExportBook withPages(String aboutTitle) {
+        ExportBook base = withParts();
+        var pages = new com.booksmith.manuscript.api.Manuscripts.BookPages(
+                "Copyright © 2026 Lia Moreno\r\nCapa: Ana & Bia", "  Para minha avó,\n\nque contava histórias.  ",
+                "Não há café sem conversa.", "Provérbio de Vel", "Obrigado a quem leu o primeiro rascunho.",
+                "Escreve à noite, com café.", aboutTitle);
+        return new ExportBook(base.id(), base.title(), base.author(), base.language(), null, null, null,
+                base.generatedAt(), base.chapters(), java.util.Map.of(), pages);
+    }
+
+    @Test
+    void bookPagesGoBeforeAndAfterTheStoryInTheEpub(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(withPages(null));
+        Path file = dir.resolve("paginas.epub");
+        Files.write(file, epub);
+
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        String opf = entry(epub, "EPUB/package.opf");
+        // Ordem de livro: rosto, créditos, dedicatória, epígrafe, capítulos, agradecimentos, sobre
+        assertThat(opf).containsSubsequence("idref=\"title\"", "idref=\"credits\"", "idref=\"dedication\"",
+                "idref=\"epigraph\"", "idref=\"chapter-1\"", "idref=\"chapter-4\"", "idref=\"acknowledgments\"",
+                "idref=\"about-author\"");
+        assertThat(entry(epub, "EPUB/credits.xhtml")).contains("<p>Copyright © 2026 Lia Moreno</p>\n<p>Capa: Ana &amp; Bia</p>");
+        assertThat(entry(epub, "EPUB/dedication.xhtml")).contains("<p>Para minha avó,</p>\n<p>que contava histórias.</p>");
+        assertThat(entry(epub, "EPUB/epigraph.xhtml")).contains("— Provérbio de Vel");
+        // Sem título escolhido, a página "sobre" leva o nome de quem escreveu; só ela e os agradecimentos vão ao sumário
+        String nav = entry(epub, "EPUB/nav.xhtml");
+        assertThat(nav).containsSubsequence("O Retorno", "Agradecimentos", "Sérgio Holovati").doesNotContain("Dedicatória");
+        assertThat(entry(epub, "EPUB/about-author.xhtml")).contains("<h1>Sérgio Holovati</h1>");
+    }
+
+    @Test
+    void bookPagesInThePdf() throws Exception {
+        byte[] pdf = PdfWriter.write(withPages("Sobre a autora"));
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            String text = new PDFTextStripper().getText(document);
+            assertThat(text).containsSubsequence("Capa: Ana & Bia", "Para minha avó,", "Não há café sem conversa.",
+                    "Sumário", "Sobre a autora", "Texto.", "Obrigado a quem leu", "Escreve à noite");
+            List<String> bookmarks = new ArrayList<>();
+            for (PDOutlineItem item : document.getDocumentCatalog().getDocumentOutline().children()) {
+                bookmarks.add(item.getTitle());
+            }
+            assertThat(bookmarks).endsWith("Agradecimentos", "Sobre a autora");
+        }
+    }
+
+    @Test
+    void wordBookPagesDoNotBecomeChaptersWhenImported() throws Exception {
+        byte[] docx = DocxWriter.write(withPages(null));
+        String document = entry(docx, "word/document.xml");
+        assertThat(document).contains("Para minha avó,").contains("<w:pStyle w:val=\"PosTextual\"/>")
+                .contains("Escreve à noite, com café.");
+
+        var plan = com.booksmith.manuscript.internal.ImportRoundTrip.plan(docx);
+
+        assertThat(plan).containsExactly("Prólogo|", "O Encontro|Parte I — A partida", "A Estrada|", "O Retorno|Parte II — A volta");
+    }
+
+    @Test
+    void emptyPagesAreLeftOut() {
+        var pages = new com.booksmith.manuscript.api.Manuscripts.BookPages(" ", "\n", null, "Sem epígrafe", null, null, "Título");
+        assertThat(pages).isEqualTo(com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY);
+        assertThat(BookPagesHtml.front(pages)).isEmpty();
+        assertThat(BookPagesHtml.back(pages, "Lia")).isEmpty();
+    }
+
     @Test
     void pdfWithPartsRenders() {
         assertThat(PdfWriter.html(withParts())).contains("class=\"part-page\"").contains("toc-part");

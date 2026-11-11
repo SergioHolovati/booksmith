@@ -24,12 +24,16 @@ final class ImportedText {
         }
     }
 
-    /** {@code part}: título de parte do livro (estilo "Parte" do Word que o Booksmith gera). */
+    /**
+     * {@code part}: título de parte do livro (estilo "Parte" do Word que o Booksmith gera). {@code backMatter}:
+     * título de página depois da história (agradecimentos, "sobre o autor", estilo "Pós-textual"); dali em diante
+     * não é texto de capítulo.
+     */
     record Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments,
-                     boolean part) {
+                     boolean part, boolean backMatter) {
 
         Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments) {
-            this(headingLevel, title, subtitle, indent, segments, false);
+            this(headingLevel, title, subtitle, indent, segments, false, false);
         }
 
         static Paragraph plain(boolean indent, String text) {

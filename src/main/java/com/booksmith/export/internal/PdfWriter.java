@@ -73,7 +73,16 @@ final class PdfWriter {
             cover = "<div class=\"cover\"><img src=\"data:%s;base64,%s\" alt=\"Capa\"/></div>\n"
                     .formatted(book.cover().contentType(), Base64.getEncoder().encodeToString(book.cover().bytes()));
         }
-        String notice = book.fanfic() ? "<div class=\"front\">" + EpubWriter.fanNotice(book) + "</div>\n" : "";
+        for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author())) {
+            String title = escape(extra.title());
+            bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(title, extra.id()));
+            toc.append("<li><a href=\"#%s\">%s</a></li>\n".formatted(extra.id(), title));
+            chapters.append("<div class=\"back\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()));
+        }
+        String notice = (book.fanfic() ? "<div class=\"front\">" + EpubWriter.fanNotice(book) + "</div>\n" : "")
+                + BookPagesHtml.front(book.pages()).stream()
+                .map(extra -> "<div class=\"front\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()))
+                .collect(java.util.stream.Collectors.joining());
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="%1$s" xml:lang="%1$s">
@@ -132,12 +141,22 @@ final class PdfWriter {
             .title-page { text-align: center; padding-top: 55mm; }
             .book-title { font-size: 22pt; line-height: 1.2; margin: 0 0 12mm; }
             .book-author { font-size: 13pt; margin: 0; }
+            .title-page p { text-align: center; }
             .toc h1 { margin-top: 10mm; }
             .toc ol { list-style: none; padding: 0; margin: 0; }
             .toc li { margin: 0 0 3mm; }
             .toc a { color: #1a1a1a; text-decoration: none; }
             .toc a::after { content: leader('.') target-counter(attr(href), page); }
             .front p { margin: 0 0 4mm; }
+            .credits { padding-top: 110mm; font-size: 9pt; }
+            .credits p { margin: 0 0 2mm; text-align: left; }
+            .dedication { padding-top: 50mm; margin-left: 35mm; font-style: italic; }
+            .dedication p, p.epigraph-source { text-align: right; }
+            .epigraph { padding-top: 50mm; margin-left: 30mm; }
+            .epigraph-text p { font-style: italic; text-align: left; margin: 0 0 2mm; }
+            p.epigraph-source { font-size: 10pt; }
+            .back { page: main; page-break-before: always; }
+            .back-page p { text-indent: 1.5em; margin: 0 0 1mm; }
             .chapter { page: main; page-break-before: always; }
             h1 { font-size: 17pt; font-weight: normal; text-align: center; margin: 25mm 0 12mm; }
             h2 { font-size: 13pt; margin: 6mm 0 3mm; }

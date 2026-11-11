@@ -31,7 +31,46 @@ public interface Manuscripts {
 
     /** {@code language} é a tag BCP 47 (ex.: "pt-BR"); {@code fandom} só existe em fanfic. */
     record BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
-                       String coverUrl, UUID universeId, List<ChapterContent> chapters) {
+                       String coverUrl, UUID universeId, List<ChapterContent> chapters, BookPages pages) {
+
+        public BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
+                           String coverUrl, UUID universeId, List<ChapterContent> chapters) {
+            this(bookId, title, synopsis, language, fanfic, fandom, coverUrl, universeId, chapters, BookPages.EMPTY);
+        }
+    }
+
+    /**
+     * As páginas antes e depois da história (§4.7 do produto), em texto simples: cada linha vira um parágrafo.
+     * Tudo opcional; null = a página não sai no livro.
+     *
+     * @param credits        verso da folha de rosto: direitos, capa, ilustrações, revisão
+     * @param epigraphSource   de quem é a epígrafe ("Clarice Lispector, A hora da estrela")
+     * @param aboutAuthorTitle título da página "sobre": "Sobre a autora", "Sobre mim"; null = o nome do autor
+     */
+    record BookPages(String credits, String dedication, String epigraph, String epigraphSource,
+                     String acknowledgments, String aboutAuthor, String aboutAuthorTitle) {
+
+        public static final BookPages EMPTY = new BookPages(null, null, null, null, null, null, null);
+
+        /** Texto limpo: sem espaços nas pontas, quebras de linha unificadas, vazio vira null. */
+        public BookPages {
+            credits = clean(credits);
+            dedication = clean(dedication);
+            epigraph = clean(epigraph);
+            epigraphSource = epigraph == null ? null : clean(epigraphSource);
+            acknowledgments = clean(acknowledgments);
+            aboutAuthor = clean(aboutAuthor);
+            aboutAuthorTitle = aboutAuthor == null || aboutAuthorTitle == null
+                    ? null : clean(aboutAuthorTitle.replace('\n', ' ').replace('\r', ' '));
+        }
+
+        private static String clean(String text) {
+            if (text == null) {
+                return null;
+            }
+            String normalized = text.replace("\r\n", "\n").replace('\r', '\n').strip();
+            return normalized.isEmpty() ? null : normalized;
+        }
     }
 
     /**

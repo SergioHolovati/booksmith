@@ -1,5 +1,6 @@
 package com.booksmith.manuscript.internal;
 
+import com.booksmith.manuscript.api.Manuscripts;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -62,6 +63,36 @@ public class Book {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BookStatus status;
+
+    // Páginas antes e depois da história (V21): texto simples, cada linha um parágrafo
+    private String credits;
+
+    private String dedication;
+
+    private String epigraph;
+
+    private String epigraphSource;
+
+    private String acknowledgments;
+
+    private String aboutAuthor;
+
+    private String aboutAuthorTitle;
+
+    public Manuscripts.BookPages pages() {
+        return new Manuscripts.BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
+                aboutAuthorTitle);
+    }
+
+    void setPages(Manuscripts.BookPages pages) {
+        credits = pages.credits();
+        dedication = pages.dedication();
+        epigraph = pages.epigraph();
+        epigraphSource = pages.epigraphSource();
+        acknowledgments = pages.acknowledgments();
+        aboutAuthor = pages.aboutAuthor();
+        aboutAuthorTitle = pages.aboutAuthorTitle();
+    }
 
     @CreationTimestamp
     private Instant createdAt;

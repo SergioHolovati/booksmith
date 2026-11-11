@@ -1,5 +1,6 @@
 package com.booksmith.manuscript.web;
 
+import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.Book;
 import com.booksmith.manuscript.internal.BookKind;
 import com.booksmith.manuscript.internal.BookLanguage;
@@ -58,14 +59,30 @@ final class ManuscriptDtos {
 
     record BookDetailResponse(UUID id, String title, String synopsis, BookKind kind, String fandom,
                               String language, String coverUrl, BookStatus status, UUID universeId, Instant createdAt,
-                              Instant updatedAt, List<ChapterSummary> chapters) {
+                              Instant updatedAt, List<ChapterSummary> chapters, Manuscripts.BookPages pages) {
 
         static BookDetailResponse from(BookService.BookDetail detail) {
             Book book = detail.book();
             return new BookDetailResponse(book.getId(), book.getTitle(), book.getSynopsis(), book.getKind(),
                     book.getFandom(), book.getLanguage().tag(), book.getCoverUrl(), book.getStatus(),
                     book.getUniverseId(), book.getCreatedAt(),
-                    book.getUpdatedAt(), detail.chapters().stream().map(ChapterSummary::from).toList());
+                    book.getUpdatedAt(), detail.chapters().stream().map(ChapterSummary::from).toList(), book.pages());
+        }
+    }
+
+    /** Páginas antes e depois da história; campo vazio ou ausente tira a página do livro. */
+    record BookPagesRequest(
+            @Size(max = 3000, message = "Os créditos passam de 3.000 caracteres.") String credits,
+            @Size(max = 2000, message = "A dedicatória passa de 2.000 caracteres.") String dedication,
+            @Size(max = 2000, message = "A epígrafe passa de 2.000 caracteres.") String epigraph,
+            @Size(max = 200, message = "O autor da epígrafe passa de 200 caracteres.") String epigraphSource,
+            @Size(max = 20000, message = "Os agradecimentos passam de 20.000 caracteres.") String acknowledgments,
+            @Size(max = 5000, message = "O \"sobre o autor\" passa de 5.000 caracteres.") String aboutAuthor,
+            @Size(max = 80, message = "O título da página sobre você passa de 80 caracteres.") String aboutAuthorTitle) {
+
+        Manuscripts.BookPages toPages() {
+            return new Manuscripts.BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
+                    aboutAuthorTitle);
         }
     }
 

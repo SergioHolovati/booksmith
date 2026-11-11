@@ -61,7 +61,7 @@ class BooksDataContributor implements PersonalDataContributor {
                     book.getKind() == null ? null : book.getKind().name(), book.getFandom(),
                     book.getLanguage() == null ? null : book.getLanguage().tag(),
                     book.getStatus() == null ? null : book.getStatus().name(), book.getUniverseId(), cover,
-                    book.getCreatedAt(), book.getUpdatedAt(), chapterData));
+                    book.getCreatedAt(), book.getUpdatedAt(), book.pages(), chapterData));
             archive.text(folder + "texto.txt", plainText(book, chapters));
         }
     }
@@ -88,8 +88,12 @@ class BooksDataContributor implements PersonalDataContributor {
     record NoteData(UUID id, String quote, String body, boolean resolved, Instant createdAt) {
     }
 
-    /** {@code cover}: nome do arquivo da capa na pasta do livro. */
+    /**
+     * {@code cover}: nome do arquivo da capa na pasta do livro. {@code pages}: créditos, dedicatória, epígrafe,
+     * agradecimentos e "sobre o autor".
+     */
     record BookData(UUID id, String title, String synopsis, String kind, String fandom, String language, String status,
-                    UUID universeId, String cover, Instant createdAt, Instant updatedAt, List<ChapterData> chapters) {
+                    UUID universeId, String cover, Instant createdAt, Instant updatedAt,
+                    com.booksmith.manuscript.api.Manuscripts.BookPages pages, List<ChapterData> chapters) {
     }
 }

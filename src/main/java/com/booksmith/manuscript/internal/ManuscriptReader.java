@@ -45,7 +45,8 @@ class ManuscriptReader implements Manuscripts {
                         chapter.getContent(), chapter.getPartTitle()))
                 .toList();
         return new BookContent(book.getId(), book.getTitle(), book.getSynopsis(), book.getLanguage().tag(),
-                book.getKind() == BookKind.FANFIC, book.getFandom(), book.getCoverUrl(), book.getUniverseId(), chapters);
+                book.getKind() == BookKind.FANFIC, book.getFandom(), book.getCoverUrl(), book.getUniverseId(), chapters,
+                book.pages());
     }
 
     @Override

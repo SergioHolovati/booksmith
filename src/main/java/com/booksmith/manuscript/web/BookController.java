@@ -2,8 +2,10 @@ package com.booksmith.manuscript.web;
 
 import com.booksmith.common.web.PageResponse;
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.BookService;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookDetailResponse;
+import com.booksmith.manuscript.web.ManuscriptDtos.BookPagesRequest;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookRequest;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookSummary;
 import jakarta.validation.Valid;
@@ -60,6 +62,12 @@ class BookController {
     BookDetailResponse update(@PathVariable UUID bookId, @RequestBody @Valid BookRequest request) {
         bookService.update(currentUser.id(), bookId, request.toData());
         return BookDetailResponse.from(bookService.get(currentUser.id(), bookId));
+    }
+
+    /** Créditos, dedicatória, epígrafe, agradecimentos e "sobre o autor" (saem no livro baixado). */
+    @PutMapping("/{bookId}/pages")
+    Manuscripts.BookPages updatePages(@PathVariable UUID bookId, @RequestBody @Valid BookPagesRequest request) {
+        return bookService.updatePages(currentUser.id(), bookId, request.toPages());
     }
 
     /** Entrar no universo de outro livro (série): ver {@link BookService#moveToUniverse}. */

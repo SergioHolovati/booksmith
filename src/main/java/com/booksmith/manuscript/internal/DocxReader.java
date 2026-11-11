@@ -76,7 +76,7 @@ final class DocxReader {
 
     /** O que importa de cada estilo: nível de título e formatação de estilos de caractere. */
     private record Style(int headingLevel, boolean title, boolean subtitle, Set<String> marks, String basedOn,
-                         boolean part) {
+                         boolean part, boolean backMatter) {
     }
 
     private record Styles(Map<String, Style> byId) {
@@ -139,7 +139,7 @@ final class DocxReader {
                 level = outline + 1;
             }
             return new Style(level, normalized.equals("title"), normalized.equals("subtitle"), Set.copyOf(marks), basedOn,
-                    normalized.equals("parte") || normalized.equals("part"));
+                    normalized.equals("parte") || normalized.equals("part"), normalized.equals("pós-textual"));
         }
 
         /** Nível de título do estilo, herdado do estilo base quando o próprio não define. */
@@ -165,6 +165,11 @@ final class DocxReader {
         boolean isPart(String styleId) {
             Style style = styleId == null ? null : byId.get(styleId);
             return style != null && style.part();
+        }
+
+        boolean isBackMatter(String styleId) {
+            Style style = styleId == null ? null : byId.get(styleId);
+            return style != null && style.backMatter();
         }
 
         boolean isTitle(String styleId) {
@@ -373,7 +378,7 @@ final class DocxReader {
             boolean indent = firstLineIndent || ImportedText.startsWithTab(cleaned);
             cleaned = ImportedText.trim(cleaned);
             paragraphs.add(new Paragraph(level, styles.isTitle(paragraphStyle), styles.isSubtitle(paragraphStyle), indent,
-                    cleaned, styles.isPart(paragraphStyle)));
+                    cleaned, styles.isPart(paragraphStyle), styles.isBackMatter(paragraphStyle)));
             segments = null;
         }
 

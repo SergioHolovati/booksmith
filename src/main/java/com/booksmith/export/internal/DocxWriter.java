@@ -65,12 +65,20 @@ final class DocxWriter {
                     + ". Os direitos sobre a obra original, seus personagens e seu universo pertencem aos seus criadores.")));
             body.append(paragraph("Subtitle", null, escapedRun("Cópia para uso pessoal, sem fins comerciais. Não pode ser vendida.")));
         }
+        frontPages(book.pages(), body);
         for (ExportBook.Chapter chapter : book.chapters()) {
             if (chapter.partTitle() != null) {
                 body.append(paragraph("Parte", null, escapedRun(chapter.partTitle())));
             }
             body.append(paragraph("Heading1", null, escapedRun(chapter.title())));
             blocks(chapter.document(), null, body);
+        }
+        for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author())) {
+            body.append(paragraph("PosTextual", null, escapedRun(extra.title())));
+            String text = "acknowledgments".equals(extra.id()) ? book.pages().acknowledgments() : book.pages().aboutAuthor();
+            for (String line : lines(text)) {
+                body.append(paragraph(null, "<w:ind w:firstLine=\"%d\"/>".formatted(FIRST_LINE_INDENT), escapedRun(line)));
+            }
         }
         return """
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -85,6 +93,33 @@ final class DocxWriter {
                 </w:body>
                 </w:document>
                 """.formatted(W, R, body);
+    }
+
+    /**
+     * Créditos, dedicatória e epígrafe, cada um na sua página. Em "Subtítulo", como o resto da capa: assim a
+     * importação do arquivo os reconhece como capa e não cria um capítulo com eles.
+     */
+    private static void frontPages(com.booksmith.manuscript.api.Manuscripts.BookPages pages, StringBuilder body) {
+        page(lines(pages.credits()), "<w:jc w:val=\"left\"/>", body);
+        page(lines(pages.dedication()), "<w:jc w:val=\"right\"/>", body);
+        List<String> epigraph = new java.util.ArrayList<>(lines(pages.epigraph()));
+        if (!epigraph.isEmpty() && pages.epigraphSource() != null) {
+            epigraph.add("— " + pages.epigraphSource());
+        }
+        page(epigraph, "<w:jc w:val=\"right\"/>", body);
+    }
+
+    /** Parágrafos em "Subtítulo", o primeiro começando página nova. */
+    private static void page(List<String> lines, String align, StringBuilder body) {
+        for (int i = 0; i < lines.size(); i++) {
+            String props = (i == 0 ? "<w:pageBreakBefore/>" : "") + align;
+            body.append(paragraph("Subtitle", props, escapedRun(lines.get(i))));
+        }
+    }
+
+    /** As linhas com texto (null = nenhuma). */
+    private static List<String> lines(String text) {
+        return text == null ? List.of() : text.lines().map(String::strip).filter(line -> !line.isEmpty()).toList();
     }
 
     /** {@code style}: o estilo dos parágrafos deste nível (dentro de uma citação, "Quote"). */
@@ -262,6 +297,9 @@ final class DocxWriter {
                 <w:style w:type="paragraph" w:styleId="Parte"><w:name w:val="Parte"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>
                 <w:pPr><w:pageBreakBefore/><w:spacing w:before="4320" w:after="0"/><w:jc w:val="center"/></w:pPr>
                 <w:rPr><w:b/><w:sz w:val="36"/><w:szCs w:val="36"/></w:rPr></w:style>
+                <w:style w:type="paragraph" w:styleId="PosTextual"><w:name w:val="Pós-textual"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>
+                <w:pPr><w:keepNext/><w:pageBreakBefore/><w:spacing w:before="2880" w:after="720"/><w:jc w:val="center"/></w:pPr>
+                <w:rPr><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>
                 <w:pPr><w:keepNext/><w:spacing w:before="360" w:after="120"/><w:jc w:val="left"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>

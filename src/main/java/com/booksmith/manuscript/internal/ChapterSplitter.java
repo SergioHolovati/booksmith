@@ -69,6 +69,8 @@ final class ChapterSplitter {
             }
         }
 
+        dropBackMatter(paragraphs);
+
         SplitRule rule = SplitRule.SINGLE;
         int chapterLevel = 0;
         if (mode == Mode.AUTO) {
@@ -92,6 +94,16 @@ final class ChapterSplitter {
             drafts.add(toDraft(section, rule == SplitRule.HEADINGS ? chapterLevel : 0, mapper));
         }
         return new Plan(rule, documentTitle, drafts, warnings(docx));
+    }
+
+    /** Agradecimentos e "sobre o autor" que o Booksmith pôs no fim do Word: dali em diante não é capítulo. */
+    private static void dropBackMatter(List<Paragraph> paragraphs) {
+        for (int i = 0; i < paragraphs.size(); i++) {
+            if (paragraphs.get(i).backMatter()) {
+                paragraphs.subList(i, paragraphs.size()).clear();
+                return;
+            }
+        }
     }
 
     // ===== Divisão em capítulos =====
