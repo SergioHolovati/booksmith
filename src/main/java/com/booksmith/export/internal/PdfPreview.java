@@ -35,6 +35,14 @@ public final class PdfPreview {
     public record Preview(int pageCount, List<Page> pages) {
     }
 
+    static int pageCount(byte[] pdf) {
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            return document.getNumberOfPages();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** As páginas {@code from} até {@code from + count - 1} (a partir de 1); fora do livro, a lista vem menor ou vazia. */
     static Preview render(byte[] pdf, int from, int count) {
         try (PDDocument document = Loader.loadPDF(pdf)) {

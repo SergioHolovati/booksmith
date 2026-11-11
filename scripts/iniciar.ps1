@@ -68,3 +68,8 @@ if (Listening 4200) {
 
 Write-Host ""
 Write-Host "Pronto: http://localhost:4200 (API em http://localhost:8090; logs em $logs)"
+# No celular, no mesmo Wi-Fi: o endereço do computador na rede local
+$lan = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { $_.InterfaceAlias -match "Wi-Fi|Ethernet" -and $_.IPAddress -notmatch "^(127|169\.254|172\.)" } |
+    Select-Object -First 1 -ExpandProperty IPAddress
+if ($lan) { Write-Host "No celular (mesmo Wi-Fi): http://${lan}:4200" }

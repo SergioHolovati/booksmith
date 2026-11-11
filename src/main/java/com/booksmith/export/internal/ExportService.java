@@ -33,13 +33,17 @@ public class ExportService {
     /** PDFs das prévias mais recentes: navegar pelas páginas não gera o livro de novo. */
     private static final int PREVIEW_CACHE = 6;
 
-    private final java.util.Map<String, byte[]> previews = java.util.Collections.synchronizedMap(
+    private final java.util.Map<String, Rendered> previews = java.util.Collections.synchronizedMap(
             new java.util.LinkedHashMap<>(PREVIEW_CACHE * 2, 0.75f, true) {
                 @Override
-                protected boolean removeEldestEntry(java.util.Map.Entry<String, byte[]> eldest) {
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, Rendered> eldest) {
                     return size() > PREVIEW_CACHE;
                 }
             });
+
+    /** PDF já gerado e quantas páginas tem o miolo (sem a página da capa). */
+    private record Rendered(byte[] pdf, int interiorPages) {
+    }
 
     public record ExportFile(String filename, String contentType, byte[] bytes) {
     }
@@ -51,16 +55,49 @@ public class ExportService {
      * @throws ApiException 404 se o livro não é do usuário; 422 {@code book_empty} se não há capítulos
      */
     public PdfPreview.Preview preview(UUID ownerId, String author, UUID bookId, BookLayout layout, int from, int count) {
+        return PdfPreview.render(rendered(ownerId, author, manuscripts.bookContent(ownerId, bookId), layout).pdf(),
+                from, count);
+    }
+
+    /**
+     * Medidas da capa aberta para gráfica: o número de páginas sai do PDF com a diagramação salva.
+     *
+     * @throws ApiException 404 se o livro não é do usuário; 422 {@code book_empty}, {@code print_profile_invalid},
+     *                      {@code print_spine_invalid} ou {@code print_bleed_invalid}
+     */
+    public PrintCover.Spec printCoverSpec(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
+                                          Double bleedMm) {
         BookContent content = manuscripts.bookContent(ownerId, bookId);
+        BookLayout layout = content.layout() == null ? BookLayout.DEFAULT : content.layout();
+        int pages = rendered(ownerId, author, content, layout).interiorPages();
+        return PrintCover.spec(PrintCover.Profile.of(profile), layout, pages, spineMm, bleedMm);
+    }
+
+    /** PDF da capa aberta, com a imagem desenhada no aparelho nas medidas de {@link #printCoverSpec}. */
+    public ExportFile printCover(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
+                                 Double bleedMm, String imageDataUrl) {
+        PrintCover.Spec spec = printCoverSpec(ownerId, author, bookId, profile, spineMm, bleedMm);
+        byte[] pdf = PrintCover.pdf(spec, imageDataUrl);
+        String title = manuscripts.bookContent(ownerId, bookId).title();
+        log.info("Capa para gráfica do livro {}: {} x {} mm, {} páginas, {} KB", bookId, spec.widthMm(), spec.heightMm(),
+                spec.pages(), pdf.length / 1024);
+        return new ExportFile("capa-" + filename(title, ExportFormat.PDF), ExportFormat.PDF.contentType(), pdf);
+    }
+
+    /** O PDF do livro com uma diagramação, do cache quando nada mudou. */
+    private Rendered rendered(UUID ownerId, String author, BookContent content, BookLayout layout) {
         String key = fingerprint(ownerId + "|" + author + "|" + layout + "|" + content);
-        byte[] pdf = previews.get(key);
-        if (pdf == null) {
+        Rendered rendered = previews.get(key);
+        if (rendered == null) {
             long start = System.nanoTime();
-            pdf = PdfWriter.write(prepare(content, author).withLayout(layout));
-            previews.put(key, pdf);
-            log.info("Prévia do livro {}: {} KB em {} ms", bookId, pdf.length / 1024, (System.nanoTime() - start) / 1_000_000);
+            ExportBook book = prepare(content, author).withLayout(layout);
+            byte[] pdf = PdfWriter.write(book);
+            rendered = new Rendered(pdf, PdfPreview.pageCount(pdf) - (PdfWriter.hasCoverPage(book) ? 1 : 0));
+            previews.put(key, rendered);
+            log.info("PDF do livro {} para prévia: {} KB em {} ms", content.bookId(), pdf.length / 1024,
+                    (System.nanoTime() - start) / 1_000_000);
         }
-        return PdfPreview.render(pdf, from, count);
+        return rendered;
     }
 
     private static String fingerprint(String text) {

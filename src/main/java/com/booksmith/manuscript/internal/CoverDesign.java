@@ -18,10 +18,21 @@ import java.util.regex.Pattern;
  * @param font            {@code serif} (Literata) ou {@code sans} (Inter)
  * @param titleSize       {@code s}, {@code m} ou {@code l}
  * @param accentColor     cor da faixa e da moldura
+ * @param backText        texto da contracapa da capa para gráfica (parágrafos separados por linha); null = sem texto
  */
 public record CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
                           String subtitle, String author, String font, String titleSize, String textColor,
-                          String accentColor) {
+                          String accentColor, String backText) {
+
+    static final int MAX_BACK_TEXT = 1500;
+
+    /** Desenho sem texto de contracapa. */
+    public CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
+                       String subtitle, String author, String font, String titleSize, String textColor,
+                       String accentColor) {
+        this(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize, textColor, accentColor,
+                null);
+    }
 
     static final List<String> TEMPLATES = List.of("classic", "band", "minimal");
     static final List<String> FONTS = List.of("serif", "sans");
@@ -48,6 +59,11 @@ public record CoverDesign(String template, String backgroundColor, UUID imageId,
         titleSize = titleSize == null ? "m" : option(titleSize, TITLE_SIZES, "Tamanho de título desconhecido.");
         textColor = color(textColor, "#ffffff");
         accentColor = color(accentColor, "#c8743a");
+        backText = backText == null || backText.isBlank()
+                ? null : backText.replace("\r\n", "\n").replace('\r', '\n').strip();
+        if (backText != null && backText.length() > MAX_BACK_TEXT) {
+            throw invalid("O texto da contracapa passa de " + MAX_BACK_TEXT + " caracteres.");
+        }
     }
 
     private static String option(String value, List<String> options, String message) {

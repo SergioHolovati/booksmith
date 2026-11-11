@@ -70,7 +70,7 @@ final class PdfWriter {
                     """.formatted(id, title, sceneBreaks(chapter.html(imageId -> dataUri(book, imageId)), book.layout())));
         }
         String cover = "";
-        if (book.cover() != null && COVER_TYPES.contains(book.cover().contentType())) {
+        if (hasCoverPage(book)) {
             cover = "<div class=\"cover\"><img src=\"data:%s;base64,%s\" alt=\"Capa\"/></div>\n"
                     .formatted(book.cover().contentType(), Base64.getEncoder().encodeToString(book.cover().bytes()));
         }
@@ -159,6 +159,11 @@ final class PdfWriter {
     /** 148 → "148"; 152.4 → "152.4" (CSS não aceita vírgula). */
     private static String number(double value) {
         return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
+    }
+
+    /** A primeira página do PDF é a capa (JPEG ou PNG); WebP fica de fora. */
+    static boolean hasCoverPage(ExportBook book) {
+        return book.cover() != null && COVER_TYPES.contains(book.cover().contentType());
     }
 
     /** Ilustração como data URI; WebP o motor de PDF não lê, então sai só a legenda. */

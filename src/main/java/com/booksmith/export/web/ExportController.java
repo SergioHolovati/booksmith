@@ -2,6 +2,7 @@ package com.booksmith.export.web;
 
 import com.booksmith.export.internal.ExportFormat;
 import com.booksmith.export.internal.PdfPreview;
+import com.booksmith.export.internal.PrintCover;
 import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.export.internal.ExportService;
 import com.booksmith.identity.api.AuthenticatedUser;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
@@ -51,11 +53,34 @@ class ExportController {
         return user.displayName() == null || user.displayName().isBlank() ? user.username() : user.displayName();
     }
 
+    /** Medidas da capa aberta para gráfica (contracapa + lombada + frente + sangria). */
+    @GetMapping("/books/{bookId}/export/print-cover")
+    PrintCover.Spec printCoverSpec(@PathVariable UUID bookId, @RequestParam String profile,
+                                   @RequestParam(required = false) Double spineMm,
+                                   @RequestParam(required = false) Double bleedMm) {
+        AuthenticatedUser user = currentUser.get();
+        return exportService.printCoverSpec(user.id(), authorName(user), bookId, profile, spineMm, bleedMm);
+    }
+
+    /** PDF da capa aberta, a partir da imagem desenhada no aparelho. */
+    @PostMapping("/books/{bookId}/export/print-cover")
+    ResponseEntity<byte[]> printCover(@PathVariable UUID bookId, @RequestBody PrintCoverRequest request) {
+        AuthenticatedUser user = currentUser.get();
+        return attachment(exportService.printCover(user.id(), authorName(user), bookId, request.profile(),
+                request.spineMm(), request.bleedMm(), request.image()));
+    }
+
+    record PrintCoverRequest(String profile, Double spineMm, Double bleedMm, String image) {
+    }
+
     /** {@code format}: epub ou pdf. */
     @GetMapping("/books/{bookId}/export/{format}")
     ResponseEntity<byte[]> export(@PathVariable UUID bookId, @PathVariable String format) {
         AuthenticatedUser user = currentUser.get();
-        var file = exportService.export(user.id(), authorName(user), bookId, ExportFormat.fromExtension(format));
+        return attachment(exportService.export(user.id(), authorName(user), bookId, ExportFormat.fromExtension(format)));
+    }
+
+    private static ResponseEntity<byte[]> attachment(ExportService.ExportFile file) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()

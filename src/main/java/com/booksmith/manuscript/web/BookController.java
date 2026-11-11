@@ -82,11 +82,11 @@ class BookController {
     /** Campos soltos, conferidos no {@link CoverDesign} (422 {@code cover_design_invalid}), fora do Jackson. */
     record CoverRequest(String template, String backgroundColor, UUID imageId, Integer shade, String title,
                         String subtitle, String author, String font, String titleSize, String textColor,
-                        String accentColor, String image) {
+                        String accentColor, String backText, String image) {
 
         CoverDesign toDesign() {
             return new CoverDesign(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize,
-                    textColor, accentColor);
+                    textColor, accentColor, backText);
         }
     }
 
