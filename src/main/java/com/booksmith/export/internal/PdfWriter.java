@@ -1,5 +1,6 @@
 package com.booksmith.export.internal;
 
+import com.booksmith.manuscript.api.BookLayout;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import org.springframework.core.io.ClassPathResource;
@@ -66,7 +67,7 @@ final class PdfWriter {
                     <section class="chapter" id="%s">
                     <h1>%s</h1>
                     %s</section>
-                    """.formatted(id, title, chapter.html(imageId -> dataUri(book, imageId))));
+                    """.formatted(id, title, sceneBreaks(chapter.html(imageId -> dataUri(book, imageId)), book.layout())));
         }
         String cover = "";
         if (book.cover() != null && COVER_TYPES.contains(book.cover().contentType())) {
@@ -107,7 +108,57 @@ final class PdfWriter {
                 %9$s</body>
                 </html>
                 """.formatted(book.language(), escape(book.title()), escape(book.author()), CSS, bookmarks, cover,
-                notice, toc, chapters, cover.isEmpty() ? "" : "@page :first { margin: 0; }");
+                notice, toc, chapters, layoutCss(book.layout(), !cover.isEmpty()));
+    }
+
+    /** O "* * *" do HTML comum vira o ornamento escolhido na diagramação. */
+    static String sceneBreaks(String html, BookLayout layout) {
+        String ornament = switch (layout.sceneBreak()) {
+            case "asterism" -> "⁂";
+            case "diamond" -> "◆";
+            case "dots" -> "• • •";
+            case "space" -> "&#160;";
+            default -> "* * *";
+        };
+        return html.replace("<p class=\"scene-break\">* * *</p>", "<p class=\"scene-break\">" + ornament + "</p>");
+    }
+
+    /**
+     * O que muda com a diagramação, depois do CSS fixo (ganha dele): página, margens, letra, entrelinha e a
+     * abertura de capítulo. Margens em mm: em cima, dos lados, embaixo.
+     */
+    static String layoutCss(BookLayout layout, boolean hasCover) {
+        int[] margins = switch (layout.margins()) {
+            case "narrow" -> new int[] {16, 13, 18};
+            case "wide" -> new int[] {24, 21, 26};
+            default -> new int[] {20, 17, 22};
+        };
+        double leading = switch (layout.leading()) {
+            case "compact" -> 1.3;
+            case "airy" -> 1.6;
+            default -> 1.45;
+        };
+        String chapter = switch (layout.chapterStyle()) {
+            case "modern" -> ".chapter > h1 { text-align: left; font-size: 22pt; margin: 6mm 0 10mm; padding-bottom: 3mm; "
+                    + "border-bottom: 0.5pt solid #1a1a1a; }";
+            case "simple" -> ".chapter > h1 { font-size: 15pt; margin: 0 0 8mm; }";
+            default -> "";
+        };
+        String width = number(layout.widthMm());
+        return """
+                @page { size: %1$smm %2$smm; margin: %3$dmm %4$dmm %5$dmm %4$dmm; }
+                body { font-size: %6$spt; line-height: %7$s; }
+                .cover img { width: %1$smm; height: %8$smm; }
+                .chapter > h1 + p.indent { text-indent: 0; }
+                %9$s
+                %10$s""".formatted(width, number(layout.heightMm()), margins[0], margins[1], margins[2],
+                number(layout.fontSize()), number(leading), number(layout.heightMm() - 1), chapter,
+                hasCover ? "@page :first { margin: 0; }" : "");
+    }
+
+    /** 148 → "148"; 152.4 → "152.4" (CSS não aceita vírgula). */
+    private static String number(double value) {
+        return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
     }
 
     /** Ilustração como data URI; WebP o motor de PDF não lê, então sai só a legenda. */

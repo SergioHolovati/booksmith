@@ -2,6 +2,7 @@ package com.booksmith.manuscript.web;
 
 import com.booksmith.common.web.PageResponse;
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.BookService;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookDetailResponse;
@@ -68,6 +69,21 @@ class BookController {
     @PutMapping("/{bookId}/pages")
     Manuscripts.BookPages updatePages(@PathVariable UUID bookId, @RequestBody @Valid BookPagesRequest request) {
         return bookService.updatePages(currentUser.id(), bookId, request.toPages());
+    }
+
+    /** Diagramação do PDF: tamanho, letra, entrelinha, margens, abertura de capítulo e quebra de cena. */
+    @PutMapping("/{bookId}/layout")
+    BookLayout updateLayout(@PathVariable UUID bookId, @RequestBody LayoutRequest request) {
+        return bookService.updateLayout(currentUser.id(), bookId, request.toLayout());
+    }
+
+    /** Recebido solto e conferido no {@link BookLayout} (422 {@code layout_invalid}), fora do Jackson. */
+    record LayoutRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
+                         String sceneBreak) {
+
+        BookLayout toLayout() {
+            return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak);
+        }
     }
 
     /** Entrar no universo de outro livro (série): ver {@link BookService#moveToUniverse}. */

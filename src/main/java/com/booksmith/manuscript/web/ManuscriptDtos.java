@@ -1,5 +1,6 @@
 package com.booksmith.manuscript.web;
 
+import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.Book;
 import com.booksmith.manuscript.internal.BookKind;
@@ -59,14 +60,16 @@ final class ManuscriptDtos {
 
     record BookDetailResponse(UUID id, String title, String synopsis, BookKind kind, String fandom,
                               String language, String coverUrl, BookStatus status, UUID universeId, Instant createdAt,
-                              Instant updatedAt, List<ChapterSummary> chapters, Manuscripts.BookPages pages) {
+                              Instant updatedAt, List<ChapterSummary> chapters, Manuscripts.BookPages pages,
+                              BookLayout layout) {
 
         static BookDetailResponse from(BookService.BookDetail detail) {
             Book book = detail.book();
             return new BookDetailResponse(book.getId(), book.getTitle(), book.getSynopsis(), book.getKind(),
                     book.getFandom(), book.getLanguage().tag(), book.getCoverUrl(), book.getStatus(),
                     book.getUniverseId(), book.getCreatedAt(),
-                    book.getUpdatedAt(), detail.chapters().stream().map(ChapterSummary::from).toList(), book.pages());
+                    book.getUpdatedAt(), detail.chapters().stream().map(ChapterSummary::from).toList(), book.pages(),
+                    detail.layout());
         }
     }
 

@@ -2,6 +2,7 @@ package com.booksmith.manuscript.internal;
 
 import com.booksmith.common.error.ApiException;
 import com.booksmith.common.text.SlugUtils;
+import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.media.api.ImageCategory;
 import com.booksmith.media.api.ImageStorage;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -29,6 +31,7 @@ public class BookService {
     private final ImageStorage imageStorage;
     private final Universes universes;
     private final Clock clock;
+    private final JsonMapper jsonMapper;
 
     @Transactional(readOnly = true)
     public Page<BookWithStats> list(UUID ownerId, Pageable pageable) {
@@ -41,7 +44,8 @@ public class BookService {
     @Transactional(readOnly = true)
     public BookDetail get(UUID ownerId, UUID bookId) {
         Book book = require(ownerId, bookId);
-        return new BookDetail(book, chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId));
+        return new BookDetail(book, chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId),
+                layoutOf(book));
     }
 
     @Transactional
@@ -91,6 +95,19 @@ public class BookService {
         Book book = require(ownerId, bookId);
         book.setPages(pages);
         return book.pages();
+    }
+
+    /** Troca a diagramação do PDF; o que vier nulo volta ao padrão. */
+    @Transactional
+    public BookLayout updateLayout(UUID ownerId, UUID bookId, BookLayout layout) {
+        Book book = require(ownerId, bookId);
+        book.setLayout(jsonMapper.writeValueAsString(layout));
+        return layout;
+    }
+
+    /** A diagramação guardada no livro (sempre válida: só entra pelo {@link #updateLayout}). */
+    public BookLayout layoutOf(Book book) {
+        return book.getLayout() == null ? BookLayout.DEFAULT : jsonMapper.readValue(book.getLayout(), BookLayout.class);
     }
 
     /**
@@ -159,6 +176,11 @@ public class BookService {
     public record BookWithStats(Book book, BookStats stats) {
     }
 
-    public record BookDetail(Book book, List<Chapter> chapters) {
+    /** {@code layout}: a diagramação já lida do JSON guardado. */
+    public record BookDetail(Book book, List<Chapter> chapters, BookLayout layout) {
+
+        public BookDetail(Book book, List<Chapter> chapters) {
+            this(book, chapters, BookLayout.DEFAULT);
+        }
     }
 }

@@ -268,6 +268,52 @@ class ExportWritersTest {
     }
 
     @Test
+    void layoutDefaultsAndRejectsUnknownValues() {
+        var layout = com.booksmith.manuscript.api.BookLayout.DEFAULT;
+        assertThat(layout.trim()).isEqualTo("a5");
+        assertThat(layout.fontSize()).isEqualTo(11.0);
+        assertThat(layout.margins()).isEqualTo("normal");
+        assertThat(layout.chapterStyle()).isEqualTo("classic");
+        assertThat(layout.sceneBreak()).isEqualTo("asterisks");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        new com.booksmith.manuscript.api.BookLayout("a4", null, null, null, null, null))
+                .isInstanceOfSatisfying(com.booksmith.common.error.ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("layout_invalid"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        new com.booksmith.manuscript.api.BookLayout(null, 13.0, null, null, null, null))
+                .isInstanceOf(com.booksmith.common.error.ApiException.class);
+    }
+
+    @Test
+    void layoutChangesThePageSizeLetterAndOrnament() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("6x9", 12.0, "airy", "wide", "modern", "asterism");
+        ExportBook book = book(null, null).withLayout(layout);
+        String html = PdfWriter.html(book);
+        assertThat(html).contains("size: 152.4mm 228.6mm; margin: 24mm 21mm 26mm 21mm;")
+                .contains("font-size: 12pt; line-height: 1.6;")
+                .contains("border-bottom: 0.5pt solid")
+                .contains("<p class=\"scene-break\">⁂</p>").doesNotContain("* * *");
+
+        try (PDDocument document = Loader.loadPDF(PdfWriter.write(book))) {
+            var box = document.getPage(0).getMediaBox();
+            // 6×9 polegadas = 432 × 648 pontos
+            assertThat(box.getWidth()).isCloseTo(432f, org.assertj.core.data.Offset.offset(1f));
+            assertThat(box.getHeight()).isCloseTo(648f, org.assertj.core.data.Offset.offset(1f));
+        }
+    }
+
+    @Test
+    void previewRendersTheRequestedPagesAsImages() {
+        byte[] pdf = PdfWriter.write(book(null, null));
+        var preview = PdfPreview.render(pdf, 2, 10);
+        assertThat(preview.pageCount()).isEqualTo(4);
+        // até 4 por pedido, e nunca além do fim do livro
+        assertThat(preview.pages()).extracting(PdfPreview.Page::number).containsExactly(2, 3, 4);
+        assertThat(preview.pages().getFirst().image()).startsWith("data:image/png;base64,");
+        assertThat(PdfPreview.render(pdf, 9, 2).pages()).isEmpty();
+    }
+
+    @Test
     void emptyPagesAreLeftOut() {
         var pages = new com.booksmith.manuscript.api.Manuscripts.BookPages(" ", "\n", null, "Sem epígrafe", null, null, "Título");
         assertThat(pages).isEqualTo(com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY);

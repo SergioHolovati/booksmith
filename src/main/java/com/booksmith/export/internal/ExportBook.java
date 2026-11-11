@@ -1,5 +1,6 @@
 package com.booksmith.export.internal;
 
+import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.Manuscripts.BookPages;
 import com.booksmith.media.api.ImageStorage.ImageData;
 import tools.jackson.databind.JsonNode;
@@ -15,10 +16,25 @@ import java.util.UUID;
  * @param cover         capa embutida, ou {@code null} sem capa
  * @param illustrations ilustrações do texto (id da imagem da biblioteca → arquivo); imagem que sumiu fica de fora
  * @param pages         créditos, dedicatória, epígrafe, agradecimentos e "sobre o autor" (vazias = não saem)
+ * @param layout        diagramação do PDF (tamanho, letra, margens, abertura, quebra de cena)
  */
 record ExportBook(UUID id, String title, String author, String language, String synopsis, String fandom,
                   ImageData cover, Instant generatedAt, List<Chapter> chapters,
-                  java.util.Map<String, ImageData> illustrations, BookPages pages) {
+                  java.util.Map<String, ImageData> illustrations, BookPages pages, BookLayout layout) {
+
+    /** Livro com a diagramação padrão. */
+    ExportBook(UUID id, String title, String author, String language, String synopsis, String fandom,
+               ImageData cover, Instant generatedAt, List<Chapter> chapters,
+               java.util.Map<String, ImageData> illustrations, BookPages pages) {
+        this(id, title, author, language, synopsis, fandom, cover, generatedAt, chapters, illustrations, pages,
+                BookLayout.DEFAULT);
+    }
+
+    /** O mesmo livro com outra diagramação (prévia de escolhas ainda não salvas). */
+    ExportBook withLayout(BookLayout other) {
+        return new ExportBook(id, title, author, language, synopsis, fandom, cover, generatedAt, chapters, illustrations,
+                pages, other);
+    }
 
     /** Livro sem páginas extras. */
     ExportBook(UUID id, String title, String author, String language, String synopsis, String fandom,

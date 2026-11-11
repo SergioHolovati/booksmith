@@ -29,13 +29,18 @@ public interface Manuscripts {
     record BookText(UUID bookId, String title, UUID universeId, List<ChapterText> chapters) {
     }
 
-    /** {@code language} é a tag BCP 47 (ex.: "pt-BR"); {@code fandom} só existe em fanfic. */
+    /**
+     * {@code language} é a tag BCP 47 (ex.: "pt-BR"); {@code fandom} só existe em fanfic. {@code layout}: a
+     * diagramação do PDF.
+     */
     record BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
-                       String coverUrl, UUID universeId, List<ChapterContent> chapters, BookPages pages) {
+                       String coverUrl, UUID universeId, List<ChapterContent> chapters, BookPages pages,
+                       BookLayout layout) {
 
         public BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
                            String coverUrl, UUID universeId, List<ChapterContent> chapters) {
-            this(bookId, title, synopsis, language, fanfic, fandom, coverUrl, universeId, chapters, BookPages.EMPTY);
+            this(bookId, title, synopsis, language, fanfic, fandom, coverUrl, universeId, chapters, BookPages.EMPTY,
+                    BookLayout.DEFAULT);
         }
     }
 

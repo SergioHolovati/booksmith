@@ -79,6 +79,12 @@ public class Book {
 
     private String aboutAuthorTitle;
 
+    /** Diagramação do PDF (V22), JSON de {@link com.booksmith.manuscript.api.BookLayout}; "{}" = o padrão. */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
+    private String layout = "{}";
+
     public Manuscripts.BookPages pages() {
         return new Manuscripts.BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
                 aboutAuthorTitle);
