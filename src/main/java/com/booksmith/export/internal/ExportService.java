@@ -26,6 +26,7 @@ public class ExportService {
 
     private final Manuscripts manuscripts;
     private final ImageStorage imageStorage;
+    private final com.booksmith.media.api.PdfStorage pdfStorage;
     private final Universes universes;
     private final JsonMapper jsonMapper;
     private final Clock clock;
@@ -70,14 +71,27 @@ public class ExportService {
         BookContent content = manuscripts.bookContent(ownerId, bookId);
         BookLayout layout = content.layout() == null ? BookLayout.DEFAULT : content.layout();
         int pages = rendered(ownerId, author, content, layout).interiorPages();
-        return PrintCover.spec(PrintCover.Profile.of(profile), layout, pages, spineMm, bleedMm);
+        return PrintCover.spec(PrintCover.Profile.of(profile), layout, pages, spineMm, bleedMm)
+                .withImported(manuscripts.coverPdf(ownerId, bookId).orElse(null));
     }
 
     /** PDF da capa aberta, com a imagem desenhada no aparelho nas medidas de {@link #printCoverSpec}. */
     public ExportFile printCover(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
                                  Double bleedMm, String imageDataUrl) {
         PrintCover.Spec spec = printCoverSpec(ownerId, author, bookId, profile, spineMm, bleedMm);
-        byte[] pdf = PrintCover.pdf(spec, imageDataUrl);
+        var imported = manuscripts.coverPdf(ownerId, bookId).orElse(null);
+        byte[] pdf;
+        if (imported != null && imported.wrap()) {
+            // Capa aberta feita fora: só sai se as medidas baterem, e sai como veio (o original do autor)
+            if (!Boolean.TRUE.equals(spec.importedFits())) {
+                throw ApiException.unprocessable("print_cover_wrong_size", String.join(" ", spec.warnings()));
+            }
+            pdf = pdfStorage.read(imported.url()).orElseThrow(() ->
+                    ApiException.unprocessable("cover_pdf_missing", "O PDF da capa não foi encontrado. Importe de novo."));
+        } else {
+            byte[] front = imported == null ? null : pdfStorage.read(imported.url()).orElse(null);
+            pdf = PrintCover.pdf(spec, imageDataUrl, front);
+        }
         String title = manuscripts.bookContent(ownerId, bookId).title();
         log.info("Capa para gráfica do livro {}: {} x {} mm, {} páginas, {} KB", bookId, spec.widthMm(), spec.heightMm(),
                 spec.pages(), pdf.length / 1024);

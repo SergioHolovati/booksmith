@@ -2,6 +2,11 @@ package com.booksmith.export.internal;
 
 import com.booksmith.common.error.ApiException;
 import com.booksmith.manuscript.api.BookLayout;
+import com.booksmith.manuscript.api.CoverPdf;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.multipdf.LayerUtility;
+import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
+import org.apache.pdfbox.util.Matrix;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -78,9 +83,54 @@ public final class PrintCover {
      * @param pages      páginas do miolo (o PDF diagramado, sem a página da capa)
      * @param spineText  cabe texto na lombada
      * @param warnings   o que impede ou atrapalha a impressão nesse destino (vazio = tudo certo)
+     * @param imported   a capa importada em PDF ({@code front} ou {@code wrap}), ou null
+     * @param importedFits na capa aberta importada: as medidas batem com as pedidas (até 1 mm de diferença)
      */
     public record Spec(String profile, int pages, double trimWidthMm, double trimHeightMm, double spineMm,
-                       double bleedMm, double widthMm, double heightMm, boolean spineText, List<String> warnings) {
+                       double bleedMm, double widthMm, double heightMm, boolean spineText, List<String> warnings,
+                       String imported, Double importedWidthMm, Double importedHeightMm, Boolean importedFits) {
+
+        Spec(String profile, int pages, double trimWidthMm, double trimHeightMm, double spineMm, double bleedMm,
+             double widthMm, double heightMm, boolean spineText, List<String> warnings) {
+            this(profile, pages, trimWidthMm, trimHeightMm, spineMm, bleedMm, widthMm, heightMm, spineText, warnings,
+                    null, null, null, null);
+        }
+
+        /**
+         * As mesmas medidas, comparadas com a capa importada. Na capa aberta, diz quanto a lombada (a diferença de
+         * largura) e a altura estão fora.
+         */
+        Spec withImported(CoverPdf cover) {
+            if (cover == null) {
+                return this;
+            }
+            Boolean fits = null;
+            List<String> notes = new ArrayList<>(warnings);
+            if (cover.wrap()) {
+                double dw = cover.widthMm() - widthMm;
+                double dh = cover.heightMm() - heightMm;
+                fits = Math.abs(dw) <= FIT_TOLERANCE_MM && Math.abs(dh) <= FIT_TOLERANCE_MM;
+                if (Math.abs(dw) > FIT_TOLERANCE_MM) {
+                    notes.add("A sua capa tem %s mm de largura; para este livro são %s mm. Refaça com a lombada de %s mm (%s mm %s)."
+                            .formatted(mm(cover.widthMm()), mm(widthMm), mm(spineMm), mm(Math.abs(dw)),
+                                    dw > 0 ? "a menos" : "a mais"));
+                }
+                if (Math.abs(dh) > FIT_TOLERANCE_MM) {
+                    notes.add("A sua capa tem %s mm de altura; com a sangria, são %s mm.".formatted(mm(cover.heightMm()),
+                            mm(heightMm)));
+                }
+            }
+            return new Spec(profile, pages, trimWidthMm, trimHeightMm, spineMm, bleedMm, widthMm, heightMm, spineText,
+                    List.copyOf(notes), cover.kind(), cover.widthMm(), cover.heightMm(), fits);
+        }
+    }
+
+    /** Diferença aceita entre a capa aberta importada e a medida pedida. */
+    static final double FIT_TOLERANCE_MM = 1;
+
+    /** 12.45 → "12,5" (mensagens para o autor). */
+    private static String mm(double value) {
+        return String.format(Locale.forLanguageTag("pt-BR"), "%.1f", value).replace(",0", "");
     }
 
     /**
@@ -124,6 +174,14 @@ public final class PrintCover {
      * @throws ApiException 422 {@code print_cover_image_invalid} se não for JPEG/PNG ou se a proporção não bater
      */
     static byte[] pdf(Spec spec, String imageDataUrl) {
+        return pdf(spec, imageDataUrl, null);
+    }
+
+    /**
+     * Idem, com a frente vinda do PDF do autor por cima, como vetor (sem perder qualidade). A frente cobre o painel
+     * da frente com a sangria; se o PDF não tem sangria, é ampliado um pouco, a partir do centro do livro.
+     */
+    static byte[] pdf(Spec spec, String imageDataUrl, byte[] frontPdf) {
         byte[] bytes = decode(imageDataUrl);
         try (PDDocument document = new PDDocument()) {
             float width = points(spec.widthMm());
@@ -137,12 +195,40 @@ public final class PrintCover {
             }
             try (PDPageContentStream content = new PDPageContentStream(document, page)) {
                 content.drawImage(image, 0, 0, width, height);
+                if (frontPdf != null) {
+                    drawFront(document, content, spec, frontPdf);
+                }
             }
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             document.save(out);
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void drawFront(PDDocument document, PDPageContentStream content, Spec spec, byte[] frontPdf)
+            throws IOException {
+        try (PDDocument source = Loader.loadPDF(frontPdf)) {
+            PDFormXObject front = new LayerUtility(document).importPageAsForm(source, 0);
+            PDRectangle box = front.getBBox();
+            float bleed = points(spec.bleedMm());
+            float trimW = points(spec.trimWidthMm());
+            float trimH = points(spec.trimHeightMm());
+            float panelX = points(spec.bleedMm() + spec.trimWidthMm() + spec.spineMm());
+            // Cobre o livro mais a sangria em volta, centrado no centro do livro (não no do painel)
+            float scale = Math.max((trimW + 2 * bleed) / box.getWidth(), (trimH + 2 * bleed) / box.getHeight());
+            float centerX = panelX + trimW / 2;
+            float centerY = bleed + trimH / 2;
+            content.saveGraphicsState();
+            // Não passa para a lombada: corta no começo do painel da frente
+            content.addRect(panelX, 0, trimW + bleed, trimH + 2 * bleed);
+            content.clip();
+            content.transform(new Matrix(scale, 0, 0, scale,
+                    centerX - (box.getLowerLeftX() + box.getWidth() / 2) * scale,
+                    centerY - (box.getLowerLeftY() + box.getHeight() / 2) * scale));
+            content.drawForm(front);
+            content.restoreGraphicsState();
         }
     }
 

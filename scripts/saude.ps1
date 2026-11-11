@@ -28,7 +28,9 @@ $tests = Join-Path $project "booksmith-tests"
 $out = Join-Path $project "booksmith-data\saude"
 New-Item -ItemType Directory -Force $out | Out-Null
 $stamp = Get-Date -Format "yyyyMMdd-HHmm"
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
+# JDK 25: o portátil em tools\jdk-25 (oficial, conferido) quando existe; senão o instalado
+$portable = Join-Path $project "tools\jdk-25"
+$env:JAVA_HOME = if (Test-Path (Join-Path $portable "bin\java.exe")) { $portable } else { "C:\Program Files\Java\latest\jdk-25" }
 $results = [ordered]@{}
 
 function Step($name, [scriptblock]$body) {

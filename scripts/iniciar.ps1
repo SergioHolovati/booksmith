@@ -35,7 +35,9 @@ Write-Host " ok"
 if (Listening 8090) {
     Write-Host "API já está no ar (8090)."
 } else {
-    $env:JAVA_HOME = "C:\Program Files\Java\jdk-25.0.3"
+    # JDK 25: o portátil em tools\jdk-25 (oficial, conferido) quando existe; senão o instalado
+    $portable = Join-Path $project "tools\jdk-25"
+    $env:JAVA_HOME = if (Test-Path (Join-Path $portable "bin\java.exe")) { $portable } else { "C:\Program Files\Java\latest\jdk-25" }
     if (-not $env:GOOGLE_CLIENT_ID) { $env:GOOGLE_CLIENT_ID = "dev-local" }
     if (-not $env:GOOGLE_CLIENT_SECRET) { $env:GOOGLE_CLIENT_SECRET = "dev-local" }
     Start-Process -FilePath (Join-Path $root "mvnw.cmd") -ArgumentList "-q", "-DskipTests", "spring-boot:run" `

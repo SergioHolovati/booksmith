@@ -51,6 +51,12 @@ class ManuscriptReader implements Manuscripts {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.Optional<com.booksmith.manuscript.api.CoverPdf> coverPdf(UUID ownerId, UUID bookId) {
+        return java.util.Optional.ofNullable(bookService.coverPdfOf(bookService.require(ownerId, bookId)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public void requireOwned(UUID ownerId, UUID bookId) {
         bookService.require(ownerId, bookId);
     }

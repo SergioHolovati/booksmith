@@ -90,6 +90,11 @@ public class Book {
     @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
     private String coverDesign;
 
+    /** Capa importada em PDF (V24), JSON de {@link com.booksmith.manuscript.api.CoverPdf}; null = sem PDF. */
+    @Column(columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
+    private String coverPdf;
+
     public Manuscripts.BookPages pages() {
         return new Manuscripts.BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
                 aboutAuthorTitle);

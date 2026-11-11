@@ -3,6 +3,7 @@ package com.booksmith.manuscript.web;
 import com.booksmith.common.web.PageResponse;
 import com.booksmith.identity.api.CurrentUser;
 import com.booksmith.manuscript.api.BookLayout;
+import com.booksmith.manuscript.api.CoverPdf;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.BookService;
 import com.booksmith.manuscript.internal.CoverDesign;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -91,6 +94,29 @@ class BookController {
     }
 
     record CoverResponse(String coverUrl, CoverDesign design) {
+    }
+
+    /** Capa feita fora do app, em PDF (só a frente ou a capa aberta). A frente vira a capa do livro. */
+    @PostMapping(value = "/{bookId}/cover/pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    CoverPdfResponse importCoverPdf(@PathVariable UUID bookId, @RequestParam("file") MultipartFile file)
+            throws java.io.IOException {
+        var cover = bookService.importCoverPdf(currentUser.id(), bookId, file.getOriginalFilename(), file.getBytes());
+        return new CoverPdfResponse(bookService.get(currentUser.id(), bookId).book().getCoverUrl(), cover);
+    }
+
+    @DeleteMapping("/{bookId}/cover/pdf")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void removeCoverPdf(@PathVariable UUID bookId) {
+        bookService.removeCoverPdf(currentUser.id(), bookId);
+    }
+
+    /** Só o desenho (contracapa, cores), sem trocar a imagem de capa. */
+    @PutMapping("/{bookId}/cover/design")
+    CoverDesign saveCoverDesign(@PathVariable UUID bookId, @RequestBody CoverRequest request) {
+        return bookService.saveCoverDesign(currentUser.id(), bookId, request.toDesign());
+    }
+
+    record CoverPdfResponse(String coverUrl, CoverPdf coverPdf) {
     }
 
     /** Diagramação do PDF: tamanho, letra, entrelinha, margens, abertura de capítulo e quebra de cena. */

@@ -1,6 +1,7 @@
 package com.booksmith.manuscript.web;
 
 import com.booksmith.manuscript.api.BookLayout;
+import com.booksmith.manuscript.api.CoverPdf;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.Book;
 import com.booksmith.manuscript.internal.CoverDesign;
@@ -62,7 +63,7 @@ final class ManuscriptDtos {
     record BookDetailResponse(UUID id, String title, String synopsis, BookKind kind, String fandom,
                               String language, String coverUrl, BookStatus status, UUID universeId, Instant createdAt,
                               Instant updatedAt, List<ChapterSummary> chapters, Manuscripts.BookPages pages,
-                              BookLayout layout, CoverDesign coverDesign) {
+                              BookLayout layout, CoverDesign coverDesign, CoverPdf coverPdf) {
 
         static BookDetailResponse from(BookService.BookDetail detail) {
             Book book = detail.book();
@@ -70,7 +71,7 @@ final class ManuscriptDtos {
                     book.getFandom(), book.getLanguage().tag(), book.getCoverUrl(), book.getStatus(),
                     book.getUniverseId(), book.getCreatedAt(),
                     book.getUpdatedAt(), detail.chapters().stream().map(ChapterSummary::from).toList(), book.pages(),
-                    detail.layout(), detail.coverDesign());
+                    detail.layout(), detail.coverDesign(), detail.coverPdf());
         }
     }
 

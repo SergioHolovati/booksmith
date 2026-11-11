@@ -77,6 +77,48 @@ class PrintCoverTest {
                 .isInstanceOf(ApiException.class);
     }
 
+    @Test
+    void importedWrapIsComparedWithTheNeededSize() {
+        var spec = PrintCover.spec(PrintCover.Profile.KDP_WHITE, SIX_BY_NINE, 200, null, null);
+        var fits = spec.withImported(new com.booksmith.manuscript.api.CoverPdf("u", "wrap", 322.9, 234.6, "capa.pdf"));
+        assertThat(fits.importedFits()).isTrue();
+        assertThat(fits.warnings()).isEmpty();
+
+        // Lombada pensada para menos páginas: 5 mm a menos de largura
+        var narrow = spec.withImported(new com.booksmith.manuscript.api.CoverPdf("u", "wrap", 317.6, 235, "capa.pdf"));
+        assertThat(narrow.importedFits()).isFalse();
+        assertThat(narrow.warnings()).singleElement().asString()
+                .contains("317,6 mm de largura").contains("322,6 mm").contains("lombada de 11,4 mm").contains("a mais");
+
+        var front = spec.withImported(new com.booksmith.manuscript.api.CoverPdf("u", "front", 155, 235, "frente.pdf"));
+        assertThat(front.imported()).isEqualTo("front");
+        assertThat(front.importedFits()).isNull();
+    }
+
+    @Test
+    void importedFrontGoesInAsVector() throws Exception {
+        var spec = PrintCover.spec(PrintCover.Profile.KDP_WHITE, SIX_BY_NINE, 200, null, null);
+        int width = 1000;
+        int height = (int) Math.round(width * spec.heightMm() / spec.widthMm());
+        byte[] front;
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage(
+                    new org.apache.pdfbox.pdmodel.common.PDRectangle(432, 648)));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            front = out.toByteArray();
+        }
+        byte[] pdf = PrintCover.pdf(spec, png(width, height), front);
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            var resources = document.getPage(0).getResources();
+            boolean hasForm = false;
+            for (var name : resources.getXObjectNames()) {
+                hasForm |= resources.getXObject(name) instanceof org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
+            }
+            assertThat(hasForm).as("a frente entra como desenho vetorial (form XObject)").isTrue();
+        }
+    }
+
     private static String png(int width, int height) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB), "png", out);

@@ -20,6 +20,9 @@ public interface Manuscripts {
      */
     BookContent bookContent(UUID ownerId, UUID bookId);
 
+    /** A capa importada em PDF do livro, se houver. 404 se o livro não é do usuário. */
+    java.util.Optional<CoverPdf> coverPdf(UUID ownerId, UUID bookId);
+
     /** Livros ativos da pessoa (fora da lixeira), do mais novo ao mais antigo. */
     List<UUID> bookIds(UUID ownerId);
 

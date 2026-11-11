@@ -3,9 +3,11 @@ package com.booksmith.manuscript.internal;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.common.text.SlugUtils;
 import com.booksmith.manuscript.api.BookLayout;
+import com.booksmith.manuscript.api.CoverPdf;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.media.api.ImageCategory;
 import com.booksmith.media.api.ImageStorage;
+import com.booksmith.media.api.PdfStorage;
 import com.booksmith.universe.api.Universes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,6 +34,7 @@ public class BookService {
     private final Universes universes;
     private final Clock clock;
     private final JsonMapper jsonMapper;
+    private final PdfStorage pdfStorage;
 
     @Transactional(readOnly = true)
     public Page<BookWithStats> list(UUID ownerId, Pageable pageable) {
@@ -45,7 +48,7 @@ public class BookService {
     public BookDetail get(UUID ownerId, UUID bookId) {
         Book book = require(ownerId, bookId);
         return new BookDetail(book, chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId),
-                layoutOf(book), coverDesignOf(book));
+                layoutOf(book), coverDesignOf(book), coverPdfOf(book));
     }
 
     @Transactional
@@ -120,6 +123,65 @@ public class BookService {
         String previous = book.getCoverUrl();
         book.setCoverUrl(imageStorage.store(ImageCategory.BOOK_COVER, ownerId, imageDataUrl).url());
         imageStorage.delete(previous);
+        book.setCoverDesign(jsonMapper.writeValueAsString(design));
+        // A capa agora é a desenhada aqui: o PDF importado antes deixa de valer (inclusive para a gráfica)
+        CoverPdf imported = coverPdfOf(book);
+        if (imported != null) {
+            pdfStorage.delete(imported.url());
+            book.setCoverPdf(null);
+        }
+        return design;
+    }
+
+    /**
+     * Capa feita fora do app, em PDF: o original fica guardado (para a capa de gráfica) e a frente vira a imagem
+     * de capa do livro (app, ePub e PDF). Substitui o PDF anterior.
+     *
+     * @throws ApiException 422 {@code cover_pdf_invalid}, {@code cover_pdf_protected}, {@code pdf_invalid} ou
+     *                      {@code pdf_too_large}
+     */
+    @Transactional
+    public CoverPdf importCoverPdf(UUID ownerId, UUID bookId, String fileName, byte[] pdf) {
+        Book book = require(ownerId, bookId);
+        CoverPdfReader.Result read = CoverPdfReader.read(pdf, layoutOf(book));
+        String url = pdfStorage.store(ownerId, pdf);
+        String previousCover = book.getCoverUrl();
+        book.setCoverUrl(imageStorage.store(ImageCategory.BOOK_COVER, ownerId, read.frontImage()).url());
+        imageStorage.delete(previousCover);
+        CoverPdf previous = coverPdfOf(book);
+        if (previous != null) {
+            pdfStorage.delete(previous.url());
+        }
+        String name = fileName == null || fileName.isBlank() ? "capa.pdf" : fileName.strip();
+        CoverPdf cover = new CoverPdf(url, read.kind(), read.widthMm(), read.heightMm(),
+                name.length() > 120 ? name.substring(0, 120) : name);
+        book.setCoverPdf(jsonMapper.writeValueAsString(cover));
+        return cover;
+    }
+
+    /** Tira o PDF importado (a imagem de capa que veio dele continua). */
+    @Transactional
+    public void removeCoverPdf(UUID ownerId, UUID bookId) {
+        Book book = require(ownerId, bookId);
+        CoverPdf previous = coverPdfOf(book);
+        if (previous != null) {
+            pdfStorage.delete(previous.url());
+            book.setCoverPdf(null);
+        }
+    }
+
+    /** O PDF de capa importado, ou null. */
+    public CoverPdf coverPdfOf(Book book) {
+        return book.getCoverPdf() == null ? null : jsonMapper.readValue(book.getCoverPdf(), CoverPdf.class);
+    }
+
+    /**
+     * Guarda só o desenho (texto da contracapa, cores), sem trocar a imagem de capa: usado quando a frente veio
+     * de um PDF importado.
+     */
+    @Transactional
+    public CoverDesign saveCoverDesign(UUID ownerId, UUID bookId, CoverDesign design) {
+        Book book = require(ownerId, bookId);
         book.setCoverDesign(jsonMapper.writeValueAsString(design));
         return design;
     }
@@ -209,10 +271,11 @@ public class BookService {
     }
 
     /** {@code layout}: a diagramação já lida do JSON guardado. */
-    public record BookDetail(Book book, List<Chapter> chapters, BookLayout layout, CoverDesign coverDesign) {
+    public record BookDetail(Book book, List<Chapter> chapters, BookLayout layout, CoverDesign coverDesign,
+                             CoverPdf coverPdf) {
 
         public BookDetail(Book book, List<Chapter> chapters) {
-            this(book, chapters, BookLayout.DEFAULT, null);
+            this(book, chapters, BookLayout.DEFAULT, null, null);
         }
     }
 }
