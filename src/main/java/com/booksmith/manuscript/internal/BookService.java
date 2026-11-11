@@ -45,7 +45,7 @@ public class BookService {
     public BookDetail get(UUID ownerId, UUID bookId) {
         Book book = require(ownerId, bookId);
         return new BookDetail(book, chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId),
-                layoutOf(book));
+                layoutOf(book), coverDesignOf(book));
     }
 
     @Transactional
@@ -95,6 +95,38 @@ public class BookService {
         Book book = require(ownerId, bookId);
         book.setPages(pages);
         return book.pages();
+    }
+
+    /**
+     * Capa feita no editor: guarda a imagem desenhada no aparelho como a capa do livro (a anterior sai do
+     * armazenamento) e o desenho, para editar depois.
+     *
+     * @param imageDataUrl JPEG ou PNG, os formatos que o ePub e o PDF embutem
+     * @throws ApiException 422 {@code cover_image_invalid} com outro formato; {@code cover_image_not_found} se a
+     *                      imagem de fundo não é da biblioteca do universo do livro
+     */
+    @Transactional
+    public CoverDesign saveCover(UUID ownerId, UUID bookId, CoverDesign design, String imageDataUrl) {
+        Book book = require(ownerId, bookId);
+        if (imageDataUrl == null
+                || !(imageDataUrl.startsWith("data:image/jpeg;") || imageDataUrl.startsWith("data:image/png;"))) {
+            throw ApiException.unprocessable("cover_image_invalid", "A capa precisa ser uma imagem JPEG ou PNG.");
+        }
+        if (design.imageId() != null && (book.getUniverseId() == null
+                || universes.imageUrl(book.getUniverseId(), design.imageId()).isEmpty())) {
+            throw ApiException.unprocessable("cover_image_not_found",
+                    "A imagem de fundo não está mais na biblioteca do universo.");
+        }
+        String previous = book.getCoverUrl();
+        book.setCoverUrl(imageStorage.store(ImageCategory.BOOK_COVER, ownerId, imageDataUrl).url());
+        imageStorage.delete(previous);
+        book.setCoverDesign(jsonMapper.writeValueAsString(design));
+        return design;
+    }
+
+    /** O desenho da capa guardado, ou null se a capa não foi feita no editor. */
+    public CoverDesign coverDesignOf(Book book) {
+        return book.getCoverDesign() == null ? null : jsonMapper.readValue(book.getCoverDesign(), CoverDesign.class);
     }
 
     /** Troca a diagramação do PDF; o que vier nulo volta ao padrão. */
@@ -177,10 +209,10 @@ public class BookService {
     }
 
     /** {@code layout}: a diagramação já lida do JSON guardado. */
-    public record BookDetail(Book book, List<Chapter> chapters, BookLayout layout) {
+    public record BookDetail(Book book, List<Chapter> chapters, BookLayout layout, CoverDesign coverDesign) {
 
         public BookDetail(Book book, List<Chapter> chapters) {
-            this(book, chapters, BookLayout.DEFAULT);
+            this(book, chapters, BookLayout.DEFAULT, null);
         }
     }
 }

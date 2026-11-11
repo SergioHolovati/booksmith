@@ -5,6 +5,7 @@ import com.booksmith.identity.api.CurrentUser;
 import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.BookService;
+import com.booksmith.manuscript.internal.CoverDesign;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookDetailResponse;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookPagesRequest;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookRequest;
@@ -69,6 +70,27 @@ class BookController {
     @PutMapping("/{bookId}/pages")
     Manuscripts.BookPages updatePages(@PathVariable UUID bookId, @RequestBody @Valid BookPagesRequest request) {
         return bookService.updatePages(currentUser.id(), bookId, request.toPages());
+    }
+
+    /** Capa feita no editor do app: a imagem desenhada vira a capa do livro e o desenho fica guardado. */
+    @PutMapping("/{bookId}/cover")
+    CoverResponse saveCover(@PathVariable UUID bookId, @RequestBody CoverRequest request) {
+        var design = bookService.saveCover(currentUser.id(), bookId, request.toDesign(), request.image());
+        return new CoverResponse(bookService.get(currentUser.id(), bookId).book().getCoverUrl(), design);
+    }
+
+    /** Campos soltos, conferidos no {@link CoverDesign} (422 {@code cover_design_invalid}), fora do Jackson. */
+    record CoverRequest(String template, String backgroundColor, UUID imageId, Integer shade, String title,
+                        String subtitle, String author, String font, String titleSize, String textColor,
+                        String accentColor, String image) {
+
+        CoverDesign toDesign() {
+            return new CoverDesign(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize,
+                    textColor, accentColor);
+        }
+    }
+
+    record CoverResponse(String coverUrl, CoverDesign design) {
     }
 
     /** Diagramação do PDF: tamanho, letra, entrelinha, margens, abertura de capítulo e quebra de cena. */

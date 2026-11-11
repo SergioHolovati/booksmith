@@ -85,6 +85,11 @@ public class Book {
     @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
     private String layout = "{}";
 
+    /** Desenho da capa feita no editor (V23), JSON de {@link CoverDesign}; null = capa não feita no editor. */
+    @Column(columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
+    private String coverDesign;
+
     public Manuscripts.BookPages pages() {
         return new Manuscripts.BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
                 aboutAuthorTitle);
