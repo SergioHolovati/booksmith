@@ -27,6 +27,7 @@ public class CharacterService {
     private final AppearanceForm appearanceForm;
     private final JsonMapper jsonMapper;
     private final Clock clock;
+    private final CustomFieldService customFieldService;
 
     @Transactional(readOnly = true)
     public List<UniverseEntity> list(UUID ownerId, UUID universeId) {
@@ -71,6 +72,7 @@ public class CharacterService {
         character.setAttributes(jsonMapper.writeValueAsString(CharacterSheet.normalize(data.sheet(), jsonMapper)));
         character.setAppearance(jsonMapper.writeValueAsString(appearanceForm.normalize(data.appearance(), jsonMapper)));
         character.setAppearanceFormVersion(AppearanceForm.VERSION);
+        customFieldService.apply(character, UniverseEntity.CHARACTER, data.custom());
         return entityRepository.saveAndFlush(character);
     }
 
@@ -106,6 +108,11 @@ public class CharacterService {
         return ApiException.notFound("character_not_found", "Personagem não encontrado.");
     }
 
-    public record CharacterData(String name, List<String> aliases, JsonNode sheet, JsonNode appearance) {
+    /** {@code custom}: valores dos campos próprios; nulo mantém os que estavam. */
+    public record CharacterData(String name, List<String> aliases, JsonNode sheet, JsonNode appearance,
+                                JsonNode custom) {
+        public CharacterData(String name, List<String> aliases, JsonNode sheet, JsonNode appearance) {
+            this(name, aliases, sheet, appearance, null);
+        }
     }
 }

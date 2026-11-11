@@ -62,6 +62,12 @@ public class UniverseEntity {
     @ColumnTransformer(write = "?::jsonb")
     private String appearance = "{}";
 
+    /** Valores dos campos próprios do autor ({@link CustomFields}). */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    private String custom = "{}";
+
     @Builder.Default
     private int appearanceFormVersion = AppearanceForm.VERSION;
 

@@ -41,6 +41,7 @@ public class LoreService {
     private final LoreForm loreForm;
     private final JsonMapper jsonMapper;
     private final Clock clock;
+    private final CustomFieldService customFieldService;
 
     @Transactional(readOnly = true)
     public List<UniverseEntity> list(UUID ownerId, UUID universeId, String type) {
@@ -85,6 +86,7 @@ public class LoreService {
         item.setAliases(CharacterSheet.aliases(data.aliases()));
         item.setAppearance(jsonMapper.writeValueAsString(loreForm.normalize(type, data.values(), jsonMapper)));
         item.setAttributes(attributes(type, checkPlaces(item.getUniverseId(), data.placeIds())));
+        customFieldService.apply(item, type, data.custom());
         return entityRepository.saveAndFlush(item);
     }
 
@@ -236,7 +238,11 @@ public class LoreService {
         return ApiException.notFound("lore_not_found", "Ficha não encontrada.");
     }
 
-    public record LoreData(String name, List<String> aliases, JsonNode values, List<UUID> placeIds) {
+    /** {@code custom}: valores dos campos próprios; nulo mantém os que estavam. */
+    public record LoreData(String name, List<String> aliases, JsonNode values, List<UUID> placeIds, JsonNode custom) {
+        public LoreData(String name, List<String> aliases, JsonNode values, List<UUID> placeIds) {
+            this(name, aliases, values, placeIds, null);
+        }
     }
 
     /** Um item do mundo gerado; {@code placeNames}: lugares (pelo nome) onde está presente. */

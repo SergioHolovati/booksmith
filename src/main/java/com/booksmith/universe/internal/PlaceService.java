@@ -41,6 +41,7 @@ public class PlaceService {
     private final UniverseEntityRepository entityRepository;
     private final JsonMapper jsonMapper;
     private final Clock clock;
+    private final CustomFieldService customFieldService;
 
     @Transactional(readOnly = true)
     public List<UniverseEntity> list(UUID ownerId, UUID universeId) {
@@ -81,6 +82,7 @@ public class PlaceService {
         place.setName(EntityNames.require(data.name(), "place_invalid", "Dê um nome ao lugar."));
         place.setAliases(CharacterSheet.aliases(data.aliases()));
         place.setAttributes(jsonMapper.writeValueAsString(sheet));
+        customFieldService.apply(place, UniverseEntity.PLACE, data.custom());
         return entityRepository.saveAndFlush(place);
     }
 
@@ -233,7 +235,11 @@ public class PlaceService {
         return ApiException.notFound("place_not_found", "Lugar não encontrado.");
     }
 
-    public record PlaceData(String name, List<String> aliases, JsonNode sheet) {
+    /** {@code custom}: valores dos campos próprios; nulo mantém os que estavam. */
+    public record PlaceData(String name, List<String> aliases, JsonNode sheet, JsonNode custom) {
+        public PlaceData(String name, List<String> aliases, JsonNode sheet) {
+            this(name, aliases, sheet, null);
+        }
     }
 
     /**

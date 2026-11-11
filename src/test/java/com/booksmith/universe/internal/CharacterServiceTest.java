@@ -25,7 +25,8 @@ class CharacterServiceTest {
     private final UniverseRepository universes = mock(UniverseRepository.class);
     private final UniverseEntityRepository entities = mock(UniverseEntityRepository.class);
     private final CharacterService service = new CharacterService(universes, entities, new AppearanceForm(mapper),
-            mapper, Clock.fixed(NOW, ZoneOffset.UTC));
+            mapper, Clock.fixed(NOW, ZoneOffset.UTC),
+            new CustomFieldService(universes, new CustomFields(new LoreForm(mapper)), mapper));
 
     private final UUID owner = UUID.randomUUID();
     private final UUID universeId = UUID.randomUUID();

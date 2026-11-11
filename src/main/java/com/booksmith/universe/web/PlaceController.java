@@ -1,6 +1,7 @@
 package com.booksmith.universe.web;
 
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.universe.internal.CustomFieldService;
 import com.booksmith.universe.internal.GalleryService;
 import com.booksmith.universe.internal.PlaceService;
 import com.booksmith.universe.internal.PlaceService.PlaceData;
@@ -39,6 +40,7 @@ class PlaceController {
     private final GalleryService galleryService;
     private final CurrentUser currentUser;
     private final JsonMapper jsonMapper;
+    private final CustomFieldService customFieldService;
 
     @GetMapping("/universes/{universeId}/places")
     List<PlaceSummary> list(@PathVariable UUID universeId) {
@@ -69,7 +71,7 @@ class PlaceController {
     /** Salva a ficha inteira; {@code version} é a versão aberta no app (409 se outro aparelho salvou antes). */
     @PutMapping("/places/{placeId}")
     PlaceResponse update(@PathVariable UUID placeId, @RequestBody @Valid UpdatePlaceRequest request) {
-        var data = new PlaceData(request.name(), request.aliases(), request.sheet());
+        var data = new PlaceData(request.name(), request.aliases(), request.sheet(), request.custom());
         return response(placeService.update(currentUser.id(), placeId, request.version(), data));
     }
 
@@ -91,8 +93,8 @@ class PlaceController {
     private PlaceResponse response(UniverseEntity place) {
         return new PlaceResponse(place.getId(), place.getUniverseId(), place.getName(),
                 Arrays.asList(place.getAliases()), jsonMapper.readTree(place.getAttributes()), place.getMapX(),
-                place.getMapY(), place.getPortraitId(), galleryService.portrait(place), place.getVersion(),
-                place.getUpdatedAt());
+                place.getMapY(), place.getPortraitId(), galleryService.portrait(place),
+                customFieldService.values(place, UniverseEntity.PLACE), place.getVersion(), place.getUpdatedAt());
     }
 
     private static String text(JsonNode sheet, String key) {
@@ -115,7 +117,8 @@ class PlaceController {
             @NotNull Long version,
             @NotBlank(message = "Dê um nome ao lugar.") @Size(max = 120) String name,
             List<String> aliases,
-            JsonNode sheet) {
+            JsonNode sheet,
+            JsonNode custom) {
     }
 
     record MapImportRequest(@NotNull @Size(max = 300) List<PlaceService.MapPlace> places) {
@@ -126,6 +129,7 @@ class PlaceController {
     }
 
     record PlaceResponse(UUID id, UUID universeId, String name, List<String> aliases, JsonNode sheet, Float mapX,
-                         Float mapY, UUID portraitId, String portraitUrl, long version, Instant updatedAt) {
+                         Float mapY, UUID portraitId, String portraitUrl, JsonNode custom, long version,
+                         Instant updatedAt) {
     }
 }

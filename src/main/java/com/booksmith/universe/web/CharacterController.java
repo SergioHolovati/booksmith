@@ -1,6 +1,7 @@
 package com.booksmith.universe.web;
 
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.universe.internal.CustomFieldService;
 import com.booksmith.universe.internal.GalleryService;
 import java.util.Map;
 import com.booksmith.universe.internal.AppearanceForm;
@@ -41,6 +42,7 @@ class CharacterController {
     private final AppearanceForm appearanceForm;
     private final CurrentUser currentUser;
     private final JsonMapper jsonMapper;
+    private final CustomFieldService customFieldService;
 
     /** Abas, campos e opções do formulário. O app monta a tela a partir disto. */
     @GetMapping("/forms/character-appearance")
@@ -69,7 +71,8 @@ class CharacterController {
     /** Salva a ficha inteira; {@code version} é a versão aberta no app (409 se outro aparelho salvou antes). */
     @PutMapping("/characters/{characterId}")
     CharacterResponse update(@PathVariable UUID characterId, @RequestBody @Valid UpdateCharacterRequest request) {
-        var data = new CharacterData(request.name(), request.aliases(), request.sheet(), request.appearance());
+        var data = new CharacterData(request.name(), request.aliases(), request.sheet(), request.appearance(),
+                request.custom());
         return response(characterService.update(currentUser.id(), characterId, request.version(), data));
     }
 
@@ -92,7 +95,8 @@ class CharacterController {
                 Arrays.asList(character.getAliases()), jsonMapper.readTree(character.getAttributes()),
                 jsonMapper.readTree(character.getAppearance()), character.getAppearanceFormVersion(),
                 characterService.appearanceSummary(character), character.getPortraitId(),
-                galleryService.portrait(character), character.getVersion(), character.getUpdatedAt());
+                galleryService.portrait(character), customFieldService.values(character, UniverseEntity.CHARACTER),
+                character.getVersion(), character.getUpdatedAt());
     }
 
     record CreateCharacterRequest(@NotBlank(message = "Dê um nome ao personagem.") @Size(max = 120) String name) {
@@ -103,7 +107,8 @@ class CharacterController {
             @NotBlank(message = "Dê um nome ao personagem.") @Size(max = 120) String name,
             List<String> aliases,
             JsonNode sheet,
-            JsonNode appearance) {
+            JsonNode appearance,
+            JsonNode custom) {
     }
 
     record CharacterSummary(UUID id, String name, List<String> aliases, String role, String appearanceSummary,
@@ -112,6 +117,6 @@ class CharacterController {
 
     record CharacterResponse(UUID id, UUID universeId, String name, List<String> aliases, JsonNode sheet,
                              JsonNode appearance, int appearanceFormVersion, String appearanceSummary,
-                             UUID portraitId, String portraitUrl, long version, Instant updatedAt) {
+                             UUID portraitId, String portraitUrl, JsonNode custom, long version, Instant updatedAt) {
     }
 }

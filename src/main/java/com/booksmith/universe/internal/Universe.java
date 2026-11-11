@@ -56,6 +56,12 @@ public class Universe {
     @ColumnTransformer(write = "?::jsonb")
     private String calendar;
 
+    /** Campos próprios do autor por tipo de ficha ({@link CustomFields}). */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    private String customFields = "{}";
+
     @Version
     private long version;
 

@@ -24,7 +24,8 @@ class LoreServiceTest {
     private final UniverseRepository universes = mock(UniverseRepository.class);
     private final UniverseEntityRepository entities = mock(UniverseEntityRepository.class);
     private final LoreService service = new LoreService(universes, entities, new LoreForm(mapper), mapper,
-            Clock.fixed(Instant.parse("2026-11-09T12:00:00Z"), ZoneOffset.UTC));
+            Clock.fixed(Instant.parse("2026-11-09T12:00:00Z"), ZoneOffset.UTC),
+            new CustomFieldService(universes, new CustomFields(new LoreForm(mapper)), mapper));
 
     private final UUID owner = UUID.randomUUID();
     private final UUID universeId = UUID.randomUUID();

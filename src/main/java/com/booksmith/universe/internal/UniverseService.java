@@ -42,6 +42,7 @@ public class UniverseService implements Universes {
     private final ImageStorage imageStorage;
     private final UniverseImageRepository imageRepository;
     private final JsonMapper jsonMapper;
+    private final CustomFields customFields;
 
     @Override
     @Transactional
@@ -101,6 +102,8 @@ public class UniverseService implements Universes {
         Universe source = require(ownerId, from);
         target.setDetails(jsonMapper.writeValueAsString(universeForm.merge(
                 jsonMapper.readTree(target.getDetails()), jsonMapper.readTree(source.getDetails()), jsonMapper)));
+        target.setCustomFields(jsonMapper.writeValueAsString(customFields.merge(
+                jsonMapper.readTree(target.getCustomFields()), jsonMapper.readTree(source.getCustomFields()), jsonMapper)));
         if (target.getMapUrl() == null) {
             target.setMapUrl(source.getMapUrl());
             target.setMapGenerator(source.getMapGenerator());

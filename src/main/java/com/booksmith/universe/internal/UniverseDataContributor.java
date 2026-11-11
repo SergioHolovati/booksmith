@@ -61,7 +61,7 @@ class UniverseDataContributor implements PersonalDataContributor {
 
             String map = save(archive, folder + "mapa", universe.getMapUrl());
             archive.json(folder + "universo.json", new UniverseData(id, universe.getName(), tree(universe.getDetails()),
-                    tree(universe.getCalendar()), tree(universe.getMapGenerator()),
+                    tree(universe.getCalendar()), tree(universe.getMapGenerator()), tree(universe.getCustomFields()),
                     map == null ? null : map.substring(folder.length()), universe.getCreatedAt(), universe.getUpdatedAt()));
 
             archive.json(folder + "personagens.json", entities(id, UniverseEntity.CHARACTER, imageFiles));
@@ -85,7 +85,8 @@ class UniverseDataContributor implements PersonalDataContributor {
         return entityRepository.findAllByUniverseIdAndKindAndDeletedAtIsNullOrderByNameAsc(universeId, kind).stream()
                 .map(e -> new EntityData(e.getId(), e.getName(), Arrays.asList(e.getAliases()), tree(e.getAttributes()),
                         tree(e.getAppearance()), e.getMapX(), e.getMapY(),
-                        e.getPortraitId() == null ? null : imageFiles.get(e.getPortraitId()), e.getUpdatedAt()))
+                        tree(e.getCustom()), e.getPortraitId() == null ? null : imageFiles.get(e.getPortraitId()),
+                        e.getUpdatedAt()))
                 .toList();
     }
 
@@ -105,17 +106,18 @@ class UniverseDataContributor implements PersonalDataContributor {
         return json == null || json.isBlank() ? null : jsonMapper.readTree(json);
     }
 
-    /** {@code map}: arquivo do mapa na pasta do universo. */
-    record UniverseData(UUID id, String name, JsonNode details, JsonNode calendar, JsonNode mapGenerator, String map,
-                        Instant createdAt, Instant updatedAt) {
+    /** {@code customFields}: os campos próprios por tipo de ficha; {@code map}: arquivo do mapa na pasta do universo. */
+    record UniverseData(UUID id, String name, JsonNode details, JsonNode calendar, JsonNode mapGenerator,
+                        JsonNode customFields, String map, Instant createdAt, Instant updatedAt) {
     }
 
     /**
      * {@code sheet}: ficha (papel, idade, tipo do lugar, "dentro de"...); {@code values}: aparência e personalidade,
-     * ou os campos da ficha do mundo; {@code portrait}: arquivo do retrato.
+     * ou os campos da ficha do mundo; {@code custom}: os campos próprios (chaves em universo.json);
+     * {@code portrait}: arquivo do retrato.
      */
     record EntityData(UUID id, String name, List<String> aliases, JsonNode sheet, JsonNode values, Float mapX,
-                      Float mapY, String portrait, Instant updatedAt) {
+                      Float mapY, JsonNode custom, String portrait, Instant updatedAt) {
     }
 
     record EventData(UUID id, String title, String kind, String when, JsonNode worldDate, String description,

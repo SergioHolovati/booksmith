@@ -1,6 +1,7 @@
 package com.booksmith.universe.web;
 
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.universe.internal.CustomFieldService;
 import com.booksmith.universe.internal.LoreForm;
 import com.booksmith.universe.internal.LoreService;
 import com.booksmith.universe.internal.LoreService.LoreData;
@@ -41,6 +42,7 @@ class LoreController {
     private final LoreForm loreForm;
     private final PlaceService placeService;
     private final CurrentUser currentUser;
+    private final CustomFieldService customFieldService;
 
     /** Tipos e campos das fichas. O app monta as telas a partir disto. */
     @GetMapping("/forms/lore")
@@ -74,7 +76,8 @@ class LoreController {
 
     @PutMapping("/lore/{loreId}")
     LoreResponse update(@PathVariable UUID loreId, @RequestBody @Valid UpdateLoreRequest request) {
-        var data = new LoreData(request.name(), request.aliases(), request.values(), request.placeIds());
+        var data = new LoreData(request.name(), request.aliases(), request.values(), request.placeIds(),
+                request.custom());
         return response(loreService.update(currentUser.id(), loreId, request.version(), data));
     }
 
@@ -101,8 +104,8 @@ class LoreController {
     private LoreResponse response(UniverseEntity item) {
         Map<UUID, String> placeNames = placeService.names(item.getUniverseId());
         return new LoreResponse(item.getId(), item.getUniverseId(), loreService.typeOf(item), item.getName(),
-                Arrays.asList(item.getAliases()), loreService.values(item), places(item, placeNames), item.getVersion(),
-                item.getUpdatedAt());
+                Arrays.asList(item.getAliases()), loreService.values(item), places(item, placeNames),
+                customFieldService.values(item, loreService.typeOf(item)), item.getVersion(), item.getUpdatedAt());
     }
 
     /** Lugares ligados; os que foram excluídos depois somem da lista. */
@@ -117,7 +120,7 @@ class LoreController {
     }
 
     record UpdateLoreRequest(@NotNull Long version, @NotBlank(message = "Dê um nome.") @Size(max = 120) String name,
-                             List<String> aliases, JsonNode values, List<UUID> placeIds) {
+                             List<String> aliases, JsonNode values, List<UUID> placeIds, JsonNode custom) {
     }
 
     record BatchRequest(@NotNull @Size(max = 200) List<LoreDraft> items) {
@@ -131,6 +134,6 @@ class LoreController {
     }
 
     record LoreResponse(UUID id, UUID universeId, String type, String name, List<String> aliases, JsonNode values,
-                        List<PlaceRef> places, long version, Instant updatedAt) {
+                        List<PlaceRef> places, JsonNode custom, long version, Instant updatedAt) {
     }
 }

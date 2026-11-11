@@ -25,7 +25,8 @@ class PlaceServiceTest {
     private final JsonMapper mapper = JsonMapper.builder().build();
     private final UniverseRepository universes = mock(UniverseRepository.class);
     private final UniverseEntityRepository entities = mock(UniverseEntityRepository.class);
-    private final PlaceService service = new PlaceService(universes, entities, mapper, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final PlaceService service = new PlaceService(universes, entities, mapper, Clock.fixed(NOW, ZoneOffset.UTC),
+            new CustomFieldService(universes, new CustomFields(new LoreForm(mapper)), mapper));
 
     private final UUID owner = UUID.randomUUID();
     private final UUID universeId = UUID.randomUUID();
