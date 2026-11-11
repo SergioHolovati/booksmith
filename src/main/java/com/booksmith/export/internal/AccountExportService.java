@@ -86,8 +86,9 @@ public class AccountExportService {
                                 - livro.json, os dados completos (o documento de cada capítulo no formato do editor);
                                 - a capa, se houver.
                 universos/    Uma pasta por universo: universo.json (o construtor e o calendário), personagens,
-                              lugares, mundo (religiões, governos, idiomas, organizações), linha do tempo, relações,
-                              o mapa e a pasta imagens, com imagens.json dizendo quem aparece em cada uma.
+                              lugares, mundo (religiões, governos, idiomas, organizações, criaturas, objetos e
+                              termos), linha do tempo, relações, o mapa e a pasta imagens, com imagens.json
+                              dizendo quem aparece em cada uma.
                 conta/        Seus dados de cadastro e o perfil de autor, com a foto.
                 suporte/      Os pedidos que você mandou ao suporte.
 

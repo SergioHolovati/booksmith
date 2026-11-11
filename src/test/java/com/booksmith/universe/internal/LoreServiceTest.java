@@ -48,8 +48,11 @@ class LoreServiceTest {
     }
 
     @Test
-    void definitionHasTheFourKindsOfWorldContext() {
-        assertThat(new LoreForm(mapper).types()).containsExactly("religion", "government", "language", "organization");
+    void definitionHasTheSevenKindsOfWorldContext() {
+        LoreForm form = new LoreForm(mapper);
+        assertThat(form.types()).containsExactly(
+                "religion", "government", "language", "organization", "creature", "object", "term");
+        assertThat(form.summaryField("term")).isEqualTo("meaning");
     }
 
     @Test

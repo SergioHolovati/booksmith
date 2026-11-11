@@ -273,13 +273,13 @@ public class TimelineService {
         }
         Set<UUID> unique = new LinkedHashSet<>(loreIds);
         if (unique.size() > MAX_LORE_PER_EVENT) {
-            throw invalid("no máximo %d religiões, governos e organizações por evento".formatted(MAX_LORE_PER_EVENT));
+            throw invalid("no máximo %d fichas do mundo por evento".formatted(MAX_LORE_PER_EVENT));
         }
         for (UUID id : unique) {
             boolean ok = entityRepository.findByIdAndKindAndDeletedAtIsNull(id, UniverseEntity.LORE)
                     .filter(l -> l.getUniverseId().equals(universeId)).isPresent();
             if (!ok) {
-                throw invalid("religiões, governos e organizações precisam ser deste universo");
+                throw invalid("as fichas do mundo precisam ser deste universo");
             }
         }
         return unique.toArray(UUID[]::new);

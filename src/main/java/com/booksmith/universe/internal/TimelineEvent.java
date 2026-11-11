@@ -59,7 +59,7 @@ public class TimelineEvent {
     @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
     private String worldDate;
 
-    /** Religiões, governos e organizações envolvidos. */
+    /** Fichas do mundo envolvidas (religiões, governos, organizações, objetos…). */
     @Builder.Default
     @Column(name = "lore_ids", nullable = false, columnDefinition = "uuid[]")
     private UUID[] loreIds = new UUID[0];

@@ -547,6 +547,314 @@
           "type": "longtext"
         }
       ]
+    },
+    "creature": {
+      "label": "Criatura",
+      "plural": "Criaturas",
+      "icon": "pi-bolt",
+      "add": "Criar criatura",
+      "help": "Animais, monstros, espíritos e povos não humanos: como são, onde vivem e o que podem fazer.",
+      "summaryField": "look",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Tipo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "animal",
+              "label": "Animal"
+            },
+            {
+              "value": "beast",
+              "label": "Fera mágica"
+            },
+            {
+              "value": "dragon",
+              "label": "Dragão"
+            },
+            {
+              "value": "spirit",
+              "label": "Espírito"
+            },
+            {
+              "value": "undead",
+              "label": "Morto-vivo"
+            },
+            {
+              "value": "demon",
+              "label": "Demônio"
+            },
+            {
+              "value": "construct",
+              "label": "Construto"
+            },
+            {
+              "value": "plant",
+              "label": "Planta"
+            },
+            {
+              "value": "alien",
+              "label": "Alienígena"
+            }
+          ]
+        },
+        {
+          "key": "look",
+          "label": "Como é",
+          "type": "longtext"
+        },
+        {
+          "key": "size",
+          "label": "Tamanho",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Cabe na mão",
+            "Como um cão",
+            "Como uma pessoa",
+            "Como uma casa",
+            "Colossal"
+          ]
+        },
+        {
+          "key": "danger",
+          "label": "Perigo",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Inofensiva",
+            "Arisca",
+            "Perigosa",
+            "Mortal",
+            "Uma catástrofe"
+          ]
+        },
+        {
+          "key": "mind",
+          "label": "Inteligência",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "instinct",
+              "label": "Só instinto"
+            },
+            {
+              "value": "animal",
+              "label": "Como um animal"
+            },
+            {
+              "value": "clever",
+              "label": "Esperta"
+            },
+            {
+              "value": "sapient",
+              "label": "Pensa e fala como gente"
+            },
+            {
+              "value": "ancient",
+              "label": "Mais antiga e sábia que todos"
+            }
+          ]
+        },
+        {
+          "key": "habitat",
+          "label": "Onde vive",
+          "type": "text"
+        },
+        {
+          "key": "diet",
+          "label": "Do que se alimenta",
+          "type": "text"
+        },
+        {
+          "key": "abilities",
+          "label": "O que consegue fazer",
+          "type": "longtext"
+        },
+        {
+          "key": "weaknesses",
+          "label": "Fraquezas",
+          "type": "longtext"
+        },
+        {
+          "key": "legends",
+          "label": "O que o povo conta",
+          "type": "longtext"
+        }
+      ]
+    },
+    "object": {
+      "label": "Objeto",
+      "plural": "Objetos",
+      "icon": "pi-key",
+      "add": "Criar objeto",
+      "help": "Armas, joias, relíquias, livros e chaves que importam para a história: de onde vieram e com quem estão.",
+      "summaryField": "powers",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Tipo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "weapon",
+              "label": "Arma"
+            },
+            {
+              "value": "armor",
+              "label": "Armadura"
+            },
+            {
+              "value": "jewel",
+              "label": "Joia"
+            },
+            {
+              "value": "relic",
+              "label": "Relíquia"
+            },
+            {
+              "value": "book",
+              "label": "Livro ou pergaminho"
+            },
+            {
+              "value": "key",
+              "label": "Chave"
+            },
+            {
+              "value": "tool",
+              "label": "Ferramenta"
+            },
+            {
+              "value": "vehicle",
+              "label": "Veículo"
+            },
+            {
+              "value": "device",
+              "label": "Aparelho"
+            }
+          ]
+        },
+        {
+          "key": "look",
+          "label": "Como é",
+          "type": "longtext"
+        },
+        {
+          "key": "origin",
+          "label": "De onde veio",
+          "type": "longtext"
+        },
+        {
+          "key": "holder",
+          "label": "Com quem está",
+          "type": "text"
+        },
+        {
+          "key": "powers",
+          "label": "O que faz",
+          "type": "longtext"
+        },
+        {
+          "key": "cost",
+          "label": "O preço de usar",
+          "type": "longtext"
+        },
+        {
+          "key": "rarity",
+          "label": "Raridade",
+          "type": "scale",
+          "min": 1,
+          "max": 5,
+          "labels": [
+            "Comum",
+            "Incomum",
+            "Rara",
+            "Lendária",
+            "Única no mundo"
+          ]
+        },
+        {
+          "key": "secrets",
+          "label": "Segredos",
+          "type": "longtext"
+        }
+      ]
+    },
+    "term": {
+      "label": "Termo",
+      "plural": "Termos",
+      "icon": "pi-book",
+      "add": "Criar termo",
+      "help": "O glossário do mundo: palavras inventadas, títulos, gírias, medidas e feriados. O corretor passa a aceitá-los.",
+      "summaryField": "meaning",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Tipo",
+          "type": "choice",
+          "allowCustom": true,
+          "options": [
+            {
+              "value": "word",
+              "label": "Palavra"
+            },
+            {
+              "value": "title",
+              "label": "Título ou cargo"
+            },
+            {
+              "value": "slang",
+              "label": "Gíria"
+            },
+            {
+              "value": "curse",
+              "label": "Palavrão"
+            },
+            {
+              "value": "unit",
+              "label": "Medida ou moeda"
+            },
+            {
+              "value": "holiday",
+              "label": "Feriado ou festa"
+            },
+            {
+              "value": "food",
+              "label": "Comida ou bebida"
+            },
+            {
+              "value": "science",
+              "label": "Termo técnico"
+            }
+          ]
+        },
+        {
+          "key": "meaning",
+          "label": "O que significa",
+          "type": "longtext"
+        },
+        {
+          "key": "pronunciation",
+          "label": "Como se pronuncia",
+          "type": "text"
+        },
+        {
+          "key": "example",
+          "label": "Exemplo de uso",
+          "type": "text"
+        },
+        {
+          "key": "origin",
+          "label": "De onde vem a palavra",
+          "type": "longtext"
+        }
+      ]
     }
   }
 }
