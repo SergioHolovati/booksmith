@@ -3,6 +3,7 @@ package com.booksmith.identity.internal.auth;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.IdentityProperties;
 import com.booksmith.identity.internal.security.JwtTokenProvider;
+import com.booksmith.identity.internal.security.OneTimeLoginCodes;
 import com.booksmith.identity.internal.security.SecurityProperties;
 import com.booksmith.identity.internal.security.SessionRegistry;
 import com.booksmith.identity.internal.user.PasswordResetToken;
@@ -46,12 +47,15 @@ class AuthServiceTest {
     private final JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
     private final EmailSender emailSender = mock(EmailSender.class);
     private final SessionRegistry sessionRegistry = mock(SessionRegistry.class);
+    private final LoginGuard loginGuard = mock(LoginGuard.class);
+    private final OneTimeLoginCodes loginCodes = mock(OneTimeLoginCodes.class);
 
     private final AuthService service = new AuthService(userRepository, resetTokens, passwordEncoder, tokenProvider,
             sessionRegistry, emailSender,
             new SecurityProperties("test-secret-with-at-least-32-characters!!", Duration.ofHours(1),
                     Duration.ofDays(30), "http://app.test", List.of()),
             new IdentityProperties(13),
+            loginGuard, loginCodes,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -87,6 +91,98 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> service.login("x@example.com", "Senha@123", null)).hasMessage("E-mail ou senha inválidos.");
         assertThatThrownBy(() -> service.login("lia@example.com", "errada", null)).hasMessage("E-mail ou senha inválidos.");
+    }
+
+    @Test
+    void wrongPasswordsAreCountedPerAccountAndALockedAccountIsNotEvenChecked() {
+        User lia = User.builder().id(UUID.randomUUID()).email("lia@example.com")
+                .passwordHash(passwordEncoder.encode("Senha@123")).emailVerified(true).build();
+        when(userRepository.findByEmailIgnoreCase("lia@example.com")).thenReturn(Optional.of(lia));
+
+        assertThatThrownBy(() -> service.login("lia@example.com", "errada", null)).isInstanceOf(ApiException.class);
+        verify(loginGuard).recordFailure("lia@example.com", lia);
+
+        org.mockito.Mockito.doThrow(new ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "login_locked", "x"))
+                .when(loginGuard).checkNotLocked("lia@example.com");
+        assertThatThrownBy(() -> service.login("lia@example.com", "Senha@123", null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("login_locked"));
+        verify(tokenProvider, never()).issue(any(), any());
+    }
+
+    @Test
+    void rightPasswordWithUnconfirmedEmailAsksForTheCode() {
+        User lia = User.builder().id(UUID.randomUUID()).email("lia@example.com")
+                .passwordHash(passwordEncoder.encode("Senha@123")).build();
+        when(userRepository.findByEmailIgnoreCase("lia@example.com")).thenReturn(Optional.of(lia));
+
+        assertThatThrownBy(() -> service.login("lia@example.com", "Senha@123", null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("email_not_verified"));
+        // A senha estava certa: os erros zeram, mas não abre sessão
+        verify(loginGuard).recordSuccess("lia@example.com");
+        verify(tokenProvider, never()).issue(any(), any());
+    }
+
+    @Test
+    void successfulLoginNotesTheDevice() {
+        User lia = User.builder().id(UUID.randomUUID()).email("lia@example.com")
+                .passwordHash(passwordEncoder.encode("Senha@123")).emailVerified(true).build();
+        when(userRepository.findByEmailIgnoreCase("lia@example.com")).thenReturn(Optional.of(lia));
+
+        service.login("lia@example.com", "Senha@123", "Firefox");
+
+        verify(loginGuard).noteDevice(lia, "Firefox");
+        verify(tokenProvider).issue(lia, "Firefox");
+    }
+
+    @Test
+    void googleCodeWorksOnceAndOnlyWhileValid() {
+        User lia = User.builder().id(UUID.randomUUID()).email("lia@example.com").emailVerified(true).build();
+        when(loginCodes.consume("bom")).thenReturn(Optional.of(lia.getId()));
+        when(loginCodes.consume("usado")).thenReturn(Optional.empty());
+        when(userRepository.findById(lia.getId())).thenReturn(Optional.of(lia));
+
+        service.exchangeGoogleCode("bom", "Chrome");
+        verify(tokenProvider).issue(lia, "Chrome");
+        assertThatThrownBy(() -> service.exchangeGoogleCode("usado", "Chrome")).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void resendVerificationWaitsAMinuteAndIgnoresConfirmedOrUnknownAccounts() {
+        User recent = User.builder().email("a@example.com").emailVerificationExpiresAt(NOW.plus(Duration.ofMinutes(15))).build();
+        User old = User.builder().email("b@example.com").emailVerificationExpiresAt(NOW.plus(Duration.ofMinutes(10))).build();
+        User done = User.builder().email("c@example.com").emailVerified(true).build();
+        when(userRepository.findByEmailIgnoreCase("a@example.com")).thenReturn(Optional.of(recent));
+        when(userRepository.findByEmailIgnoreCase("b@example.com")).thenReturn(Optional.of(old));
+        when(userRepository.findByEmailIgnoreCase("c@example.com")).thenReturn(Optional.of(done));
+        when(userRepository.findByEmailIgnoreCase("x@example.com")).thenReturn(Optional.empty());
+
+        for (String email : List.of("a@example.com", "b@example.com", "c@example.com", "x@example.com")) {
+            service.resendVerification(email);
+        }
+
+        verify(emailSender).sendEmailVerification(eq("b@example.com"), anyString());
+        verify(emailSender, never()).sendEmailVerification(eq("a@example.com"), anyString());
+        verify(emailSender, never()).sendEmailVerification(eq("c@example.com"), anyString());
+        assertThat(old.getEmailVerificationExpiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(15)));
+    }
+
+    @Test
+    void googleAccountCompletesTheProfileWithTheMinimumAge() {
+        User google = User.builder().id(UUID.randomUUID()).email("g@example.com").username("autor.1234").build();
+        when(userRepository.findById(google.getId())).thenReturn(Optional.of(google));
+
+        assertThatThrownBy(() -> service.completeProfile(google.getId(), "s1", LocalDate.of(2016, 1, 1), null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("age_below_minimum"));
+        assertThat(google.getBirthDate()).isNull();
+        verify(sessionRegistry).endAll(google.getId(), null);
+
+        service.completeProfile(google.getId(), "s1", LocalDate.of(1990, 3, 4), "lia.moreau");
+        assertThat(google.getBirthDate()).isEqualTo(LocalDate.of(1990, 3, 4));
+        assertThat(google.getUsername()).isEqualTo("lia.moreau");
+        verify(tokenProvider).reissue(google, "s1");
+
+        assertThatThrownBy(() -> service.completeProfile(google.getId(), "s1", LocalDate.of(1990, 3, 4), null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("profile_already_complete"));
     }
 
     @Test

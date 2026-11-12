@@ -3,6 +3,7 @@ package com.booksmith.identity.web;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.auth.AuthService;
 import com.booksmith.identity.web.AuthDtos.ForgotPasswordRequest;
+import com.booksmith.identity.web.AuthDtos.GoogleExchangeRequest;
 import com.booksmith.identity.web.AuthDtos.LoginRequest;
 import com.booksmith.identity.web.AuthDtos.RegisterRequest;
 import com.booksmith.identity.web.AuthDtos.ResetPasswordRequest;
@@ -45,6 +46,20 @@ class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void verifyEmail(@RequestBody @Valid VerifyEmailRequest request) {
         authService.verifyEmail(request.email(), request.code());
+    }
+
+    /** Novo código para confirmar o e-mail; responde 204 sempre (não revela se a conta existe). */
+    @PostMapping("/resend-verification")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void resendVerification(@RequestBody @Valid ForgotPasswordRequest request) {
+        authService.resendVerification(request.email());
+    }
+
+    /** Troca o código de uso único do login com Google pela sessão. */
+    @PostMapping("/google/exchange")
+    SessionResponse exchangeGoogleCode(@RequestBody @Valid GoogleExchangeRequest request,
+                                       @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+        return SessionResponse.from(authService.exchangeGoogleCode(request.code(), userAgent));
     }
 
     @PostMapping("/refresh")

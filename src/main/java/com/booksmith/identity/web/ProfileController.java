@@ -29,6 +29,18 @@ class ProfileController {
 
     private final ProfileService profileService;
     private final CurrentUser currentUser;
+    private final com.booksmith.identity.internal.auth.AuthService authService;
+
+    /**
+     * Completa o cadastro de quem entrou pelo Google (data de nascimento e nome de usuário). É a única rota liberada
+     * enquanto o cadastro está pendente; devolve o token novo, já liberado.
+     */
+    @PostMapping("/complete")
+    AuthDtos.SessionResponse complete(@RequestBody @Valid AuthDtos.CompleteProfileRequest request) {
+        var user = currentUser.get();
+        return AuthDtos.SessionResponse.from(authService.completeProfile(user.id(), user.sessionId(),
+                request.birthDate(), request.username()));
+    }
 
     @GetMapping
     ProfileResponse get() {

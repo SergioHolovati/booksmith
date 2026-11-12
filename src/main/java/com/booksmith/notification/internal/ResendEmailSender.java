@@ -21,6 +21,7 @@ class ResendEmailSender implements EmailSender {
 
     private static final String PASSWORD_RECOVERY_TEMPLATE = "email-templates/password-recovery.html";
     private static final String EMAIL_VERIFICATION_TEMPLATE = "email-templates/email-verification.html";
+    private static final String SECURITY_NOTICE_TEMPLATE = "email-templates/security-notice.html";
 
     private final MailProperties properties;
 
@@ -34,6 +35,17 @@ class ResendEmailSender implements EmailSender {
     public void sendPasswordReset(String to, String resetLink) {
         send(to, "Redefinição de senha do Booksmith",
                 loadTemplate(PASSWORD_RECOVERY_TEMPLATE, Map.of("resetLink", resetLink)));
+    }
+
+    @Override
+    public void sendSecurityNotice(String to, String title, String message) {
+        send(to, title + " | Booksmith",
+                loadTemplate(SECURITY_NOTICE_TEMPLATE, Map.of("title", escape(title), "message", escape(message))));
+    }
+
+    /** O texto entra no HTML: o aparelho vem do User-Agent, que quem acessa escolhe. */
+    static String escape(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
     private void send(String to, String subject, String html) {

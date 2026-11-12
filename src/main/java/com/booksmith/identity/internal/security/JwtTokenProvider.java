@@ -25,6 +25,9 @@ public class JwtTokenProvider {
 
     private static final String ISSUER = "booksmith";
     private static final String SESSION_CLAIM = "sid";
+    /** Cadastro pendente: {@code "profile"} na conta nova do Google, sem data de nascimento. */
+    static final String PENDING_CLAIM = "pending";
+    static final String PENDING_PROFILE = "profile";
     private static final String REVOKED_PREFIX = "auth:revoked:";
 
     private final StringRedisTemplate redis;
@@ -47,19 +50,31 @@ public class JwtTokenProvider {
 
     /** Valida o token de uma requisição. Vazio se inválido, expirado, revogado ou com sessão encerrada. */
     public Optional<AuthenticatedUser> authenticate(String token) {
+        return verify(token).map(Verified::user);
+    }
+
+    /** Como {@link #authenticate}, dizendo também se o cadastro está pendente (conta nova do Google). */
+    public Optional<Verified> verify(String token) {
         try {
             DecodedJWT jwt = verifier(0).verify(token);
             if (isRevoked(jwt) || !isSessionActive(jwt)) {
                 return Optional.empty();
             }
-            return Optional.of(new AuthenticatedUser(
+            return Optional.of(new Verified(new AuthenticatedUser(
                     UUID.fromString(jwt.getSubject()),
                     jwt.getClaim("username").asString(),
                     jwt.getClaim("name").asString(),
-                    jwt.getClaim(SESSION_CLAIM).asString()));
+                    jwt.getClaim(SESSION_CLAIM).asString()),
+                    PENDING_PROFILE.equals(jwt.getClaim(PENDING_CLAIM).asString())));
         } catch (JWTVerificationException | IllegalArgumentException e) {
             return Optional.empty();
         }
+    }
+
+    /** Token novo na mesma sessão, com os dados de agora (ex.: depois de completar o cadastro). */
+    public IssuedToken reissue(User user, String sessionId) {
+        sessions.touch(user.getId(), sessionId);
+        return sign(user, sessionId);
     }
 
     /**
@@ -106,6 +121,8 @@ public class JwtTokenProvider {
                 .withClaim(SESSION_CLAIM, sessionId)
                 .withClaim("username", user.getUsername())
                 .withClaim("name", user.displayName())
+                // Conta nova do Google, sem data de nascimento: só pode completar o cadastro
+                .withClaim(PENDING_CLAIM, user.getBirthDate() == null ? PENDING_PROFILE : null)
                 .withExpiresAt(expiresAt)
                 .sign(algorithm);
         return new IssuedToken(token, properties.accessTokenTtl());
@@ -131,6 +148,10 @@ public class JwtTokenProvider {
 
     private boolean isSessionActive(DecodedJWT jwt) {
         return sessions.isActive(jwt.getClaim(SESSION_CLAIM).asString());
+    }
+
+    /** {@code profilePending}: o cadastro precisa ser completado antes de usar o resto da API. */
+    public record Verified(AuthenticatedUser user, boolean profilePending) {
     }
 
     public record IssuedToken(String value, Duration expiresIn) {

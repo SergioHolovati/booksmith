@@ -101,6 +101,19 @@ class JwtTokenProviderTest {
     }
 
     @Test
+    void googleAccountWithoutBirthDateIsPendingUntilTheProfileIsComplete() {
+        // O usuário do setUp não tem data de nascimento, como a conta criada pelo Google
+        var pending = provider.issue(user, null);
+        var verified = provider.verify(pending.value()).orElseThrow();
+        assertThat(verified.profilePending()).isTrue();
+
+        user.setBirthDate(java.time.LocalDate.of(1990, 3, 4));
+        var complete = provider.reissue(user, verified.user().sessionId());
+        assertThat(provider.verify(complete.value()).orElseThrow().profilePending()).isFalse();
+        assertThat(provider.verify(complete.value()).orElseThrow().user().sessionId()).isEqualTo(verified.user().sessionId());
+    }
+
+    @Test
     void rejectsTamperedToken() {
         String token = provider.issue(user, "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36").value();
         String tampered = token.substring(0, token.length() - 2) + (token.endsWith("AA") ? "BB" : "AA");

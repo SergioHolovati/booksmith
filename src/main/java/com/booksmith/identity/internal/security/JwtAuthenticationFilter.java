@@ -29,10 +29,25 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.startsWith(BEARER)) {
-            tokenProvider.authenticate(header.substring(BEARER.length()))
-                    .ifPresent(user -> SecurityContextHolder.getContext().setAuthentication(
-                            UsernamePasswordAuthenticationToken.authenticated(user, null, List.of())));
+            var verified = tokenProvider.verify(header.substring(BEARER.length()));
+            if (verified.isPresent() && verified.get().profilePending() && !allowedWhilePending(request)) {
+                // Conta nova do Google: até informar a data de nascimento (idade mínima), só completa o cadastro
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.setContentType("application/problem+json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write("""
+                        {"status":403,"title":"Forbidden","code":"profile_incomplete",                        "detail":"Complete seu cadastro para continuar."}""");
+                return;
+            }
+            verified.ifPresent(v -> SecurityContextHolder.getContext().setAuthentication(
+                    UsernamePasswordAuthenticationToken.authenticated(v.user(), null, List.of())));
         }
         filterChain.doFilter(request, response);
+    }
+
+    /** Com o cadastro pendente: completar o cadastro e as rotas de sessão (renovar, sair). */
+    static boolean allowedWhilePending(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/api/v1/auth/") || path.equals("/api/v1/profile/complete");
     }
 }

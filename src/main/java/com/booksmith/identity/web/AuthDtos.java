@@ -51,6 +51,16 @@ final class AuthDtos {
     record ForgotPasswordRequest(@NotBlank @Email String email) {
     }
 
+    record GoogleExchangeRequest(@NotBlank @Size(max = 200) String code) {
+    }
+
+    record CompleteProfileRequest(
+            @NotNull(message = "Informe a data de nascimento.") @Past LocalDate birthDate,
+            @Size(min = 2, max = 40, message = "O nome de usuário tem de 2 a 40 caracteres.")
+            @Pattern(regexp = "^[a-zA-Z0-9._-]*$", message = "Use letras, números, ponto, hífen ou _.")
+            String username) {
+    }
+
     record ResetPasswordRequest(
             @NotBlank String token,
             @NotBlank @Pattern(regexp = PASSWORD_PATTERN, message = PASSWORD_MESSAGE) String password) {
@@ -64,10 +74,12 @@ final class AuthDtos {
                     session.token().value(),
                     "Bearer",
                     session.token().expiresIn().toSeconds(),
-                    new UserSummary(user.getId(), user.getUsername(), user.displayName(), user.isEmailVerified()));
+                    new UserSummary(user.getId(), user.getUsername(), user.displayName(), user.isEmailVerified(),
+                            user.getBirthDate() == null));
         }
     }
 
-    record UserSummary(UUID id, String username, String displayName, boolean emailVerified) {
+    /** {@code profilePending}: conta nova do Google que ainda precisa completar o cadastro. */
+    record UserSummary(UUID id, String username, String displayName, boolean emailVerified, boolean profilePending) {
     }
 }

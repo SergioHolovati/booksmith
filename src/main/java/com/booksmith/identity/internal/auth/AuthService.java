@@ -4,6 +4,7 @@ import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.IdentityProperties;
 import com.booksmith.identity.internal.security.JwtTokenProvider;
 import com.booksmith.identity.internal.security.JwtTokenProvider.IssuedToken;
+import com.booksmith.identity.internal.security.OneTimeLoginCodes;
 import com.booksmith.identity.internal.security.SecurityProperties;
 import com.booksmith.identity.internal.security.SessionRegistry;
 import com.booksmith.identity.internal.user.AuthProvider;
@@ -37,6 +38,8 @@ public class AuthService {
     private static final Duration EMAIL_CODE_TTL = Duration.ofMinutes(15);
     private static final Duration RESET_TOKEN_TTL = Duration.ofMinutes(30);
     private static final int EMAIL_CODE_LENGTH = 6;
+    /** Espera mínima entre dois envios do código de verificação. */
+    private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -46,17 +49,95 @@ public class AuthService {
     private final EmailSender emailSender;
     private final SecurityProperties securityProperties;
     private final IdentityProperties identityProperties;
+    private final LoginGuard loginGuard;
+    private final OneTimeLoginCodes loginCodes;
     private final Clock clock;
 
+    /**
+     * Login com senha. Com 5 erros seguidos na conta, bloqueia por 15 minutos (429 {@code login_locked}). Com a
+     * senha certa mas o e-mail ainda não confirmado, 403 {@code email_not_verified} (o app leva para a tela do
+     * código). Aparelho novo gera aviso por e-mail.
+     */
     @Transactional
     public Session login(String email, String password, String userAgent) {
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .filter(u -> u.getPasswordHash() != null && passwordEncoder.matches(password, u.getPasswordHash()))
-                .orElseThrow(() -> ApiException.unauthorized("E-mail ou senha inválidos."));
+        loginGuard.checkNotLocked(email);
+        User found = userRepository.findByEmailIgnoreCase(email).orElse(null);
+        if (found == null || found.getPasswordHash() == null || !passwordEncoder.matches(password, found.getPasswordHash())) {
+            loginGuard.recordFailure(email, found);
+            throw ApiException.unauthorized("E-mail ou senha inválidos.");
+        }
+        loginGuard.recordSuccess(email);
+        if (!found.isEmailVerified()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "email_not_verified",
+                    "Confirme seu e-mail para entrar: digite o código que enviamos.");
+        }
+        return open(found, userAgent);
+    }
 
+    /**
+     * Troca o código de uso único do login com Google pela sessão (o código vale 60 segundos e uma vez só).
+     *
+     * @throws ApiException 401 se o código não existe, venceu ou já foi usado
+     */
+    @Transactional
+    public Session exchangeGoogleCode(String code, String userAgent) {
+        User user = loginCodes.consume(code)
+                .flatMap(userRepository::findById)
+                .orElseThrow(() -> ApiException.unauthorized("O login com Google expirou. Tente de novo."));
+        return open(user, userAgent);
+    }
+
+    private Session open(User user, String userAgent) {
         user.setLastLoginAt(Instant.now(clock));
+        loginGuard.noteDevice(user, userAgent);
         log.info("Login realizado para userId: {}", user.getId());
         return new Session(user, tokenProvider.issue(user, userAgent));
+    }
+
+    /**
+     * Manda um código novo para confirmar o e-mail. Responde igual exista ou não a conta (não revela cadastros);
+     * só envia se a conta existe, ainda não foi confirmada e o último envio tem mais de 60 segundos.
+     */
+    @Transactional
+    public void resendVerification(String email) {
+        Instant now = Instant.now(clock);
+        userRepository.findByEmailIgnoreCase(email)
+                .filter(user -> !user.isEmailVerified())
+                .filter(user -> user.getEmailVerificationExpiresAt() == null
+                        || !now.isBefore(user.getEmailVerificationExpiresAt().minus(EMAIL_CODE_TTL).plus(RESEND_COOLDOWN)))
+                .ifPresent(user -> {
+                    String code = TokenHasher.randomCode(EMAIL_CODE_LENGTH);
+                    user.setEmailVerificationCodeHash(TokenHasher.sha256(code));
+                    user.setEmailVerificationExpiresAt(now.plus(EMAIL_CODE_TTL));
+                    emailSender.sendEmailVerification(user.getEmail(), code);
+                });
+    }
+
+    /**
+     * Completa o cadastro de quem entrou pelo Google: data de nascimento (com a idade mínima) e nome de usuário.
+     * Devolve um token novo na mesma sessão, já sem o cadastro pendente.
+     *
+     * @throws ApiException 409 {@code profile_already_complete}; 422 {@code age_below_minimum} (encerra as sessões)
+     */
+    @Transactional
+    public Session completeProfile(UUID userId, String sessionId, LocalDate birthDate, String username) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> ApiException.unauthorized("Usuário não encontrado."));
+        if (user.getBirthDate() != null) {
+            throw ApiException.conflict("profile_already_complete", "O cadastro já está completo.", java.util.Map.of());
+        }
+        if (Period.between(birthDate, LocalDate.now(clock)).getYears() < identityProperties.minimumAge()) {
+            sessionRegistry.endAll(userId, null);
+            log.info("Cadastro pelo Google recusado pela idade mínima para userId: {}", userId);
+            throw ApiException.unprocessable("age_below_minimum",
+                    "É preciso ter pelo menos %d anos para usar o Booksmith.".formatted(identityProperties.minimumAge()));
+        }
+        user.setBirthDate(birthDate);
+        if (username != null && !username.isBlank()) {
+            user.setUsername(username.strip());
+        }
+        log.info("Cadastro completado para userId: {}", userId);
+        return new Session(user, tokenProvider.reissue(user, sessionId));
     }
 
     @Transactional

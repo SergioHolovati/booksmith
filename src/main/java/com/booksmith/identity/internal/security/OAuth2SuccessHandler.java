@@ -3,6 +3,7 @@ package com.booksmith.identity.internal.security;
 import com.booksmith.identity.internal.user.AuthProvider;
 import com.booksmith.identity.internal.user.User;
 import com.booksmith.identity.internal.user.UserRepository;
+import com.booksmith.identity.internal.user.Usernames;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -20,16 +21,22 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 /**
- * Conclui o login com Google: cria ou vincula o usuário e devolve o token ao frontend no fragmento da URL
- * ({@code #token=}), que não é enviado a servidores nem fica em logs de acesso.
+ * Conclui o login com Google: cria ou vincula o usuário e devolve ao frontend um <b>código de uso único</b> no
+ * fragmento da URL ({@code #code=}), que não é enviado a servidores nem fica em logs de acesso. O app troca o
+ * código pela sessão em {@code POST /api/v1/auth/google/exchange}; o código vale 60 segundos e uma vez só, então o
+ * que sobra no histórico do navegador não abre a conta.
+ *
+ * <p>Conta criada pelo Google não tem data de nascimento: o token sai com o cadastro pendente e o app pede a data
+ * (e confere a idade mínima) antes de liberar o resto.
  */
 @Component
 @RequiredArgsConstructor
 class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
-    private final JwtTokenProvider tokenProvider;
+    private final OneTimeLoginCodes loginCodes;
     private final SecurityProperties properties;
+    private final com.booksmith.notification.api.EmailSender emailSender;
 
     @Override
     @Transactional
@@ -56,9 +63,9 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 .orElseGet(() -> createGoogleUser(email, oauthUser.getAttribute("name")));
         user.setLastLoginAt(Instant.now());
 
-        String token = tokenProvider.issue(user, request.getHeader("User-Agent")).value();
-        response.sendRedirect(properties.frontendUrl() + "/auth/callback#token="
-                + URLEncoder.encode(token, StandardCharsets.UTF_8));
+        String code = loginCodes.create(user.getId());
+        response.sendRedirect(properties.frontendUrl() + "/auth/callback#code="
+                + URLEncoder.encode(code, StandardCharsets.UTF_8));
     }
 
     private static boolean isEmailVerified(OAuth2User user) {
@@ -69,7 +76,12 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         return Boolean.parseBoolean(String.valueOf(verified));
     }
 
+    /** Conta com senha que passa a entrar também pelo Google: o dono fica sabendo. */
     private User linkGoogle(User user) {
+        if (!user.isGoogleLinked()) {
+            emailSender.sendSecurityNotice(user.getEmail(), "Sua conta foi ligada ao Google",
+                    "Agora também dá para entrar no Booksmith com a conta Google deste e-mail.");
+        }
         user.setGoogleLinked(true);
         user.setEmailVerified(true);
         user.setEmailVerificationCodeHash(null);
@@ -83,7 +95,7 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 .email(email)
                 .firstName(names.length > 0 ? names[0] : null)
                 .lastName(names.length > 1 ? names[1] : null)
-                .username(email.substring(0, email.indexOf('@')))
+                .username(Usernames.suggest(name, userRepository::existsByUsernameIgnoreCase))
                 .provider(AuthProvider.GOOGLE)
                 .googleLinked(true)
                 .emailVerified(true)
