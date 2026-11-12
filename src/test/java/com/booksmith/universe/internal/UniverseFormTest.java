@@ -21,6 +21,24 @@ class UniverseFormTest {
     }
 
     @Test
+    void describesTheUniverseInReadableLinesForTheAi() {
+        JsonNode details = form.normalize(mapper.readTree("""
+                {"premise": "Memórias à venda", "genres": ["fantasy", "Realismo mágico"], "techLevel": 3,
+                 "magic": [{"name": "Tecelagem"}, {"name": "Runas"}],
+                 "laws": [{"statement": "Ferro anula magia"}]}
+                """), mapper);
+
+        assertThat(form.describe(details, 600)).containsExactly(
+                "Premissa: Memórias à venda",
+                "Gêneros: Fantasia, Realismo mágico",
+                "Sistema de magia: Tecelagem, Runas",
+                "Tecnologia: Medieval",
+                "Lei: Ferro anula magia");
+        assertThat(form.describe(mapper.readTree("{\"premise\": \"abcdef\"}"), 3)).containsExactly("Premissa: abc…");
+        assertThat(form.describe(null, 600)).isEmpty();
+    }
+
+    @Test
     void everythingIsOptional() {
         assertThat(form.normalize(mapper.readTree("{}"), mapper).isEmpty()).isTrue();
         assertThat(form.normalize(null, mapper).isEmpty()).isTrue();

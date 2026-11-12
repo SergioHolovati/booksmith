@@ -159,6 +159,34 @@ public class UniverseService implements Universes {
         return result;
     }
 
+    /** Papel do personagem como aparece no resumo para a IA. */
+    private static final Map<String, String> ROLE_LABELS = Map.of("protagonist", "protagonista",
+            "antagonist", "antagonista", "supporting", "secundário", "minor", "figurante");
+    /** Quantos personagens e lugares entram no resumo (os primeiros em ordem alfabética). */
+    static final int BRIEF_ENTITIES = 40;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Brief brief(UUID universeId) {
+        Universe universe = universeRepository.findById(universeId)
+                .orElseThrow(() -> ApiException.notFound("universe_not_found", "Universo não encontrado."));
+        List<String> characters = new ArrayList<>();
+        List<String> places = new ArrayList<>();
+        for (String kind : List.of(UniverseEntity.CHARACTER, UniverseEntity.PLACE)) {
+            for (UniverseEntity entity : entityRepository.findAllByUniverseIdAndKindAndDeletedAtIsNullOrderByNameAsc(universeId, kind)) {
+                if (kind.equals(UniverseEntity.PLACE)) {
+                    if (places.size() < BRIEF_ENTITIES) {
+                        places.add(entity.getName());
+                    }
+                } else if (characters.size() < BRIEF_ENTITIES) {
+                    String role = ROLE_LABELS.get(jsonMapper.readTree(entity.getAttributes()).path("role").stringValue(""));
+                    characters.add(role == null ? entity.getName() : entity.getName() + " (" + role + ")");
+                }
+            }
+        }
+        return new Brief(universe.getName(), universeForm.describe(details(universe), 600), characters, places);
+    }
+
     /** Universos do usuário, com quantos personagens, lugares e eventos cada um tem. */
     @Transactional(readOnly = true)
     public List<UniverseWithCounts> list(UUID ownerId) {

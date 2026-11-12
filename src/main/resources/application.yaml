@@ -78,6 +78,19 @@ booksmith:
       auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
   identity:
     minimum-age: 13
+  # Sugestões de IA (§4.11): ollama (local), anthropic (API do Claude, exige ANTHROPIC_API_KEY) ou off
+  ai:
+    provider: ${AI_PROVIDER:off}
+    daily-limit: ${AI_DAILY_LIMIT:60}
+    concurrency: ${AI_CONCURRENCY:1}
+    ollama:
+      url: ${OLLAMA_URL:http://127.0.0.1:11434}
+      model: ${OLLAMA_MODEL:qwen3:8b}
+      keep-alive: 30m
+      timeout: 4m
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${ANTHROPIC_MODEL:claude-opus-5-5}
   mail:
     enabled: ${MAIL_ENABLED:true}
     resend-api-key: ${RESEND_API_KEY:}
@@ -121,6 +134,9 @@ booksmith:
       auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:600}
   mail:
     enabled: ${MAIL_ENABLED:false}   # e-mails vão para o log
+  # IA local pelo Ollama (instalado no PC, modelo qwen3:8b): nada sai do computador
+  ai:
+    provider: ${AI_PROVIDER:ollama}
   media:
     bucket: ${MEDIA_BUCKET:booksmith}
     region: ${AWS_REGION:us-east-1}

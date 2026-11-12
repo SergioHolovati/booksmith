@@ -59,6 +59,17 @@
 				<artifactId>json</artifactId>
 				<version>20260814</version>
 			</dependency>
+			<!--
+			  OpenTelemetry vem pelo SDK do Claude (anthropic-java 3.8.0 traz 1.55.0, com GHSA-ccrj-gw8r-854m e
+			  GHSA-rcgg-9c38-7xpx; corrigidas em 1.67.0 e 1.62.0). OSV, 2026-11-11.
+			-->
+			<dependency>
+				<groupId>io.opentelemetry</groupId>
+				<artifactId>opentelemetry-bom</artifactId>
+				<version>1.68.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
@@ -135,6 +146,12 @@
 			<groupId>com.resend</groupId>
 			<artifactId>resend-java</artifactId>
 			<version>4.11.0</version>
+		</dependency>
+		<!-- SDK oficial do Claude: só é usado com booksmith.ai.provider=anthropic (Maven Central, com.anthropic) -->
+		<dependency>
+			<groupId>com.anthropic</groupId>
+			<artifactId>anthropic-java</artifactId>
+			<version>3.8.0</version>
 		</dependency>
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>

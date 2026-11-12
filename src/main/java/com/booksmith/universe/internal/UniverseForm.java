@@ -168,6 +168,69 @@ public class UniverseForm {
         return result;
     }
 
+    /**
+     * O universo em linhas legíveis ("Gêneros: Mistério, Fantasia urbana"), na ordem dos passos, com os rótulos
+     * das opções no lugar dos códigos; das coleções, só o título de cada item. Base do contexto das sugestões de
+     * IA. Textos longos são cortados em {@code maxText} caracteres.
+     */
+    public java.util.List<String> describe(JsonNode details, int maxText) {
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        if (details == null || !details.isObject()) {
+            return lines;
+        }
+        for (JsonNode tab : definition.get("tabs")) {
+            for (JsonNode field : tab.get("fields")) {
+                String text = readable(field, details.get(field.get("key").stringValue()), maxText);
+                if (!text.isEmpty()) {
+                    lines.add(field.get("label").stringValue() + ": " + text);
+                }
+            }
+            JsonNode collectionKey = tab.get("collection");
+            if (collectionKey != null && details.get(collectionKey.stringValue()) instanceof ArrayNode items) {
+                JsonNode collection = definition.get("collections").get(collectionKey.stringValue());
+                String titleField = collection.path("titleField").stringValue("name");
+                java.util.List<String> titles = new java.util.ArrayList<>();
+                items.forEach(i -> {
+                    String title = i.path(titleField).stringValue("").strip();
+                    if (!title.isEmpty()) {
+                        titles.add(title);
+                    }
+                });
+                if (!titles.isEmpty()) {
+                    lines.add(collection.get("label").stringValue() + ": " + String.join(", ", titles));
+                }
+            }
+        }
+        return lines;
+    }
+
+    private static String readable(JsonNode field, JsonNode value, int maxText) {
+        if (value == null || value.isNull()) {
+            return "";
+        }
+        if (value.isArray()) {
+            java.util.List<String> labels = new java.util.ArrayList<>();
+            value.forEach(v -> labels.add(optionLabel(field, v.stringValue(""))));
+            return String.join(", ", labels);
+        }
+        if (value.isNumber()) {
+            JsonNode labels = field.get("labels");
+            int index = value.intValue() - field.path("min").intValue(1);
+            return labels != null && index >= 0 && index < labels.size() ? labels.get(index).stringValue() : "";
+        }
+        String text = optionLabel(field, value.stringValue("").strip());
+        return text.length() > maxText ? text.substring(0, maxText) + "…" : text;
+    }
+
+    private static String optionLabel(JsonNode field, String value) {
+        for (JsonNode option : field.path("options")) {
+            if (value.equals(option.path("value").stringValue(""))) {
+                return option.path("label").stringValue(value);
+            }
+        }
+        return value;
+    }
+
     private static void add(Map<String, JsonNode> target, JsonNode field) {
         if (target.put(field.get("key").stringValue(), field) != null) {
             throw new IllegalStateException("Campo repetido no construtor de universo: " + field.get("key"));

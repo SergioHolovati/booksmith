@@ -36,6 +36,19 @@ public interface Universes {
     /** Personagens e lugares do universo, com nomes, outros nomes e (para personagens) a aparência. */
     List<KnownEntity> entities(UUID universeId);
 
+    /**
+     * Resumo do universo para as sugestões de IA: o que o construtor tem preenchido, em linhas legíveis, e os
+     * personagens (com o papel) e lugares. Quem chama já conferiu o dono.
+     */
+    Brief brief(UUID universeId);
+
+    /**
+     * @param lines      "Rótulo: valor" do construtor de universo, na ordem dos passos
+     * @param characters "Lia (protagonista)"
+     */
+    record Brief(String name, List<String> lines, List<String> characters, List<String> places) {
+    }
+
     /** @param duplicateNames nomes que já existiam no universo de destino (personagens e lugares) */
     record MergeResult(List<String> duplicateNames) {
     }
