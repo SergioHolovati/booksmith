@@ -36,6 +36,12 @@ public interface Universes {
     /** Personagens e lugares do universo, com nomes, outros nomes e (para personagens) a aparência. */
     List<KnownEntity> entities(UUID universeId);
 
+    /**
+     * As fichas dos personagens, com os campos de texto preenchidos (personalidade, medos, história…), para a
+     * revisão dos textos do livro (§4.11). O dono já foi conferido por quem chama.
+     */
+    List<CharacterSheet> characterSheets(UUID universeId);
+
     /** Resumo do universo para as sugestões de IA, sem foco em nenhum personagem. */
     default Brief brief(UUID universeId) {
         return brief(universeId, null);
@@ -73,6 +79,10 @@ public interface Universes {
      * @param kind       {@code character} ou {@code place}
      * @param appearance campo do formulário de aparência → valor e rótulo (ex.: eyeColor → green, "Verdes")
      */
+    /** @param fields chave do campo → texto (só os campos de texto preenchidos, na ordem da ficha) */
+    record CharacterSheet(UUID id, String name, List<String> aliases, Map<String, String> fields) {
+    }
+
     record KnownEntity(UUID id, String kind, String name, List<String> aliases, Map<String, Trait> appearance) {
     }
 

@@ -174,6 +174,22 @@ final class Prompts {
             dentro deles.
             """;
 
+    /** Textos do livro (sinopse, "sobre o autor", fichas) contra a história: só fatos que divergem. */
+    static final String COMPARE_TEXTS = REVIEW_COMMON + """
+            Tarefa: compare os textos de fora da história (sinopse, "sobre o autor", fichas dos personagens, que \
+            vêm no material) com o texto dos capítulos. Aponte só fatos que divergem: nome, idade, parentesco, \
+            aparência, profissão, datas, lugares, quem fez o quê, como a história começa ou termina. Não aponte \
+            ortografia nem estilo, e não aponte o que a história ainda não contou (ficha com mais detalhe que o \
+            texto não é erro). quote: o trecho exato do texto de fora (sinopse, ficha…) que diverge, copiado letra \
+            por letra. problem: o que diverge e o que diz a história, com o número do capítulo. suggestion: o que \
+            conferir. No máximo 10.""";
+
+    static Prompt compareTexts(List<Section> material, int materialBudget, String bookText) {
+        String user = "Compare os textos do livro com a história.\n\n" + material(material, materialBudget)
+                + "\n\n<livro>\n" + bookText + "\n</livro>";
+        return new Prompt(COMPARE_TEXTS, user, 0.2);
+    }
+
     /** O pedido do "Pergunte ao seu livro": a pergunta, as fichas e o texto (inteiro ou os trechos relevantes). */
     static Prompt ask(String question, List<Section> material, int materialBudget, String bookText) {
         String user = "Pergunta do autor: " + question + "\n\n" + material(material, materialBudget)

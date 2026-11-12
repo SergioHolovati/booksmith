@@ -79,9 +79,18 @@ public class ProofreadService {
     @Transactional(readOnly = true)
     public List<BlockIssues> check(UUID ownerId, UUID chapterId, List<BlockText> blocks) {
         var chapter = chapterService.get(ownerId, chapterId);
+        return checkIn(ownerId, chapter.book(), blocks);
+    }
+
+    /** Textos do livro que não são capítulos (sinopse, "sobre o autor", fichas), com as mesmas regras. */
+    @Transactional(readOnly = true)
+    public List<BlockIssues> checkBook(UUID ownerId, UUID bookId, List<BlockText> blocks) {
+        return checkIn(ownerId, bookService.require(ownerId, bookId), blocks);
+    }
+
+    private List<BlockIssues> checkIn(UUID ownerId, Book book, List<BlockText> blocks) {
         validate(blocks);
         consume(ownerId);
-        Book book = chapter.book();
         String language = book.getLanguage() == null ? "pt-BR" : book.getLanguage().tag();
 
         // Do cache o que já foi corrigido; o resto vai numa chamada só

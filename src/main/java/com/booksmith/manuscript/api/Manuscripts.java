@@ -1,6 +1,7 @@
 package com.booksmith.manuscript.api;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Leitura do texto do livro por outros módulos (continuidade, exportação), sempre em nome do dono. */
@@ -37,6 +38,19 @@ public interface Manuscripts {
      * autor planeja a história. 404 se o livro não é do usuário.
      */
     List<String> openNotes(UUID ownerId, UUID bookId);
+
+    /**
+     * O corretor sem IA (LanguageTool, §8.5) em textos do livro que não são capítulos: sinopse, "sobre o autor",
+     * fichas. Ignora os nomes do universo e o dicionário do livro, como no editor. Até 60 textos por chamada.
+     *
+     * @param texts chave (quem chama escolhe) → texto
+     * @return chave → erros
+     */
+    Map<String, List<TextIssue>> proofread(UUID ownerId, UUID bookId, Map<String, String> texts);
+
+    /** Um erro do corretor: onde está no texto, o tipo (spelling, grammar, style) e as sugestões. */
+    record TextIssue(int offset, int length, String type, String message, List<String> replacements) {
+    }
 
     record BookSummary(UUID bookId, String title, String synopsis) {
     }

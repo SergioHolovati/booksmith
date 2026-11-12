@@ -2,6 +2,7 @@ package com.booksmith.assist.web;
 
 import com.booksmith.assist.internal.AskService;
 import com.booksmith.assist.internal.AssistService;
+import com.booksmith.assist.internal.BookTextsService;
 import com.booksmith.assist.internal.ReviewService;
 import com.booksmith.identity.api.CurrentUser;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 /** Sugestões de IA (§4.11): o app pergunta se estão ligadas e pede ideias ou perguntas para um campo. */
 @RestController
@@ -20,6 +23,7 @@ class AssistController {
     private final AssistService assistService;
     private final ReviewService reviewService;
     private final AskService askService;
+    private final BookTextsService bookTextsService;
     private final CurrentUser currentUser;
 
     @GetMapping("/status")
@@ -42,6 +46,21 @@ class AssistController {
     @PostMapping("/review")
     ReviewService.Result review(@RequestBody ReviewService.Request request) {
         return reviewService.review(currentUser.id(), request);
+    }
+
+    /** Textos do livro (sinopse, "sobre o autor", fichas) sem IA: ortografia, formatação e nomes divergentes. */
+    @PostMapping("/book-texts/check")
+    BookTextsService.Result checkBookTexts(@RequestBody BookTextsRequest request) {
+        return bookTextsService.check(currentUser.id(), request.bookId());
+    }
+
+    /** Textos do livro contra a história, com IA (gasta um uso): fatos que divergem. */
+    @PostMapping("/book-texts/compare")
+    BookTextsService.Result compareBookTexts(@RequestBody BookTextsRequest request) {
+        return bookTextsService.compare(currentUser.id(), request.bookId());
+    }
+
+    record BookTextsRequest(UUID bookId) {
     }
 
     /** "Pergunte ao seu livro": a resposta da IA, com os trechos de origem conferidos contra o texto. */

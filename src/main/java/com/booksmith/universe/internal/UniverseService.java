@@ -162,6 +162,23 @@ public class UniverseService implements Universes {
 
     @Override
     @Transactional(readOnly = true)
+    public List<CharacterSheet> characterSheets(UUID universeId) {
+        List<CharacterSheet> result = new ArrayList<>();
+        for (UniverseEntity entity : entityRepository.findAllByUniverseIdAndKindAndDeletedAtIsNullOrderByNameAsc(
+                universeId, UniverseEntity.CHARACTER)) {
+            Map<String, String> fields = new LinkedHashMap<>();
+            jsonMapper.readTree(entity.getAttributes()).properties().forEach(e -> {
+                if (e.getValue().isString() && !e.getValue().stringValue().isBlank()) {
+                    fields.put(e.getKey(), e.getValue().stringValue());
+                }
+            });
+            result.add(new CharacterSheet(entity.getId(), entity.getName(), List.of(entity.getAliases()), fields));
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Brief brief(UUID universeId, UUID focusId) {
         Universe universe = universeRepository.findById(universeId)
                 .orElseThrow(() -> ApiException.notFound("universe_not_found", "Universo não encontrado."));

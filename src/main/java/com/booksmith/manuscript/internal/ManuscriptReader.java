@@ -8,7 +8,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Implementação de {@link Manuscripts}: o texto do livro em blocos, para leitura por outros módulos. */
@@ -22,6 +24,7 @@ class ManuscriptReader implements Manuscripts {
     private final BookRepository bookRepository;
     private final ChapterNoteRepository noteRepository;
     private final JsonMapper jsonMapper;
+    private final ProofreadService proofreadService;
 
     @Override
     @Transactional(readOnly = true)
@@ -129,5 +132,19 @@ class ManuscriptReader implements Manuscripts {
                 collect(child, blocks);
             }
         }
+    }
+
+    @Override
+    public Map<String, List<TextIssue>> proofread(UUID ownerId, UUID bookId, Map<String, String> texts) {
+        List<ProofreadService.BlockText> blocks = texts.entrySet().stream()
+                .map(e -> new ProofreadService.BlockText(e.getKey(), e.getValue()))
+                .toList();
+        Map<String, List<TextIssue>> result = new LinkedHashMap<>();
+        for (ProofreadService.BlockIssues block : proofreadService.checkBook(ownerId, bookId, blocks)) {
+            result.put(block.id(), block.issues().stream()
+                    .map(i -> new TextIssue(i.offset(), i.length(), i.type(), i.message(), i.replacements()))
+                    .toList());
+        }
+        return result;
     }
 }
