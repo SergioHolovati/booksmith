@@ -68,8 +68,14 @@ public class ReviewService {
     /**
      * @param blockId o bloco do capítulo onde está o trecho, ou null se o apontamento é do capítulo todo
      * @param fix     a sugestão pode substituir o trecho direto ("Corrigir" no app)
+     * @param kind    a regra da formatação ({@code dialogue}, {@code capital}, {@code honorific}, {@code tag}),
+     *                para o app marcar e corrigir em lote; null nas revisões da IA
      */
-    public record Item(String blockId, String quote, String problem, String suggestion, boolean fix) {
+    public record Item(String blockId, String quote, String problem, String suggestion, boolean fix, String kind) {
+
+        public Item(String blockId, String quote, String problem, String suggestion, boolean fix) {
+            this(blockId, quote, problem, suggestion, fix, null);
+        }
     }
 
     /** @param nextBlock onde começa a próxima parte; null quando o capítulo acabou */

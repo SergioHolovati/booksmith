@@ -51,21 +51,45 @@ class FormatChecksTest {
     }
 
     @Test
-    void quotesInAChapterWhenTheBookUsesDashes() {
-        assertThat(fourth()).anySatisfy(item -> {
+    void everyQuotedSpeechComesConvertedToDashes() {
+        assertThat(fourth()).filteredOn(i -> "dialogue".equals(i.kind()))
+                .extracting(Item::suggestion)
+                .containsExactly(
+                        "— A dona Lurdes não tinha machucado nenhum, só se transformou sozinha — respondeu Giulia.",
+                        "— Mas ser ferido, te transforma? igual filme de zumbi, sabe? — perguntou Ana.",
+                        "— Próxima pergunta, como matamos essas coisas? — perguntou Ana.",
+                        "— Duvido muito. Não acho que ninguém tinha como");
+        assertThat(fourth()).filteredOn(i -> "dialogue".equals(i.kind())).allSatisfy(item -> {
+            assertThat(item.fix()).isTrue();
             assertThat(item.problem()).contains("aspas").contains("travessão");
-            assertThat(item.quote()).startsWith("\"A dona Lurdes");
-            assertThat(item.fix()).isFalse();
+            assertThat(FOURTH.blocks()).anySatisfy(b -> assertThat(b.text()).isEqualTo(item.quote()));
         });
+        // os parágrafos convertidos já saem com a fala em maiúscula: não repete o aviso de minúscula
+        assertThat(fourth()).noneMatch(i -> "capital".equals(i.kind()));
+    }
+
+    @Test
+    void conversionFollowsTheBrazilianDashConvention() {
+        assertThat(FormatChecks.toDashes("\"Precisa ser machucado pra se transformar?\" Eu perguntei."))
+                .isEqualTo("— Precisa ser machucado pra se transformar? — eu perguntei.");
+        assertThat(FormatChecks.toDashes("\"Tem que furar o olho. Quando tentei na barriga a faca quebrou\" respondi."))
+                .isEqualTo("— Tem que furar o olho. Quando tentei na barriga a faca quebrou — respondi.");
+        assertThat(FormatChecks.toDashes("“Quebrou.” disse ela. “Agora vem.”"))
+                .isEqualTo("— Quebrou — disse ela. — Agora vem.");
+        assertThat(FormatChecks.toDashes("\"Sim,\" Ana disse."))
+                .isEqualTo("— Sim — Ana disse.");
+        assertThat(FormatChecks.toDashes("\"Vou embora.\" E bateu a porta."))
+                .isEqualTo("— Vou embora. — E bateu a porta.");
     }
 
     @Test
     void speechStartingInLowercaseGetsACapital() {
-        assertThat(fourth()).filteredOn(i -> i.problem().contains("minúscula"))
+        ChapterText dashes = chapter(5, "— duvido — disse Ana.", "— Por quê?", "— sei lá.");
+        assertThat(FormatChecks.check(book(EARLIER, dashes), dashes)).filteredOn(i -> "capital".equals(i.kind()))
                 .extracting(Item::quote, Item::suggestion, Item::fix)
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple("\"próxima", "\"Próxima", true),
-                        org.assertj.core.groups.Tuple.tuple("\"duvido", "\"Duvido", true));
+                        org.assertj.core.groups.Tuple.tuple("— duvido", "— Duvido", true),
+                        org.assertj.core.groups.Tuple.tuple("— sei", "— Sei", true));
     }
 
     @Test
@@ -106,8 +130,17 @@ class FormatChecksTest {
         ChapterText first = chapter(1, "— Oi — disse Ana.", "— Tudo bem?", "\"Tudo\" respondi.");
         assertThat(FormatChecks.check(book(first), first)).singleElement()
                 .satisfies(item -> {
-                    assertThat(item.problem()).contains("mistura");
+                    assertThat(item.problem()).contains("maioria das falas usa travessão");
                     assertThat(item.quote()).isEqualTo("\"Tudo\" respondi.");
+                    assertThat(item.suggestion()).isEqualTo("— Tudo — respondi.");
+                    assertThat(item.fix()).isTrue();
+                });
+        // com as aspas na maioria, só o aviso (converter para aspas fica para depois)
+        ChapterText quotes = chapter(1, "\"Oi\" disse Ana.", "\"Tudo bem?\"", "— Tudo — respondi.");
+        assertThat(FormatChecks.check(book(quotes), quotes)).singleElement()
+                .satisfies(item -> {
+                    assertThat(item.problem()).contains("mistura");
+                    assertThat(item.fix()).isFalse();
                 });
     }
 
