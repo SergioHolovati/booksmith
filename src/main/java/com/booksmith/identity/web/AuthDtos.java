@@ -54,6 +54,13 @@ final class AuthDtos {
     record GoogleExchangeRequest(@NotBlank @Size(max = 200) String code) {
     }
 
+    record MfaVerifyRequest(@NotBlank @Size(max = 200) String challenge,
+                            @NotBlank(message = "Digite o código.") @Size(max = 20) String code) {
+    }
+
+    record MfaChallengeRequest(@NotBlank @Size(max = 200) String challenge) {
+    }
+
     record CompleteProfileRequest(
             @NotNull(message = "Informe a data de nascimento.") @Past LocalDate birthDate,
             @Size(min = 2, max = 40, message = "O nome de usuário tem de 2 a 40 caracteres.")

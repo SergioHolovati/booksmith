@@ -62,6 +62,20 @@ class AuthController {
         return SessionResponse.from(authService.exchangeGoogleCode(request.code(), userAgent));
     }
 
+    /** Segunda etapa do login: o código do desafio ({@code mfa_required}) abre a sessão. */
+    @PostMapping("/mfa/verify")
+    SessionResponse verifyMfa(@RequestBody @Valid AuthDtos.MfaVerifyRequest request,
+                              @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
+        return SessionResponse.from(authService.completeMfa(request.challenge(), request.code(), userAgent));
+    }
+
+    /** Segunda etapa por e-mail: manda o código (um por minuto). */
+    @PostMapping("/mfa/email")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void sendMfaEmail(@RequestBody @Valid AuthDtos.MfaChallengeRequest request) {
+        authService.sendMfaEmail(request.challenge());
+    }
+
     @PostMapping("/refresh")
     SessionResponse refresh(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
         return SessionResponse.from(authService.refresh(bearerToken(authorization)));

@@ -4,6 +4,7 @@ import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.IdentityProperties;
 import com.booksmith.identity.internal.security.JwtTokenProvider;
 import com.booksmith.identity.internal.security.JwtTokenProvider.IssuedToken;
+import com.booksmith.identity.internal.mfa.MfaService;
 import com.booksmith.identity.internal.security.OneTimeLoginCodes;
 import com.booksmith.identity.internal.security.SecurityProperties;
 import com.booksmith.identity.internal.security.SessionRegistry;
@@ -51,6 +52,7 @@ public class AuthService {
     private final IdentityProperties identityProperties;
     private final LoginGuard loginGuard;
     private final OneTimeLoginCodes loginCodes;
+    private final MfaService mfaService;
     private final Clock clock;
 
     /**
@@ -71,7 +73,34 @@ public class AuthService {
             throw new ApiException(HttpStatus.FORBIDDEN, "email_not_verified",
                     "Confirme seu e-mail para entrar: digite o código que enviamos.");
         }
+        requireNoMfa(found);
         return open(found, userAgent);
+    }
+
+    /** Com verificação em duas etapas, a senha (ou o Google) certa abre um desafio, não a sessão. */
+    private void requireNoMfa(User user) {
+        if (mfaService.enabled(user.getId())) {
+            MfaService.Challenge challenge = mfaService.challenge(user.getId());
+            throw new ApiException(HttpStatus.FORBIDDEN, "mfa_required", "Digite o código da verificação em duas etapas.",
+                    java.util.Map.of("challenge", challenge.id(), "methods", challenge.methods()));
+        }
+    }
+
+    /**
+     * Segunda etapa do login: o código (app, e-mail ou recuperação) do desafio abre a sessão.
+     *
+     * @throws ApiException 401 {@code mfa_challenge_expired}; 422 {@code mfa_code_invalid}
+     */
+    @Transactional
+    public Session completeMfa(String challenge, String code, String userAgent) {
+        UUID userId = mfaService.verifyChallenge(challenge, code);
+        User user = userRepository.findById(userId).orElseThrow(() -> ApiException.unauthorized("Usuário não encontrado."));
+        return open(user, userAgent);
+    }
+
+    /** Segunda etapa por e-mail: manda o código do desafio. */
+    public void sendMfaEmail(String challenge) {
+        mfaService.sendChallengeEmail(challenge);
     }
 
     /**
@@ -84,6 +113,7 @@ public class AuthService {
         User user = loginCodes.consume(code)
                 .flatMap(userRepository::findById)
                 .orElseThrow(() -> ApiException.unauthorized("O login com Google expirou. Tente de novo."));
+        requireNoMfa(user);
         return open(user, userAgent);
     }
 

@@ -78,6 +78,10 @@ booksmith:
       auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
   identity:
     minimum-age: 13
+  # Chave (32 bytes em base64) que criptografa segredos guardados no banco: segredo do MFA, acesso ao Google Drive.
+  # Vazia em desenvolvimento: deriva do jwt-secret. Em produção, defina a sua e guarde fora do banco.
+  crypto:
+    key: ${CRYPTO_KEY:}
   # Sugestões e revisão de IA (§4.11): anthropic (API do Claude) ou off. Sem ANTHROPIC_API_KEY, a IA fica desligada.
   ai:
     provider: ${AI_PROVIDER:anthropic}

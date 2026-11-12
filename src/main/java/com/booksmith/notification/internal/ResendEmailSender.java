@@ -22,6 +22,7 @@ class ResendEmailSender implements EmailSender {
     private static final String PASSWORD_RECOVERY_TEMPLATE = "email-templates/password-recovery.html";
     private static final String EMAIL_VERIFICATION_TEMPLATE = "email-templates/email-verification.html";
     private static final String SECURITY_NOTICE_TEMPLATE = "email-templates/security-notice.html";
+    private static final String MFA_CODE_TEMPLATE = "email-templates/mfa-code.html";
 
     private final MailProperties properties;
 
@@ -35,6 +36,11 @@ class ResendEmailSender implements EmailSender {
     public void sendPasswordReset(String to, String resetLink) {
         send(to, "Redefinição de senha do Booksmith",
                 loadTemplate(PASSWORD_RECOVERY_TEMPLATE, Map.of("resetLink", resetLink)));
+    }
+
+    @Override
+    public void sendMfaCode(String to, String code) {
+        send(to, "Seu código de acesso ao Booksmith", loadTemplate(MFA_CODE_TEMPLATE, Map.of("code", escape(code))));
     }
 
     @Override

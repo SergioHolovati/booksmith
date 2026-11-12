@@ -6,6 +6,9 @@ public interface EmailSender {
 
     void sendPasswordReset(String to, String resetLink);
 
+    /** Código da verificação em duas etapas (entrar, ativar ou desativar), válido por 10 minutos. */
+    void sendMfaCode(String to, String code);
+
     /**
      * Aviso de segurança da conta (novo acesso, conta ligada ao Google, login bloqueado por tentativas erradas).
      * Sempre fecha com "se não foi você, troque sua senha".

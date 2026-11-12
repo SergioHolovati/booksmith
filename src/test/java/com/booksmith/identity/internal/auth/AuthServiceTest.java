@@ -49,13 +49,14 @@ class AuthServiceTest {
     private final SessionRegistry sessionRegistry = mock(SessionRegistry.class);
     private final LoginGuard loginGuard = mock(LoginGuard.class);
     private final OneTimeLoginCodes loginCodes = mock(OneTimeLoginCodes.class);
+    private final com.booksmith.identity.internal.mfa.MfaService mfaService = mock(com.booksmith.identity.internal.mfa.MfaService.class);
 
     private final AuthService service = new AuthService(userRepository, resetTokens, passwordEncoder, tokenProvider,
             sessionRegistry, emailSender,
             new SecurityProperties("test-secret-with-at-least-32-characters!!", Duration.ofHours(1),
                     Duration.ofDays(30), "http://app.test", List.of()),
             new IdentityProperties(13),
-            loginGuard, loginCodes,
+            loginGuard, loginCodes, mfaService,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -144,6 +145,32 @@ class AuthServiceTest {
         service.exchangeGoogleCode("bom", "Chrome");
         verify(tokenProvider).issue(lia, "Chrome");
         assertThatThrownBy(() -> service.exchangeGoogleCode("usado", "Chrome")).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void withTwoStepVerificationThePasswordOrGoogleOpensAChallengeNotASession() {
+        User lia = User.builder().id(UUID.randomUUID()).email("lia@example.com")
+                .passwordHash(passwordEncoder.encode("Senha@123")).emailVerified(true).build();
+        when(userRepository.findByEmailIgnoreCase("lia@example.com")).thenReturn(Optional.of(lia));
+        when(userRepository.findById(lia.getId())).thenReturn(Optional.of(lia));
+        when(loginCodes.consume("google")).thenReturn(Optional.of(lia.getId()));
+        when(mfaService.enabled(lia.getId())).thenReturn(true);
+        when(mfaService.challenge(lia.getId()))
+                .thenReturn(new com.booksmith.identity.internal.mfa.MfaService.Challenge("desafio", List.of("totp")));
+
+        for (Runnable login : List.<Runnable>of(() -> service.login("lia@example.com", "Senha@123", null),
+                () -> service.exchangeGoogleCode("google", null))) {
+            assertThatThrownBy(login::run).isInstanceOfSatisfying(ApiException.class, e -> {
+                assertThat(e.getCode()).isEqualTo("mfa_required");
+                assertThat(e.getProperties()).containsEntry("challenge", "desafio");
+            });
+        }
+        verify(tokenProvider, never()).issue(any(), any());
+
+        when(mfaService.verifyChallenge("desafio", "123456")).thenReturn(lia.getId());
+        service.completeMfa("desafio", "123456", "Chrome");
+        verify(tokenProvider).issue(lia, "Chrome");
+        verify(loginGuard).noteDevice(lia, "Chrome");
     }
 
     @Test
