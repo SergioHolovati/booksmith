@@ -202,7 +202,7 @@ final class BookHtml {
         };
     }
 
-    private static String type(JsonNode node) {
+    static String type(JsonNode node) {
         JsonNode type = node.get("type");
         return type == null ? "" : type.stringValue();
     }

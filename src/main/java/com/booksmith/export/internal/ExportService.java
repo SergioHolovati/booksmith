@@ -61,6 +61,15 @@ public class ExportService {
     }
 
     /**
+     * As ilustrações do texto na diagramação dada (salva ou não): tamanho na página e DPI para impressão.
+     *
+     * @throws ApiException 404 se o livro não é do usuário; 422 {@code book_empty} se não há capítulos
+     */
+    public PrintCheck.Result printCheck(UUID ownerId, String author, UUID bookId, BookLayout layout) {
+        return PrintCheck.check(prepare(manuscripts.bookContent(ownerId, bookId), author).withLayout(layout));
+    }
+
+    /**
      * Medidas da capa aberta para gráfica: o número de páginas sai do PDF com a diagramação salva.
      *
      * @throws ApiException 404 se o livro não é do usuário; 422 {@code book_empty}, {@code print_profile_invalid},

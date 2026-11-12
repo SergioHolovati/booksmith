@@ -128,11 +128,7 @@ final class PdfWriter {
      * abertura de capítulo. Margens em mm: em cima, dos lados, embaixo.
      */
     static String layoutCss(BookLayout layout) {
-        int[] margins = switch (layout.margins()) {
-            case "narrow" -> new int[] {16, 13, 18};
-            case "wide" -> new int[] {24, 21, 26};
-            default -> new int[] {20, 17, 22};
-        };
+        int[] margins = marginsMm(layout);
         double leading = switch (layout.leading()) {
             case "compact" -> 1.3;
             case "airy" -> 1.6;
@@ -158,6 +154,23 @@ final class PdfWriter {
                 number(layout.fontSize()), number(leading), number(layout.heightMm() - 1), chapter);
     }
 
+    /** Margens da página em mm: em cima, dos lados, embaixo. */
+    static int[] marginsMm(BookLayout layout) {
+        return switch (layout.margins()) {
+            case "narrow" -> new int[] {16, 13, 18};
+            case "wide" -> new int[] {24, 21, 26};
+            default -> new int[] {20, 17, 22};
+        };
+    }
+
+    /** Largura da área de texto em mm: a página menos as margens dos lados. */
+    static double textWidthMm(BookLayout layout) {
+        return layout.widthMm() - 2.0 * marginsMm(layout)[1];
+    }
+
+    /** Altura máxima de uma ilustração no PDF, em mm (a mesma do CSS de {@code figure.illustration img}). */
+    static final int ILLUSTRATION_MAX_HEIGHT_MM = 140;
+
     /** 148 → "148"; 152.4 → "152.4" (CSS não aceita vírgula). */
     private static String number(double value) {
         return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
@@ -166,6 +179,11 @@ final class PdfWriter {
     /** A primeira página do PDF é a capa (JPEG ou PNG); WebP fica de fora. */
     static boolean hasCoverPage(ExportBook book) {
         return book.cover() != null && COVER_TYPES.contains(book.cover().contentType());
+    }
+
+    /** O motor de PDF lê o formato (JPEG e PNG; WebP não). */
+    static boolean embeds(String contentType) {
+        return COVER_TYPES.contains(contentType);
     }
 
     /** Ilustração como data URI; WebP o motor de PDF não lê, então sai só a legenda. */

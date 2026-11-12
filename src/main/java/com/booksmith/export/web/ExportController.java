@@ -2,6 +2,7 @@ package com.booksmith.export.web;
 
 import com.booksmith.export.internal.ExportFormat;
 import com.booksmith.export.internal.PdfPreview;
+import com.booksmith.export.internal.PrintCheck;
 import com.booksmith.export.internal.PrintCover;
 import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.export.internal.ExportService;
@@ -42,6 +43,18 @@ class ExportController {
                 request.chapterStyle(), request.sceneBreak());
         return exportService.preview(user.id(), authorName(user), bookId, layout,
                 request.from() == null ? 1 : request.from(), request.count() == null ? 2 : request.count());
+    }
+
+    /**
+     * As ilustrações para impressão com a diagramação do corpo (salva ou não): tamanho na página e DPI. Gráfica
+     * pede 300 DPI.
+     */
+    @PostMapping("/books/{bookId}/export/print-check")
+    PrintCheck.Result printCheck(@PathVariable UUID bookId, @RequestBody PreviewRequest request) {
+        AuthenticatedUser user = currentUser.get();
+        BookLayout layout = new BookLayout(request.trim(), request.fontSize(), request.leading(), request.margins(),
+                request.chapterStyle(), request.sceneBreak());
+        return exportService.printCheck(user.id(), authorName(user), bookId, layout);
     }
 
     /** A diagramação (campos soltos, conferidos no {@link BookLayout}) e as páginas pedidas, a partir de 1. */
