@@ -338,6 +338,31 @@ class ExportWritersTest {
     }
 
     @Test
+    void theCoverFillsTheWholeFirstPageWithoutAWhiteBorder() throws Exception {
+        var blue = new java.awt.image.BufferedImage(148, 210, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var graphics = blue.createGraphics();
+        graphics.setColor(java.awt.Color.BLUE);
+        graphics.fillRect(0, 0, 148, 210);
+        graphics.dispose();
+        var png = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(blue, "png", png);
+
+        byte[] pdf = PdfWriter.write(book(new ImageData(png.toByteArray(), "image/png", "png"), null));
+
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            var page = new org.apache.pdfbox.rendering.PDFRenderer(document).renderImageWithDPI(0, 72);
+            // os quatro cantos de cima e o meio: azuis (antes, a margem do body deixava um filete branco em cima e
+            // à esquerda e cortava a direita)
+            for (int[] at : new int[][] {{1, 1}, {page.getWidth() - 2, 1}, {1, page.getHeight() / 2},
+                    {page.getWidth() - 2, page.getHeight() / 2}}) {
+                var color = new java.awt.Color(page.getRGB(at[0], at[1]));
+                assertThat(color.getBlue()).as("pixel %s,%s", at[0], at[1]).isGreaterThan(200);
+                assertThat(color.getRed()).as("pixel %s,%s", at[0], at[1]).isLessThan(60);
+            }
+        }
+    }
+
+    @Test
     void pdfHasTheTextTocAndBookmarks() throws Exception {
         byte[] pdf = PdfWriter.write(book(new ImageData(PNG, "image/png", "png"), null));
 

@@ -85,15 +85,19 @@ public final class PrintCover {
      * @param warnings   o que impede ou atrapalha a impressão nesse destino (vazio = tudo certo)
      * @param imported   a capa importada em PDF ({@code front} ou {@code wrap}), ou null
      * @param importedFits na capa aberta importada: as medidas batem com as pedidas (até 1 mm de diferença)
+     * @param importedTrim o tamanho do livro para o qual a capa importada foi feita, quando se sabe
+     * @param importedSpineMm a lombada da capa aberta importada, quando se sabe
+     * @param importedMarksMm a margem das marcas de corte da capa importada (sai no PDF entregue), quando se sabe
      */
     public record Spec(String profile, int pages, double trimWidthMm, double trimHeightMm, double spineMm,
                        double bleedMm, double widthMm, double heightMm, boolean spineText, List<String> warnings,
-                       String imported, Double importedWidthMm, Double importedHeightMm, Boolean importedFits) {
+                       String imported, Double importedWidthMm, Double importedHeightMm, Boolean importedFits,
+                       String importedTrim, Double importedSpineMm, Double importedMarksMm) {
 
         Spec(String profile, int pages, double trimWidthMm, double trimHeightMm, double spineMm, double bleedMm,
              double widthMm, double heightMm, boolean spineText, List<String> warnings) {
             this(profile, pages, trimWidthMm, trimHeightMm, spineMm, bleedMm, widthMm, heightMm, spineText, warnings,
-                    null, null, null, null);
+                    null, null, null, null, null, null, null);
         }
 
         /**
@@ -106,7 +110,9 @@ public final class PrintCover {
             }
             Boolean fits = null;
             List<String> notes = new ArrayList<>(warnings);
-            if (cover.wrap()) {
+            if (cover.wrap() && cover.trim() != null) {
+                fits = checkWrap(cover, notes);
+            } else if (cover.wrap()) {
                 double dw = cover.widthMm() - widthMm;
                 double dh = cover.heightMm() - heightMm;
                 fits = Math.abs(dw) <= FIT_TOLERANCE_MM && Math.abs(dh) <= FIT_TOLERANCE_MM;
@@ -121,8 +127,71 @@ public final class PrintCover {
                 }
             }
             return new Spec(profile, pages, trimWidthMm, trimHeightMm, spineMm, bleedMm, widthMm, heightMm, spineText,
-                    List.copyOf(notes), cover.kind(), cover.widthMm(), cover.heightMm(), fits);
+                    List.copyOf(notes), cover.kind(), cover.widthMm(), cover.heightMm(), fits, cover.trim(),
+                    cover.spineMm(), cover.marksMm());
         }
+
+        /**
+         * Capa aberta com o tamanho conhecido: confere o tamanho do livro, a lombada e se há sangria suficiente
+         * em volta do corte. As marcas de corte não atrapalham: saem no PDF entregue.
+         */
+        private Boolean checkWrap(CoverPdf cover, List<String> notes) {
+            double tw = BookLayout.trimWidthMm(cover.trim());
+            double th = BookLayout.trimHeightMm(cover.trim());
+            boolean trimOk = Math.abs(tw - trimWidthMm) <= FIT_TOLERANCE_MM && Math.abs(th - trimHeightMm) <= FIT_TOLERANCE_MM;
+            if (!trimOk) {
+                notes.add("A sua capa foi feita para um livro de %s × %s mm; este livro está diagramado em %s × %s mm. Mude o tamanho na diagramação ou refaça a capa."
+                        .formatted(mm(tw), mm(th), mm(trimWidthMm), mm(trimHeightMm)));
+            }
+            boolean spineOk = cover.spineMm() != null && Math.abs(cover.spineMm() - spineMm) <= FIT_TOLERANCE_MM;
+            if (trimOk && !spineOk) {
+                notes.add("A lombada da sua capa tem %s mm; para este livro (%d páginas) são %s mm. Refaça a capa com essa lombada."
+                        .formatted(mm(cover.spineMm() == null ? 0 : cover.spineMm()), pages, mm(spineMm)));
+            }
+            double edge = (cover.heightMm() - th) / 2;
+            boolean bleedOk = edge + 0.3 >= bleedMm;
+            if (!bleedOk) {
+                notes.add("A sua capa tem %s mm em volta do corte; aqui a sangria pedida é de %s mm."
+                        .formatted(mm(Math.max(0, edge)), mm(bleedMm)));
+            }
+            return trimOk && spineOk && bleedOk;
+        }
+    }
+
+    /**
+     * A capa aberta importada, recortada na sangria pedida: tira a margem das marcas de corte, para o PDF ter a
+     * medida exata que a gráfica confere. Marca também onde é o corte (TrimBox) e a sangria (BleedBox).
+     */
+    static byte[] cropToBleed(byte[] original, CoverPdf cover, Spec spec) {
+        if (cover.trim() == null) {
+            return original;
+        }
+        double edge = (cover.heightMm() - BookLayout.trimHeightMm(cover.trim())) / 2;
+        if (edge - spec.bleedMm() < 0.2) {
+            // Sem margem de marcas para tirar: sai exatamente como o autor fez
+            return original;
+        }
+        float inset = points(Math.max(0, edge - spec.bleedMm()));
+        float trimInset = points(Math.max(0, edge));
+        try (PDDocument document = Loader.loadPDF(original)) {
+            PDPage page = document.getPage(0);
+            PDRectangle media = page.getMediaBox();
+            PDRectangle bleedBox = inset(media, inset);
+            page.setMediaBox(bleedBox);
+            page.setCropBox(bleedBox);
+            page.setBleedBox(bleedBox);
+            page.setTrimBox(inset(media, trimInset));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static PDRectangle inset(PDRectangle box, float by) {
+        return new PDRectangle(box.getLowerLeftX() + by, box.getLowerLeftY() + by, box.getWidth() - 2 * by,
+                box.getHeight() - 2 * by);
     }
 
     /** Diferença aceita entre a capa aberta importada e a medida pedida. */
@@ -182,6 +251,11 @@ public final class PrintCover {
      * da frente com a sangria; se o PDF não tem sangria, é ampliado um pouco, a partir do centro do livro.
      */
     static byte[] pdf(Spec spec, String imageDataUrl, byte[] frontPdf) {
+        return pdf(spec, imageDataUrl, frontPdf, null);
+    }
+
+    /** @param frontCover a frente importada, para saber o tamanho do livro dela e tirar as marcas de corte */
+    static byte[] pdf(Spec spec, String imageDataUrl, byte[] frontPdf, CoverPdf frontCover) {
         byte[] bytes = decode(imageDataUrl);
         try (PDDocument document = new PDDocument()) {
             float width = points(spec.widthMm());
@@ -196,7 +270,7 @@ public final class PrintCover {
             try (PDPageContentStream content = new PDPageContentStream(document, page)) {
                 content.drawImage(image, 0, 0, width, height);
                 if (frontPdf != null) {
-                    drawFront(document, content, spec, frontPdf);
+                    drawFront(document, content, spec, frontPdf, frontCover);
                 }
             }
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -207,11 +281,21 @@ public final class PrintCover {
         }
     }
 
-    private static void drawFront(PDDocument document, PDPageContentStream content, Spec spec, byte[] frontPdf)
-            throws IOException {
+    private static void drawFront(PDDocument document, PDPageContentStream content, Spec spec, byte[] frontPdf,
+                                  CoverPdf frontCover) throws IOException {
         try (PDDocument source = Loader.loadPDF(frontPdf)) {
             PDFormXObject front = new LayerUtility(document).importPageAsForm(source, 0);
             PDRectangle box = front.getBBox();
+            if (frontCover != null && frontCover.trim() != null) {
+                // Só o livro e a sangria pedida: a margem das marcas de corte fica de fora
+                double edgeX = (frontCover.widthMm() - BookLayout.trimWidthMm(frontCover.trim())) / 2;
+                double edgeY = (frontCover.heightMm() - BookLayout.trimHeightMm(frontCover.trim())) / 2;
+                float insetX = points(Math.max(0, edgeX - spec.bleedMm()));
+                float insetY = points(Math.max(0, edgeY - spec.bleedMm()));
+                box = new PDRectangle(box.getLowerLeftX() + insetX, box.getLowerLeftY() + insetY,
+                        box.getWidth() - 2 * insetX, box.getHeight() - 2 * insetY);
+                front.setBBox(box);
+            }
             float bleed = points(spec.bleedMm());
             float trimW = points(spec.trimWidthMm());
             float trimH = points(spec.trimHeightMm());

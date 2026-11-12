@@ -48,6 +48,15 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
 
     /** Largura e altura da página em milímetros. */
     public double widthMm() {
+        return trimWidthMm(trim);
+    }
+
+    public double heightMm() {
+        return trimHeightMm(trim);
+    }
+
+    /** Largura de um tamanho de página ({@link #TRIMS}), em mm. */
+    public static double trimWidthMm(String trim) {
         return switch (trim) {
             case "14x21" -> 140;
             case "16x23" -> 160;
@@ -56,7 +65,7 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
         };
     }
 
-    public double heightMm() {
+    public static double trimHeightMm(String trim) {
         return switch (trim) {
             case "16x23" -> 230;
             case "6x9" -> 228.6;

@@ -98,9 +98,13 @@ class BookController {
 
     /** Capa feita fora do app, em PDF (só a frente ou a capa aberta). A frente vira a capa do livro. */
     @PostMapping(value = "/{bookId}/cover/pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    CoverPdfResponse importCoverPdf(@PathVariable UUID bookId, @RequestParam("file") MultipartFile file)
+    CoverPdfResponse importCoverPdf(@PathVariable UUID bookId, @RequestParam("file") MultipartFile file,
+                                    @RequestParam(required = false) String trim,
+                                    @RequestParam(required = false) Double spineMm,
+                                    @RequestParam(required = false) Double bleedMm)
             throws java.io.IOException {
-        var cover = bookService.importCoverPdf(currentUser.id(), bookId, file.getOriginalFilename(), file.getBytes());
+        var cover = bookService.importCoverPdf(currentUser.id(), bookId, file.getOriginalFilename(), file.getBytes(),
+                trim, spineMm, bleedMm);
         return new CoverPdfResponse(bookService.get(currentUser.id(), bookId).book().getCoverUrl(), cover);
     }
 

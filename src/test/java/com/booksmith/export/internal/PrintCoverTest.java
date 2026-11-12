@@ -119,6 +119,57 @@ class PrintCoverTest {
         }
     }
 
+    /** "A conversão": 16×23, lombada 48, sangria 5, 12,1 mm de marcas de corte (402,2 × 264,2 mm). */
+    private static final com.booksmith.manuscript.api.CoverPdf WITH_MARKS = new com.booksmith.manuscript.api.CoverPdf(
+            "u", "wrap", 402.2, 264.2, "capa.pdf", "16x23", 48.0, 5.0, 12.1);
+
+    @Test
+    void aWrapWithMarksFitsByTheTrimAndTheSpine() {
+        var sixteen = new BookLayout("16x23", null, null, null, null, null);
+        var fits = PrintCover.spec(PrintCover.Profile.CUSTOM, sixteen, 800, 48.0, 5.0).withImported(WITH_MARKS);
+        assertThat(fits.importedFits()).isTrue();
+        assertThat(fits.importedTrim()).isEqualTo("16x23");
+        assertThat(fits.importedMarksMm()).isEqualTo(12.1);
+
+        // O livro diagramado em 14×21: o aviso diz os dois tamanhos
+        var otherTrim = PrintCover.spec(PrintCover.Profile.CUSTOM, new BookLayout("14x21", null, null, null, null, null),
+                800, 48.0, 5.0).withImported(WITH_MARKS);
+        assertThat(otherTrim.importedFits()).isFalse();
+        assertThat(otherTrim.warnings()).anySatisfy(w -> assertThat(w).contains("160 × 230").contains("140 × 210"));
+
+        // A lombada calculada para o livro é outra
+        var otherSpine = PrintCover.spec(PrintCover.Profile.CUSTOM, sixteen, 300, 18.0, 5.0).withImported(WITH_MARKS);
+        assertThat(otherSpine.importedFits()).isFalse();
+        assertThat(otherSpine.warnings()).anySatisfy(w -> assertThat(w).contains("48 mm").contains("18 mm"));
+    }
+
+    @Test
+    void theDeliveredWrapLosesTheMarksMargin() throws Exception {
+        byte[] original;
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new org.apache.pdfbox.pdmodel.PDPage(
+                    new org.apache.pdfbox.pdmodel.common.PDRectangle(points(402.2), points(264.2))));
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            original = out.toByteArray();
+        }
+        var spec = PrintCover.spec(PrintCover.Profile.CUSTOM, new BookLayout("16x23", null, null, null, null, null),
+                800, 48.0, 5.0).withImported(WITH_MARKS);
+
+        byte[] cropped = PrintCover.cropToBleed(original, WITH_MARKS, spec);
+
+        try (PDDocument document = Loader.loadPDF(cropped)) {
+            var page = document.getPage(0);
+            assertThat(page.getMediaBox().getWidth() / 72 * 25.4).isCloseTo(378, org.assertj.core.api.Assertions.within(0.3));
+            assertThat(page.getMediaBox().getHeight() / 72 * 25.4).isCloseTo(240, org.assertj.core.api.Assertions.within(0.3));
+            assertThat(page.getTrimBox().getWidth() / 72 * 25.4).isCloseTo(368, org.assertj.core.api.Assertions.within(0.3));
+        }
+    }
+
+    private static float points(double mm) {
+        return (float) (mm / 25.4 * 72);
+    }
+
     private static String png(int width, int height) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB), "png", out);

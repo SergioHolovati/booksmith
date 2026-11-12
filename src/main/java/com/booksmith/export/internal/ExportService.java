@@ -86,11 +86,13 @@ public class ExportService {
             if (!Boolean.TRUE.equals(spec.importedFits())) {
                 throw ApiException.unprocessable("print_cover_wrong_size", String.join(" ", spec.warnings()));
             }
-            pdf = pdfStorage.read(imported.url()).orElseThrow(() ->
+            byte[] original = pdfStorage.read(imported.url()).orElseThrow(() ->
                     ApiException.unprocessable("cover_pdf_missing", "O PDF da capa não foi encontrado. Importe de novo."));
+            // Sai como o autor fez, só sem a margem das marcas de corte (a medida exata que a gráfica confere)
+            pdf = PrintCover.cropToBleed(original, imported, spec);
         } else {
             byte[] front = imported == null ? null : pdfStorage.read(imported.url()).orElse(null);
-            pdf = PrintCover.pdf(spec, imageDataUrl, front);
+            pdf = PrintCover.pdf(spec, imageDataUrl, front, imported);
         }
         String title = manuscripts.bookContent(ownerId, bookId).title();
         log.info("Capa para gráfica do livro {}: {} x {} mm, {} páginas, {} KB", bookId, spec.widthMm(), spec.heightMm(),

@@ -19,6 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -157,8 +158,22 @@ public class BookService {
      */
     @Transactional
     public CoverPdf importCoverPdf(UUID ownerId, UUID bookId, String fileName, byte[] pdf) {
+        return importCoverPdf(ownerId, bookId, fileName, pdf, null, null, null);
+    }
+
+    /**
+     * Idem, com as especificações da capa que o autor informou (tudo opcional): o tamanho do livro para o qual a
+     * capa foi feita, a lombada e a sangria. Com o tamanho, a frente sai recortada no corte, sem a sangria e sem
+     * as marcas de corte; a lombada e a sangria são conferidas contra o tamanho do PDF (422
+     * {@code cover_pdf_spec_mismatch} se não fecham).
+     */
+    @Transactional
+    public CoverPdf importCoverPdf(UUID ownerId, UUID bookId, String fileName, byte[] pdf, String trim, Double spineMm,
+                                   Double bleedMm) {
         Book book = require(ownerId, bookId);
-        CoverPdfReader.Result read = CoverPdfReader.read(pdf, layoutOf(book));
+        CoverPdfReader.Result read = CoverPdfReader.read(pdf, layoutOf(book),
+                new CoverPdfReader.Declared(trim == null || trim.isBlank() ? null
+                        : trim.strip().toLowerCase(Locale.ROOT), spineMm, bleedMm));
         String url = pdfStorage.store(ownerId, pdf);
         String previousCover = book.getCoverUrl();
         book.setCoverUrl(imageStorage.store(ImageCategory.BOOK_COVER, ownerId, read.frontImage()).url());
@@ -169,7 +184,8 @@ public class BookService {
         }
         String name = fileName == null || fileName.isBlank() ? "capa.pdf" : fileName.strip();
         CoverPdf cover = new CoverPdf(url, read.kind(), read.widthMm(), read.heightMm(),
-                name.length() > 120 ? name.substring(0, 120) : name);
+                name.length() > 120 ? name.substring(0, 120) : name, read.trim(), read.spineMm(), read.bleedMm(),
+                read.marksMm());
         book.setCoverPdf(jsonMapper.writeValueAsString(cover));
         return cover;
     }

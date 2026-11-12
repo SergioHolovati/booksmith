@@ -190,7 +190,7 @@ final class PdfWriter {
     private static final String CSS = """
             @page { size: 148mm 210mm; margin: 20mm 17mm 22mm 17mm; }
             @page main { @bottom-center { content: counter(page); font-family: Literata; font-size: 9pt; color: #555; } }
-            body { font-family: Literata; font-size: 11pt; line-height: 1.45; color: #1a1a1a; }
+            body { margin: 0; font-family: Literata; font-size: 11pt; line-height: 1.45; color: #1a1a1a; }
             .cover { page-break-after: always; }
             .cover img { display: block; width: 148mm; height: 209mm; }
             .title-page, .toc, .front { page-break-after: always; }
