@@ -48,8 +48,9 @@ class AssistServiceTest {
         when(model.provider()).thenReturn("ollama");
         when(model.model()).thenReturn("qwen3:8b");
         when(model.local()).thenReturn(true);
-        when(universes.brief(universe)).thenReturn(new Universes.Brief("Vel",
-                List.of("Gêneros: Mistério, Fantasia urbana"), List.of("Lia (protagonista)", "Tomás"), List.of("Café do Porto")));
+        when(universes.brief(eq(universe), any())).thenReturn(new Universes.Brief("Vel",
+                List.of("Gêneros: Mistério, Fantasia urbana"), List.of("Lia (protagonista)", "Tomás"), List.of("Café do Porto"),
+                List.of("Lia é irmã/irmão de Tomás"), List.of("Religiões: A Maré"), List.of("Ano 312 — A grande enchente")));
         when(model.ideas(any())).thenReturn(List.of(
                 new Idea("Medo do silêncio", "E se Lia tivesse medo de ficar sozinha no café à noite?"),
                 new Idea("  ", "  Talvez ela evite o mar.  "),
@@ -82,7 +83,10 @@ class AssistServiceTest {
                 .contains("- Nome: Lia\n- Personalidade: curiosa e teimosa\n")
                 .doesNotContain("Ocupação")
                 .contains("Universo \"Vel\":\n- Gêneros: Mistério, Fantasia urbana")
-                .contains("Personagens do universo:\nLia (protagonista), Tomás")
+                .contains("Personagens do universo:\n- Lia (protagonista)\n- Tomás")
+                .contains("Relações entre personagens:\n- Lia é irmã/irmão de Tomás")
+                .contains("Fichas do mundo:\n- Religiões: A Maré")
+                .contains("Linha do tempo:\n- Ano 312 — A grande enchente")
                 .endsWith("</material>");
         verify(universes).requireOwned(owner, universe);
 
@@ -115,6 +119,8 @@ class AssistServiceTest {
                         new Manuscripts.ChapterText(UUID.randomUUID(), 2, "",
                                 List.of(new Manuscripts.Block("b2", " "))))));
 
+        when(manuscripts.openNotes(owner, book)).thenReturn(List.of("Cap. 1: Tomás mente sobre o incêndio"));
+
         service.suggest(owner, new Request("plot", "ideas", null, book, "twist", null, null, null, null));
 
         ArgumentCaptor<IdeaModel.Prompt> prompt = ArgumentCaptor.forClass(IdeaModel.Prompt.class);
@@ -122,9 +128,33 @@ class AssistServiceTest {
         assertThat(prompt.getValue().user())
                 .startsWith("Pedido: ideias para o enredo do livro, de reviravoltas")
                 .contains("Sinopse:\nUma barista descobre que o café guarda memórias.")
-                .contains("Capítulos até agora:\n- 1. A chegada\n- 2. (sem título)")
+                .contains("Notas do autor (planos e lembretes):\n- Cap. 1: Tomás mente sobre o incêndio")
+                .contains("Capítulos até agora, com o começo de cada um:\n- 1. A chegada — começa: Lia abriu o café.\n"
+                        + "- 2. (sem título)")
                 .contains("Final do capítulo 1 (o mais recente com texto):\nLia abriu o café.")
-                .contains("Personagens:\nLia (protagonista), Tomás");
+                .contains("Personagens:\n- Lia (protagonista)\n- Tomás")
+                .contains("Relações entre personagens:\n- Lia é irmã/irmão de Tomás");
+    }
+
+    @Test
+    void theCharacterSheetFocusesTheCharacterAndKnowsTheBooksOfTheUniverse() {
+        UUID lia = UUID.randomUUID();
+        when(manuscripts.booksInUniverse(owner, universe)).thenReturn(List.of(
+                new Manuscripts.BookSummary(book, "Café em Vel", "Uma barista\ndescobre memórias."),
+                new Manuscripts.BookSummary(UUID.randomUUID(), "Rascunho", null)));
+
+        service.suggest(owner, new Request("character", null, universe, null, "fears", "Medos", "", null, null, lia,
+                "Do que tem medo, o que evita"));
+
+        verify(universes).brief(universe, lia);
+        ArgumentCaptor<IdeaModel.Prompt> prompt = ArgumentCaptor.forClass(IdeaModel.Prompt.class);
+        verify(model).ideas(prompt.capture());
+        assertThat(prompt.getValue().user())
+                .startsWith("Pedido: ideias para o campo \"Medos\" do personagem (Do que tem medo, o que evita).")
+                .contains("Livros que se passam neste universo:\n- \"Café em Vel\": Uma barista descobre memórias.\n"
+                        + "- \"Rascunho\"\n")
+                .contains("Outros personagens do universo:");
+        assertThat(prompt.getValue().system()).contains("Nada de ideias genéricas");
     }
 
     @Test

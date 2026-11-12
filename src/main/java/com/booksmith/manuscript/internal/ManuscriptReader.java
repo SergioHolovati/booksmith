@@ -20,6 +20,7 @@ class ManuscriptReader implements Manuscripts {
 
     private final BookService bookService;
     private final BookRepository bookRepository;
+    private final ChapterNoteRepository noteRepository;
     private final JsonMapper jsonMapper;
 
     @Override
@@ -68,6 +69,30 @@ class ManuscriptReader implements Manuscripts {
                         org.springframework.data.domain.Pageable.unpaged()).stream()
                 .map(Book::getId)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookSummary> booksInUniverse(UUID ownerId, UUID universeId) {
+        return bookRepository.findAllByOwnerIdAndUniverseIdAndDeletedAtIsNullOrderByCreatedAtAsc(ownerId, universeId)
+                .stream()
+                .map(book -> new BookSummary(book.getId(), book.getTitle(), book.getSynopsis()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> openNotes(UUID ownerId, UUID bookId) {
+        BookService.BookDetail detail = bookService.get(ownerId, bookId);
+        List<String> notes = new ArrayList<>();
+        for (Chapter chapter : detail.chapters()) {
+            for (ChapterNote note : noteRepository.findAllByChapterIdOrderByCreatedAtAsc(chapter.getId())) {
+                if (!note.isResolved() && note.getBody() != null && !note.getBody().isBlank()) {
+                    notes.add("Cap. " + chapter.getPosition() + ": " + note.getBody().strip());
+                }
+            }
+        }
+        return notes;
     }
 
     /** Parágrafos e títulos em ordem de leitura, inclusive os de dentro de citações e listas. */

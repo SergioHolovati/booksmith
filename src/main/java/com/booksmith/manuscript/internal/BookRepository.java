@@ -17,6 +17,9 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
 
     Optional<Book> findByIdAndOwnerIdAndDeletedAtIsNull(UUID id, UUID ownerId);
 
+    /** Livros ativos da pessoa num universo, do mais antigo ao mais novo. */
+    List<Book> findAllByOwnerIdAndUniverseIdAndDeletedAtIsNullOrderByCreatedAtAsc(UUID ownerId, UUID universeId);
+
     /** Outros livros ativos no mesmo universo. */
     long countByUniverseIdAndIdNotAndDeletedAtIsNull(UUID universeId, UUID id);
 

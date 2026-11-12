@@ -46,7 +46,11 @@ public class AssistService {
     static final int MAX_CONTEXT_LINES = 40;
     static final int MAX_CONTEXT_TEXT = 2_000;
     /** Trecho final do capítulo mais recente que vai como contexto do enredo. */
-    static final int CHAPTER_TAIL = 4_000;
+    static final int CHAPTER_TAIL = 3_000;
+    /** Começo de cada capítulo no contexto do enredo: dá à IA o fio da história inteira. */
+    static final int CHAPTER_OPENING = 220;
+    static final int MAX_NOTES = 30;
+    static final int MAX_BOOKS = 10;
     static final int MAX_IDEAS = 6;
     static final int MAX_TITLE = 140;
     static final int MAX_TEXT = 600;
@@ -84,9 +88,17 @@ public class AssistService {
      * @param current    o que já está escrito no campo, mesmo sem salvar
      * @param context    o resto da ficha na tela, mesmo sem salvar
      * @param hint       pedido extra do autor ("algo mais sombrio")
+     * @param characterId o personagem da ficha aberta: as relações dele vêm primeiro no contexto
+     * @param fieldHelp  o que o campo pede, como a tela explica ("Do que tem medo, o que evita")
      */
     public record Request(String kind, String mode, UUID universeId, UUID bookId, String field, String fieldLabel,
-                          String current, List<ContextLine> context, String hint) {
+                          String current, List<ContextLine> context, String hint, UUID characterId,
+                          String fieldHelp) {
+
+        public Request(String kind, String mode, UUID universeId, UUID bookId, String field, String fieldLabel,
+                       String current, List<ContextLine> context, String hint) {
+            this(kind, mode, universeId, bookId, field, fieldLabel, current, context, hint, null, null);
+        }
     }
 
     public record Result(List<Idea> suggestions, String provider, String model, boolean local, int remaining) {
@@ -167,15 +179,34 @@ public class AssistService {
         }
         universes.requireOwned(ownerId, request.universeId());
         String label = text(request.fieldLabel(), MAX_LABEL, "o nome do campo");
+        String help = text(request.fieldHelp(), MAX_HINT, "a explicação do campo");
         String name = label.isEmpty() ? field : label;
-        Universes.Brief brief = universes.brief(request.universeId());
+        UUID focus = "do personagem".equals(where) ? request.characterId() : null;
+        Universes.Brief brief = universes.brief(request.universeId(), focus);
+        // Em ordem de importância: se o material passar do limite, o que corta é o fim
         List<Section> material = new ArrayList<>();
         material.add(Section.of("O que está escrito no campo \"" + name + "\"", current.isEmpty() ? "(vazio)" : current));
         material.add(Section.list("A ficha na tela", contextLines(request.context())));
+        material.add(Section.list("Relações entre personagens", brief.relations()));
+        material.add(booksSection(ownerId, request.universeId()));
         material.add(universeSection(brief));
-        material.add(Section.of("Personagens do universo", String.join(", ", brief.characters())));
-        material.add(Section.of("Lugares do universo", String.join(", ", brief.places())));
-        return Prompts.build(mode, "para o campo \"" + name + "\" " + where, hint, material);
+        material.add(Section.list(focus == null ? "Personagens do universo" : "Outros personagens do universo",
+                brief.characters()));
+        material.add(Section.list("Lugares", brief.places()));
+        material.add(Section.list("Fichas do mundo", brief.lore()));
+        material.add(Section.list("Linha do tempo", brief.timeline()));
+        String asked = "para o campo \"" + name + "\" " + where + (help.isEmpty() ? "" : " (" + help + ")");
+        return Prompts.build(mode, asked, hint, material);
+    }
+
+    /** Os livros que se passam no universo, com a sinopse: dizem que história as fichas servem. */
+    private Section booksSection(UUID ownerId, UUID universeId) {
+        List<String> books = manuscripts.booksInUniverse(ownerId, universeId).stream()
+                .limit(MAX_BOOKS)
+                .map(b -> "\"" + b.title() + "\"" + (b.synopsis() == null || b.synopsis().isBlank() ? ""
+                        : ": " + b.synopsis().replaceAll("\\s+", " ").strip()))
+                .toList();
+        return Section.list("Livros que se passam neste universo", books);
     }
 
     private IdeaModel.Prompt plotPrompt(UUID ownerId, Request request, String mode, String field, String hint) {
@@ -188,23 +219,40 @@ public class AssistService {
         }
         var content = manuscripts.bookContent(ownerId, request.bookId());
         var text = manuscripts.bookText(ownerId, request.bookId());
+        // Em ordem de importância: se o material passar do limite, o que corta é o fim
         List<Section> material = new ArrayList<>();
         material.add(Section.of("Livro", "\"" + content.title() + "\""));
         material.add(Section.of("Sinopse", content.synopsis()));
-        List<String> chapters = text.chapters().stream()
-                .map(c -> c.position() + ". " + (c.title() == null || c.title().isBlank() ? "(sem título)" : c.title()))
-                .toList();
-        material.add(Section.list("Capítulos até agora", chapters));
-        latestTail(text).ifPresent(tail -> material.add(tail));
+        material.add(Section.list("Notas do autor (planos e lembretes)",
+                manuscripts.openNotes(ownerId, request.bookId()).stream().limit(MAX_NOTES).toList()));
+        material.add(Section.list("Capítulos até agora, com o começo de cada um", text.chapters().stream()
+                .map(AssistService::chapterLine).toList()));
+        latestTail(text).ifPresent(material::add);
         if (content.universeId() != null) {
-            Universes.Brief brief = universes.brief(content.universeId());
+            Universes.Brief brief = universes.brief(content.universeId(), null);
+            material.add(Section.list("Personagens", brief.characters()));
+            material.add(Section.list("Relações entre personagens", brief.relations()));
             material.add(universeSection(brief));
-            material.add(Section.of("Personagens", String.join(", ", brief.characters())));
-            material.add(Section.of("Lugares", String.join(", ", brief.places())));
+            material.add(Section.list("Lugares", brief.places()));
+            material.add(Section.list("Fichas do mundo", brief.lore()));
+            material.add(Section.list("Linha do tempo", brief.timeline()));
         }
         String asked = "questions".equals(mode) ? "sobre o enredo do livro, a respeito " + what
                 : "para o enredo do livro, " + what;
         return Prompts.build(mode, asked, hint, material);
+    }
+
+    /** "2. A carta — começa: Lia achou o bilhete…": o título e o começo do capítulo. */
+    static String chapterLine(Manuscripts.ChapterText chapter) {
+        String title = chapter.title() == null || chapter.title().isBlank() ? "(sem título)" : chapter.title();
+        String body = String.join(" ", chapter.blocks().stream()
+                .map(Manuscripts.Block::text).filter(t -> t != null && !t.isBlank()).toList())
+                .replaceAll("\\s+", " ").strip();
+        if (body.isEmpty()) {
+            return chapter.position() + ". " + title;
+        }
+        String opening = body.length() > CHAPTER_OPENING ? body.substring(0, CHAPTER_OPENING) + "…" : body;
+        return chapter.position() + ". " + title + " — começa: " + opening;
     }
 
     /** O fim do capítulo mais recente que tem texto: é dali que a história continua. */

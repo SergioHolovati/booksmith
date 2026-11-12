@@ -29,7 +29,8 @@ class UniverseServiceTest {
     private final UniverseImageRepository gallery = mock(UniverseImageRepository.class);
     private final UniverseService service = new UniverseService(universes, entities, timeline, relations,
             new AppearanceForm(mapper), new UniverseForm(mapper), images, gallery, mapper,
-            new CustomFields(new LoreForm(mapper)));
+            new CustomFields(new LoreForm(mapper)),
+            new UniverseBriefs(entities, relations, timeline, new UniverseForm(mapper), new LoreForm(mapper), mapper));
 
     private final UUID owner = UUID.randomUUID();
     private final UUID series = UUID.randomUUID();

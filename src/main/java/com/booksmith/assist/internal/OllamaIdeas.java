@@ -73,7 +73,7 @@ class OllamaIdeas implements IdeaModel {
         body.put("think", false);
         body.put("keep_alive", config.keepAlive());
         body.set("format", jsonMapper.valueToTree(SCHEMA));
-        body.putObject("options").put("temperature", 0.8).put("num_ctx", 8192);
+        body.putObject("options").put("temperature", 0.6).put("num_ctx", 8192);
         var messages = body.putArray("messages");
         messages.addObject().put("role", "system").put("content", prompt.system());
         messages.addObject().put("role", "user").put("content", prompt.user());

@@ -29,6 +29,18 @@ public interface Manuscripts {
     /** Confere que o livro existe e é do usuário, sem carregar o texto. 404 caso contrário. */
     void requireOwned(UUID ownerId, UUID bookId);
 
+    /** Livros da pessoa que se passam no universo (fora da lixeira), do mais antigo ao mais novo. */
+    List<BookSummary> booksInUniverse(UUID ownerId, UUID universeId);
+
+    /**
+     * Notas do autor ainda não resolvidas, em ordem de capítulo ("Cap. 3: lembrar que Tomás mente"). É ali que o
+     * autor planeja a história. 404 se o livro não é do usuário.
+     */
+    List<String> openNotes(UUID ownerId, UUID bookId);
+
+    record BookSummary(UUID bookId, String title, String synopsis) {
+    }
+
     record BookText(UUID bookId, String title, UUID universeId, List<ChapterText> chapters) {
     }
 

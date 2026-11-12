@@ -36,17 +36,33 @@ public interface Universes {
     /** Personagens e lugares do universo, com nomes, outros nomes e (para personagens) a aparência. */
     List<KnownEntity> entities(UUID universeId);
 
+    /** Resumo do universo para as sugestões de IA, sem foco em nenhum personagem. */
+    default Brief brief(UUID universeId) {
+        return brief(universeId, null);
+    }
+
     /**
-     * Resumo do universo para as sugestões de IA: o que o construtor tem preenchido, em linhas legíveis, e os
-     * personagens (com o papel) e lugares. Quem chama já conferiu o dono.
+     * Resumo do universo para as sugestões de IA: o que o construtor tem preenchido, quem são os personagens
+     * (papel, ocupação, jeito, desejo), os lugares, as relações, as fichas do mundo e a linha do tempo. Com
+     * {@code focusId}, as relações desse personagem vêm primeiro e ele sai da lista dos "outros" (a ficha dele já
+     * está na tela). Quem chama já conferiu o dono.
      */
-    Brief brief(UUID universeId);
+    Brief brief(UUID universeId, UUID focusId);
 
     /**
      * @param lines      "Rótulo: valor" do construtor de universo, na ordem dos passos
-     * @param characters "Lia (protagonista)"
+     * @param characters "Lia (protagonista) — barista; jeito: curiosa…; quer: descobrir…"
+     * @param places     "Café do Porto (prédio): onde tudo começa…"
+     * @param relations  "Lia é irmã de Tomás: brigaram depois do incêndio"
+     * @param lore       "Religiões: A Maré (os mortos voltam com a maré)"
+     * @param timeline   "Ano 312 — A grande enchente: a cidade baixa ficou submersa"
      */
-    record Brief(String name, List<String> lines, List<String> characters, List<String> places) {
+    record Brief(String name, List<String> lines, List<String> characters, List<String> places,
+                 List<String> relations, List<String> lore, List<String> timeline) {
+
+        public Brief(String name, List<String> lines, List<String> characters, List<String> places) {
+            this(name, lines, characters, places, List.of(), List.of(), List.of());
+        }
     }
 
     /** @param duplicateNames nomes que já existiam no universo de destino (personagens e lugares) */
