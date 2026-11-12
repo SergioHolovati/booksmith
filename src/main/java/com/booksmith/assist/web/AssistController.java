@@ -32,7 +32,13 @@ class AssistController {
         return assistService.suggest(currentUser.id(), request);
     }
 
-    /** Revisão do capítulo pela IA, uma parte por vez. */
+    /** Abre a revisão com IA do capítulo: gasta um uso da cota (as chamadas seguintes usam o id devolvido). */
+    @PostMapping("/review/start")
+    ReviewService.StartResult startReview(@RequestBody ReviewService.StartRequest request) {
+        return reviewService.start(currentUser.id(), request);
+    }
+
+    /** Revisão do capítulo: a formatação (regras, livre) ou uma das revisões com IA, uma parte por vez. */
     @PostMapping("/review")
     ReviewService.Result review(@RequestBody ReviewService.Request request) {
         return reviewService.review(currentUser.id(), request);

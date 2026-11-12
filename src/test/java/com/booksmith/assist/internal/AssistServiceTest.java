@@ -32,12 +32,13 @@ class AssistServiceTest {
 
     private final IdeaModel model = mock(IdeaModel.class);
     private final SuggestionLogRepository repository = mock(SuggestionLogRepository.class);
+    private final ReviewRunRepository runs = mock(ReviewRunRepository.class);
     private final Universes universes = mock(Universes.class);
     private final Manuscripts manuscripts = mock(Manuscripts.class);
     private final AiProperties properties = new AiProperties("anthropic", 3, 1,
             new AiProperties.Anthropic("", "claude-opus-5-5"));
     private final AssistService service = new AssistService(
-            new AiUsage(model, properties, repository, Clock.fixed(NOW, ZoneOffset.UTC)), universes, manuscripts);
+            new AiUsage(model, properties, repository, runs, Clock.fixed(NOW, ZoneOffset.UTC)), universes, manuscripts);
 
     private final UUID owner = UUID.randomUUID();
     private final UUID universe = UUID.randomUUID();
@@ -158,7 +159,7 @@ class AssistServiceTest {
 
     @Test
     void dailyLimitStopsBeforeCallingTheModel() {
-        when(repository.countByUserIdAndCreatedAtAfter(eq(owner), any())).thenReturn(3L);
+        when(repository.countByUserIdAndKindNotAndCreatedAtAfter(eq(owner), eq("review"), any())).thenReturn(3L);
 
         assertThatThrownBy(() -> service.suggest(owner, characterRequest("")))
                 .isInstanceOfSatisfying(ApiException.class, e -> {
@@ -203,7 +204,7 @@ class AssistServiceTest {
 
     @Test
     void statusShowsTheProviderAndWhatIsLeftToday() {
-        when(repository.countByUserIdAndCreatedAtAfter(owner, NOW.minus(Duration.ofDays(1)))).thenReturn(1L);
+        when(repository.countByUserIdAndKindNotAndCreatedAtAfter(owner, "review", NOW.minus(Duration.ofDays(1)))).thenReturn(1L);
 
         var status = service.status(owner);
 

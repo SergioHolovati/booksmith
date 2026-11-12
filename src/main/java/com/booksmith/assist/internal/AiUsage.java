@@ -14,8 +14,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
- * O que as sugestões e a revisão dividem: o limite por pessoa em 24 horas, a fila (o modelo local atende um
- * pedido por vez) e o registro de uso, que guarda só metadados.
+ * O que as sugestões, a revisão e as perguntas dividem: o limite por pessoa em 24 horas, a fila e o registro de
+ * uso, que guarda só metadados. O limite é de <b>usos</b>, não de chamadas: uma revisão completa do capítulo
+ * (várias chamadas) conta um, pela revisão aberta em {@link #startReview}; um pedido de ideias ou uma pergunta
+ * conta um.
  */
 @Slf4j
 @Component
@@ -23,17 +25,24 @@ public class AiUsage {
 
     /** Quanto um pedido espera na fila antes de desistir. */
     static final Duration QUEUE_WAIT = Duration.ofMinutes(2);
+    /** Por quanto tempo uma revisão aberta aceita chamadas. */
+    static final Duration REVIEW_TTL = Duration.ofHours(2);
+    /** O registro de cada chamada da revisão; não conta na cota (conta a revisão aberta). */
+    static final String REVIEW_KIND = "review";
 
     private final IdeaModel model;
     private final AiProperties properties;
     private final SuggestionLogRepository repository;
+    private final ReviewRunRepository runs;
     private final Clock clock;
     private final Semaphore gate;
 
-    public AiUsage(IdeaModel model, AiProperties properties, SuggestionLogRepository repository, Clock clock) {
+    public AiUsage(IdeaModel model, AiProperties properties, SuggestionLogRepository repository,
+                   ReviewRunRepository runs, Clock clock) {
         this.model = model;
         this.properties = properties;
         this.repository = repository;
+        this.runs = runs;
         this.clock = clock;
         this.gate = new Semaphore(Math.max(1, properties.concurrency()), true);
     }
@@ -58,14 +67,39 @@ public class AiUsage {
         }
         if (remaining(ownerId) <= 0) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "ai_daily_limit",
-                    "Você usou os %d pedidos à IA de hoje. Amanhã tem mais.".formatted(properties.dailyLimit()));
+                    ("Você já usou os %d usos de IA das últimas 24 horas (revisões, ideias e perguntas). A "
+                            + "formatação e o resto do app continuam livres.").formatted(properties.dailyLimit()));
         }
     }
 
     public int remaining(UUID ownerId) {
         Instant dayAgo = Instant.now(clock).minus(Duration.ofDays(1));
-        long used = repository.countByUserIdAndCreatedAtAfter(ownerId, dayAgo);
+        long used = repository.countByUserIdAndKindNotAndCreatedAtAfter(ownerId, REVIEW_KIND, dayAgo)
+                + runs.countByUserIdAndCreatedAtAfter(ownerId, dayAgo);
         return (int) Math.max(0, properties.dailyLimit() - used);
+    }
+
+    /** Abre uma revisão com IA do capítulo: gasta um uso. Desligada → 503; sem cota → 429. */
+    public UUID startReview(UUID ownerId, UUID chapterId, int maxCalls) {
+        requireAvailable(ownerId);
+        return runs.save(ReviewRun.builder().userId(ownerId).chapterId(chapterId).maxCalls(maxCalls).build())
+                .getId();
+    }
+
+    /**
+     * Uma chamada dentro da revisão aberta. Revisão de outra pessoa ou capítulo, vencida ou sem chamadas → 422
+     * {@code review_run_invalid} (o app abre outra, gastando outro uso).
+     */
+    public void useReview(UUID ownerId, UUID runId, UUID chapterId) {
+        if (!enabled()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai_disabled",
+                    "As sugestões de IA estão desligadas neste servidor.");
+        }
+        Instant after = Instant.now(clock).minus(REVIEW_TTL);
+        if (runId == null || runs.use(runId, ownerId, chapterId, after) == 0) {
+            throw ApiException.unprocessable("review_run_invalid",
+                    "Esta revisão terminou ou expirou. Toque em \"Revisão com IA\" para começar outra.");
+        }
     }
 
     /**

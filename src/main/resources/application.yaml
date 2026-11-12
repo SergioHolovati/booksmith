@@ -81,7 +81,8 @@ booksmith:
   # Sugestões e revisão de IA (§4.11): anthropic (API do Claude) ou off. Sem ANTHROPIC_API_KEY, a IA fica desligada.
   ai:
     provider: ${AI_PROVIDER:anthropic}
-    daily-limit: ${AI_DAILY_LIMIT:150}
+    # Usos de IA por pessoa a cada 24 horas: uma revisão completa, um pedido de ideias ou uma pergunta conta um
+    daily-limit: ${AI_DAILY_LIMIT:3}
     concurrency: ${AI_CONCURRENCY:4}
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}

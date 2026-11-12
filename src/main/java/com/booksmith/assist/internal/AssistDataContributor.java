@@ -15,6 +15,7 @@ import java.util.UUID;
 class AssistDataContributor implements PersonalDataContributor {
 
     private final SuggestionLogRepository repository;
+    private final ReviewRunRepository runs;
 
     @Override
     public String name() {
@@ -25,13 +26,22 @@ class AssistDataContributor implements PersonalDataContributor {
     @Transactional(readOnly = true)
     public void contribute(UUID ownerId, PersonalDataArchive archive) {
         var logs = repository.findAllByUserIdOrderByCreatedAtDesc(ownerId);
-        if (logs.isEmpty()) {
-            return;
+        if (!logs.isEmpty()) {
+            archive.json("sugestoes-de-ia/pedidos.json", logs.stream()
+                    .map(l -> new UsageData(l.getKind(), l.getField(), l.getMode(), l.getProvider(), l.getModel(),
+                            l.getCreatedAt()))
+                    .toList());
         }
-        archive.json("sugestoes-de-ia/pedidos.json", logs.stream()
-                .map(l -> new UsageData(l.getKind(), l.getField(), l.getMode(), l.getProvider(), l.getModel(),
-                        l.getCreatedAt()))
-                .toList());
+        var reviews = runs.findAllByUserIdOrderByCreatedAtDesc(ownerId);
+        if (!reviews.isEmpty()) {
+            archive.json("sugestoes-de-ia/revisoes.json", reviews.stream()
+                    .map(r -> new ReviewData(r.getChapterId(), r.getCalls(), r.getCreatedAt()))
+                    .toList());
+        }
+    }
+
+    /** Uma revisão com IA aberta: de qual capítulo, quantas chamadas fez e quando. */
+    record ReviewData(UUID chapterId, int calls, Instant createdAt) {
     }
 
     record UsageData(String kind, String field, String mode, String provider, String model, Instant createdAt) {

@@ -29,12 +29,13 @@ class AskServiceTest {
 
     private final IdeaModel model = mock(IdeaModel.class);
     private final SuggestionLogRepository repository = mock(SuggestionLogRepository.class);
+    private final ReviewRunRepository runs = mock(ReviewRunRepository.class);
     private final Manuscripts manuscripts = mock(Manuscripts.class);
     private final Universes universes = mock(Universes.class);
     private final AiProperties properties = new AiProperties("anthropic", 10, 1,
             new AiProperties.Anthropic("", "claude-haiku-5-5"));
     private final AskService service = new AskService(
-            new AiUsage(model, properties, repository, Clock.fixed(Instant.parse("2026-11-12T12:00:00Z"), ZoneOffset.UTC)),
+            new AiUsage(model, properties, repository, runs, Clock.fixed(Instant.parse("2026-11-12T12:00:00Z"), ZoneOffset.UTC)),
             manuscripts, universes);
 
     private final UUID owner = UUID.randomUUID();

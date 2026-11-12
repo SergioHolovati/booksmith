@@ -62,8 +62,25 @@ public class ReviewService {
      * @param fromBlock o bloco onde começa a parte pedida ({@code nextBlock} da resposta anterior); vazio = a
      *                  primeira
      */
-    public record Request(UUID bookId, UUID chapterId, String check, String fromBlock) {
+    public record Request(UUID bookId, UUID chapterId, String check, String fromBlock, UUID runId) {
+
+        public Request(UUID bookId, UUID chapterId, String check, String fromBlock) {
+            this(bookId, chapterId, check, fromBlock, null);
+        }
     }
+
+    /** Abrir a revisão com IA de um capítulo. */
+    public record StartRequest(UUID bookId, UUID chapterId) {
+    }
+
+    /** @param runId vai em cada chamada das revisões com IA ({@link Request#runId()}) */
+    public record StartResult(UUID runId, int remaining) {
+    }
+
+    /** As revisões que usam a IA (a formatação é por regras). */
+    static final List<String> AI_CHECKS = List.of("spelling", "style", "holes", "continuity", "improvements");
+    /** Folga de chamadas na revisão aberta, para repetir uma parte que falhou. */
+    static final int RETRY_CALLS = 3;
 
     /**
      * @param blockId o bloco do capítulo onde está o trecho, ou null se o apontamento é do capítulo todo
@@ -92,17 +109,15 @@ public class ReviewService {
             throw invalid("Diga qual capítulo revisar.");
         }
         boolean rules = "format".equals(check);
-        if (!rules) {
-            usage.requireAvailable(ownerId);
-        }
         BookText book = manuscripts.bookText(ownerId, request.bookId());
-        ChapterText chapter = book.chapters().stream()
-                .filter(c -> c.chapterId().equals(request.chapterId()))
-                .findFirst()
-                .orElseThrow(() -> ApiException.notFound("chapter_not_found", "Capítulo não encontrado."));
+        ChapterText chapter = chapter(book, request.chapterId());
         List<List<Block>> parts = parts(chapter.blocks(), partSize(check));
         if (parts.isEmpty()) {
             throw ApiException.unprocessable("chapter_empty", "O capítulo ainda não tem texto para revisar.");
+        }
+        if (!rules) {
+            // A cota foi gasta ao abrir a revisão: aqui só confere a revisão aberta e conta a chamada
+            usage.useReview(ownerId, request.runId(), chapter.chapterId());
         }
         if (rules) {
             // Formatação: regras, sem IA e sem gastar a cota; o capítulo todo de uma vez, comparado com o livro
@@ -127,6 +142,30 @@ public class ReviewService {
         String next = index + 1 < parts.size() ? parts.get(index + 1).getFirst().blockId() : null;
         return new Result(items, next, index + 1, parts.size(), usage.remaining(ownerId), model.provider(),
                 model.model(), model.local());
+    }
+
+    /**
+     * Abre a revisão com IA do capítulo: gasta um uso da cota e devolve o id que vai nas chamadas. O limite de
+     * chamadas é o número de partes das cinco revisões, com folga para repetir.
+     */
+    public StartResult start(UUID ownerId, StartRequest request) {
+        if (request.bookId() == null || request.chapterId() == null) {
+            throw invalid("Diga qual capítulo revisar.");
+        }
+        ChapterText chapter = chapter(manuscripts.bookText(ownerId, request.bookId()), request.chapterId());
+        int calls = AI_CHECKS.stream().mapToInt(c -> parts(chapter.blocks(), partSize(c)).size()).sum();
+        if (calls == 0) {
+            throw ApiException.unprocessable("chapter_empty", "O capítulo ainda não tem texto para revisar.");
+        }
+        UUID runId = usage.startReview(ownerId, chapter.chapterId(), calls + RETRY_CALLS);
+        return new StartResult(runId, usage.remaining(ownerId));
+    }
+
+    private static ChapterText chapter(BookText book, UUID chapterId) {
+        return book.chapters().stream()
+                .filter(c -> c.chapterId().equals(chapterId))
+                .findFirst()
+                .orElseThrow(() -> ApiException.notFound("chapter_not_found", "Capítulo não encontrado."));
     }
 
     /** Ortografia: só os nomes próprios do universo, para a IA não marcar "Tomás" ou "Vel" como erro. */

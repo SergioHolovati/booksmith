@@ -29,12 +29,13 @@ class ReviewServiceTest {
 
     private final IdeaModel model = mock(IdeaModel.class);
     private final SuggestionLogRepository repository = mock(SuggestionLogRepository.class);
+    private final ReviewRunRepository runs = mock(ReviewRunRepository.class);
     private final Manuscripts manuscripts = mock(Manuscripts.class);
     private final Universes universes = mock(Universes.class);
     private final AiProperties properties = new AiProperties("anthropic", 10, 1,
             new AiProperties.Anthropic("", "claude-opus-5-5"));
     private final ReviewService service = new ReviewService(
-            new AiUsage(model, properties, repository, Clock.fixed(Instant.parse("2026-11-11T12:00:00Z"), ZoneOffset.UTC)),
+            new AiUsage(model, properties, repository, runs, Clock.fixed(Instant.parse("2026-11-11T12:00:00Z"), ZoneOffset.UTC)),
             manuscripts, universes);
 
     private final UUID owner = UUID.randomUUID();
@@ -42,9 +43,11 @@ class ReviewServiceTest {
     private final UUID universe = UUID.randomUUID();
     private final UUID chapter1 = UUID.randomUUID();
     private final UUID chapter2 = UUID.randomUUID();
+    private final UUID run = UUID.randomUUID();
 
     ReviewServiceTest() {
         when(model.provider()).thenReturn("anthropic");
+        when(runs.use(eq(run), eq(owner), eq(chapter2), any())).thenReturn(1);
         when(model.model()).thenReturn("claude-haiku-5-5");
         when(model.local()).thenReturn(false);
         when(manuscripts.bookText(owner, book)).thenReturn(new Manuscripts.BookText(book, "Café em Vel", universe, List.of(
@@ -70,7 +73,7 @@ class ReviewServiceTest {
                 new Finding("Tomás", "Nome", "Tomás"),
                 new Finding("as xícara", "Concordância", "as xícaras")));
 
-        var result = service.review(owner, new ReviewService.Request(book, chapter2, "spelling", null));
+        var result = service.review(owner, new ReviewService.Request(book, chapter2, "spelling", null, run));
 
         assertThat(result.findings()).containsExactly(new Item("b1", "as xícara", "Concordância", "as xícaras", true));
         assertThat(result.part()).isEqualTo(1);
@@ -95,7 +98,7 @@ class ReviewServiceTest {
                 new Finding("TOMÁS TINHA OLHOS AZUIS", "Na ficha, Tomás tem olhos verdes.", "Confira a cor dos olhos."),
                 new Finding("", "O capítulo inteiro ignora o bilhete das notas.", "Veja se o bilhete aparece.")));
 
-        var result = service.review(owner, new ReviewService.Request(book, chapter2, "continuity", null));
+        var result = service.review(owner, new ReviewService.Request(book, chapter2, "continuity", null, run));
 
         assertThat(result.findings()).containsExactly(
                 new Item("b3", "Tomás tinha olhos azuis", "Na ficha, Tomás tem olhos verdes.",
@@ -144,7 +147,7 @@ class ReviewServiceTest {
                 new Finding("viu as xícara", "Concordância", "xícaras"),
                 new Finding("e mentia muito", "Grafia", "nada")));
 
-        var result = service.review(owner, new ReviewService.Request(book, chapter2, "spelling", null));
+        var result = service.review(owner, new ReviewService.Request(book, chapter2, "spelling", null, run));
 
         assertThat(result.findings()).containsExactly(new Item("b1", "viu as xícara", "Concordância", "viu as xícaras", true));
     }
@@ -167,7 +170,7 @@ class ReviewServiceTest {
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("review_invalid"));
         assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, UUID.randomUUID(), "spelling", null)))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("chapter_not_found"));
-        assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, chapter2, "spelling", "zzz")))
+        assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, chapter2, "spelling", "zzz", run)))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("review_part_invalid"));
         verify(model, never()).findings(any());
     }
@@ -190,12 +193,45 @@ class ReviewServiceTest {
                 new Finding("uma frase que não está no texto", "Redundância", "outra frase"),
                 new Finding("viu as xícara", "Igual", "viu as xícara")));
 
-        var result = service.review(owner, new ReviewService.Request(book, chapter2, "style", null));
+        var result = service.review(owner, new ReviewService.Request(book, chapter2, "style", null, run));
 
         assertThat(result.findings()).containsExactly(new Item("b3", "mentia muito", "Advérbio que sobra", "mentia", true));
         ArgumentCaptor<IdeaModel.Prompt> prompt = ArgumentCaptor.forClass(IdeaModel.Prompt.class);
         verify(model).findings(prompt.capture());
         assertThat(prompt.getValue().system()).contains("frases e estilo");
         assertThat(prompt.getValue().user()).contains("Nomes próprios do universo").doesNotContain("Sinopse");
+    }
+
+    @Test
+    void startingAReviewSpendsOneUseAndBoundsTheCalls() {
+        when(runs.save(any())).thenAnswer(call -> {
+            ReviewRun saved = call.getArgument(0);
+            return ReviewRun.builder().id(run).userId(saved.getUserId()).chapterId(saved.getChapterId())
+                    .maxCalls(saved.getMaxCalls()).build();
+        });
+
+        var started = service.start(owner, new ReviewService.StartRequest(book, chapter2));
+
+        assertThat(started.runId()).isEqualTo(run);
+        ArgumentCaptor<ReviewRun> saved = ArgumentCaptor.forClass(ReviewRun.class);
+        verify(runs).save(saved.capture());
+        // capítulo curto: uma parte em cada uma das cinco revisões com IA, mais a folga para repetir
+        assertThat(saved.getValue().getMaxCalls()).isEqualTo(5 + ReviewService.RETRY_CALLS);
+        assertThat(saved.getValue().getChapterId()).isEqualTo(chapter2);
+        verify(model, never()).findings(any());
+    }
+
+    @Test
+    void anAiCheckNeedsAnOpenReview() {
+        assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, chapter2, "spelling", null)))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("review_run_invalid"));
+        UUID other = UUID.randomUUID();
+        assertThatThrownBy(() -> service.review(owner,
+                new ReviewService.Request(book, chapter2, "spelling", null, other)))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("review_run_invalid"));
+        verify(model, never()).findings(any());
+        // a formatação não precisa de revisão aberta
+        assertThat(service.review(owner, new ReviewService.Request(book, chapter2, "format", null)).provider())
+                .isEqualTo("regras");
     }
 }
