@@ -62,6 +62,11 @@ class IdeaModelConfig {
             throw disabled();
         }
 
+        @Override
+        public Answer answer(Prompt prompt) {
+            throw disabled();
+        }
+
         private static ApiException disabled() {
             return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai_disabled",
                     "As sugestões de IA estão desligadas neste servidor.");

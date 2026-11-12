@@ -23,6 +23,9 @@ public interface IdeaModel {
     /** Pede os apontamentos da revisão de um trecho. Falha do provedor → {@code ApiException} 503. */
     List<Finding> findings(Prompt prompt);
 
+    /** Responde uma pergunta do autor sobre o livro, com os trechos de origem. Falha → {@code ApiException} 503. */
+    Answer answer(Prompt prompt);
+
     /**
      * Instrução fixa ({@code system}), o pedido com os dados do autor ({@code user}) e a temperatura para o
      * modelo local (baixa na revisão, para não inventar; o Claude usa a dele).
@@ -53,5 +56,21 @@ public interface IdeaModel {
 
     /** Formato pedido ao modelo na revisão (saída estruturada). */
     record FindingList(List<Finding> findings) {
+    }
+
+    /**
+     * Resposta a "Pergunte ao seu livro" (saída estruturada).
+     *
+     * @param answer  a resposta, curta, só com o que está no material
+     * @param sources os trechos do texto que sustentam a resposta
+     */
+    record Answer(String answer, List<Source> sources) {
+    }
+
+    /**
+     * @param chapter o número do capítulo de onde veio o trecho
+     * @param quote   o trecho copiado do texto, palavra por palavra
+     */
+    record Source(int chapter, String quote) {
     }
 }

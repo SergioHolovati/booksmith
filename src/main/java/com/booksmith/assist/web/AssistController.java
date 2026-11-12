@@ -1,5 +1,6 @@
 package com.booksmith.assist.web;
 
+import com.booksmith.assist.internal.AskService;
 import com.booksmith.assist.internal.AssistService;
 import com.booksmith.assist.internal.ReviewService;
 import com.booksmith.identity.api.CurrentUser;
@@ -18,6 +19,7 @@ class AssistController {
 
     private final AssistService assistService;
     private final ReviewService reviewService;
+    private final AskService askService;
     private final CurrentUser currentUser;
 
     @GetMapping("/status")
@@ -34,5 +36,11 @@ class AssistController {
     @PostMapping("/review")
     ReviewService.Result review(@RequestBody ReviewService.Request request) {
         return reviewService.review(currentUser.id(), request);
+    }
+
+    /** "Pergunte ao seu livro": a resposta da IA, com os trechos de origem conferidos contra o texto. */
+    @PostMapping("/ask")
+    AskService.Result ask(@RequestBody AskService.Request request) {
+        return askService.ask(currentUser.id(), request);
     }
 }

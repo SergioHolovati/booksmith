@@ -74,6 +74,11 @@ class ClaudeIdeas implements IdeaModel {
                 || model.startsWith("claude-fable-");
     }
 
+    @Override
+    public Answer answer(Prompt prompt) {
+        return ask(prompt, Answer.class).stream().findFirst().orElse(new Answer("", List.of()));
+    }
+
     /** Um pedido com saída estruturada no formato {@code type}; devolve cada bloco de texto já convertido. */
     private <T> List<T> ask(Prompt prompt, Class<T> type) {
         var builder = MessageCreateParams.builder()
