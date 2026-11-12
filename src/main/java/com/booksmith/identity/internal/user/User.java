@@ -55,6 +55,10 @@ public class User {
     private AuthProvider provider;
 
     private boolean googleLinked;
+    /** Identidade da conta Google ligada ("sub", não muda); null = sem Google ou ligada antes da V28. */
+    private String googleSubject;
+    /** E-mail da conta Google ligada (pode ser outro que o do cadastro). */
+    private String googleEmail;
     private boolean emailVerified;
     private String emailVerificationCodeHash;
     private Instant emailVerificationExpiresAt;

@@ -83,12 +83,18 @@ class ProfileController {
     record ProfileResponse(UserView user, AuthorView author) {
     }
 
+    /**
+     * {@code googleEmail}: a conta Google ligada (null se não está ligada ou foi ligada antes de guardarmos o e-mail).
+     * {@code hasPassword}: sem senha, a conta só entra pelo Google (não dá para desligar).
+     */
     record UserView(UUID id, String username, String firstName, String lastName, String displayName,
-                    String email, boolean emailVerified, LocalDate birthDate) {
+                    String email, boolean emailVerified, LocalDate birthDate, boolean googleLinked,
+                    String googleEmail, boolean hasPassword) {
 
         static UserView from(User user) {
             return new UserView(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName(),
-                    user.displayName(), user.getEmail(), user.isEmailVerified(), user.getBirthDate());
+                    user.displayName(), user.getEmail(), user.isEmailVerified(), user.getBirthDate(),
+                    user.isGoogleLinked(), user.getGoogleEmail(), user.getPasswordHash() != null);
         }
     }
 

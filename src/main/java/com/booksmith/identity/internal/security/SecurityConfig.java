@@ -44,6 +44,9 @@ class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+                // "Vincular ao Google" no perfil: guarda o tíquete antes de ir ao Google
+                .addFilterBefore(new GoogleLinkIntentFilter(),
+                        org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter.class)
                 .oauth2Login(oauth -> oauth
                         .successHandler(successHandler)
                         .failureHandler((request, response, exception) ->

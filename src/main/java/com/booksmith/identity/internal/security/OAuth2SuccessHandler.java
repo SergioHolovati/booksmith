@@ -49,18 +49,35 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             return;
         }
         String email = oauthUser.getAttribute("email");
+        // "sub": a identidade da conta Google, que não muda (o e-mail pode mudar)
+        String subject = oauthUser.getName();
+        String linkTicket = GoogleLinkIntentFilter.ticket(request);
 
         endHttpSession(request);
 
         // Só vincula contas quando o Google garante que o e-mail pertence ao usuário
         if (email == null || !isEmailVerified(oauthUser)) {
-            response.sendRedirect(properties.frontendUrl() + "/login?error=google_email_not_verified");
+            response.sendRedirect(properties.frontendUrl()
+                    + (linkTicket == null ? "/login?error=google_email_not_verified" : "/profile?google=email_not_verified"));
             return;
         }
 
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .map(this::linkGoogle)
-                .orElseGet(() -> createGoogleUser(email, oauthUser.getAttribute("name")));
+        if (linkTicket != null) {
+            response.sendRedirect(properties.frontendUrl() + "/profile?google=" + link(linkTicket, subject, email));
+            return;
+        }
+
+        User user = userRepository.findByGoogleSubject(subject).orElse(null);
+        if (user == null) {
+            User byEmail = userRepository.findByEmailIgnoreCase(email).orElse(null);
+            if (byEmail != null && !alreadyGoogle(byEmail)) {
+                // Conta com senha nunca ligada ao Google: a ligação é pedida no perfil, depois de entrar com a senha
+                response.sendRedirect(properties.frontendUrl() + "/login?error=google_account_exists");
+                return;
+            }
+            user = byEmail != null ? attachSubject(byEmail, subject, email)
+                    : createGoogleUser(email, oauthUser.getAttribute("name"), subject);
+        }
         user.setLastLoginAt(Instant.now());
 
         String code = loginCodes.create(user.getId());
@@ -76,11 +93,45 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         return Boolean.parseBoolean(String.valueOf(verified));
     }
 
-    /** Conta com senha que passa a entrar também pelo Google: o dono fica sabendo. */
-    private User linkGoogle(User user) {
-        if (!user.isGoogleLinked()) {
+    /**
+     * "Vincular ao Google" pedido no perfil: liga esta conta Google à conta do tíquete.
+     *
+     * @return o resultado que o perfil mostra: {@code linked}, {@code expired} (tíquete vencido ou usado) ou
+     *         {@code in_use} (a conta Google já entra em outra conta do Booksmith)
+     */
+    private String link(String ticket, String subject, String email) {
+        User user = loginCodes.consumeLinkTicket(ticket).flatMap(userRepository::findById).orElse(null);
+        if (user == null) {
+            return "expired";
+        }
+        boolean otherBySubject = userRepository.findByGoogleSubject(subject)
+                .filter(other -> !other.getId().equals(user.getId())).isPresent();
+        boolean otherByEmail = userRepository.findByEmailIgnoreCase(email)
+                .filter(other -> !other.getId().equals(user.getId())).isPresent();
+        if (otherBySubject || otherByEmail) {
+            return "in_use";
+        }
+        boolean already = subject.equals(user.getGoogleSubject());
+        user.setGoogleLinked(true);
+        user.setGoogleSubject(subject);
+        user.setGoogleEmail(email);
+        if (!already) {
             emailSender.sendSecurityNotice(user.getEmail(), "Sua conta foi ligada ao Google",
-                    "Agora também dá para entrar no Booksmith com a conta Google deste e-mail.");
+                    "Agora também dá para entrar no Booksmith com a conta Google " + email + ".");
+        }
+        return "linked";
+    }
+
+    /** Conta criada pelo Google, ou ligada a ele antes de guardarmos a identidade da conta Google (V28). */
+    private static boolean alreadyGoogle(User user) {
+        return user.getPasswordHash() == null || user.isGoogleLinked();
+    }
+
+    /** Guarda a identidade da conta Google numa conta que já era do Google (anterior à V28). */
+    private static User attachSubject(User user, String subject, String email) {
+        if (user.getGoogleSubject() == null) {
+            user.setGoogleSubject(subject);
+            user.setGoogleEmail(email);
         }
         user.setGoogleLinked(true);
         user.setEmailVerified(true);
@@ -89,7 +140,7 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         return user;
     }
 
-    private User createGoogleUser(String email, String name) {
+    private User createGoogleUser(String email, String name, String subject) {
         String[] names = name == null || name.isBlank() ? new String[0] : name.trim().split("\\s+", 2);
         return userRepository.save(User.builder()
                 .email(email)
@@ -98,6 +149,8 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 .username(Usernames.suggest(name, userRepository::existsByUsernameIgnoreCase))
                 .provider(AuthProvider.GOOGLE)
                 .googleLinked(true)
+                .googleSubject(subject)
+                .googleEmail(email)
                 .emailVerified(true)
                 .build());
     }
