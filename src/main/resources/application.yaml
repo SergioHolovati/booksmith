@@ -81,7 +81,7 @@ booksmith:
   # Sugestões de IA (§4.11): ollama (local), anthropic (API do Claude, exige ANTHROPIC_API_KEY) ou off
   ai:
     provider: ${AI_PROVIDER:off}
-    daily-limit: ${AI_DAILY_LIMIT:60}
+    daily-limit: ${AI_DAILY_LIMIT:150}
     concurrency: ${AI_CONCURRENCY:1}
     ollama:
       url: ${OLLAMA_URL:http://127.0.0.1:11434}

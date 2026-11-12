@@ -44,7 +44,16 @@ class IdeaModelConfig {
 
         @Override
         public List<Idea> ideas(Prompt prompt) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai_disabled",
+            throw disabled();
+        }
+
+        @Override
+        public List<Finding> findings(Prompt prompt) {
+            throw disabled();
+        }
+
+        private static ApiException disabled() {
+            return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai_disabled",
                     "As sugestões de IA estão desligadas neste servidor.");
         }
     }

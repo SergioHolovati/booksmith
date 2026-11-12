@@ -37,6 +37,20 @@ class OllamaIdeas implements IdeaModel {
                                     "title", Map.of("type", "string"),
                                     "text", Map.of("type", "string"))))));
 
+    /** O formato da revisão: a lista de apontamentos, cada um com trecho, problema e sugestão. */
+    static final Map<String, Object> FINDINGS_SCHEMA = Map.of(
+            "type", "object",
+            "required", List.of("findings"),
+            "properties", Map.of("findings", Map.of(
+                    "type", "array",
+                    "items", Map.of(
+                            "type", "object",
+                            "required", List.of("quote", "problem", "suggestion"),
+                            "properties", Map.of(
+                                    "quote", Map.of("type", "string"),
+                                    "problem", Map.of("type", "string"),
+                                    "suggestion", Map.of("type", "string"))))));
+
     private final RestClient http;
     private final JsonMapper jsonMapper;
     private final AiProperties.Ollama config;
@@ -67,13 +81,22 @@ class OllamaIdeas implements IdeaModel {
 
     @Override
     public List<Idea> ideas(Prompt prompt) {
+        return parse(chat(prompt, SCHEMA), jsonMapper);
+    }
+
+    @Override
+    public List<Finding> findings(Prompt prompt) {
+        return parseFindings(chat(prompt, FINDINGS_SCHEMA), jsonMapper);
+    }
+
+    private String chat(Prompt prompt, Map<String, Object> schema) {
         ObjectNode body = jsonMapper.createObjectNode();
         body.put("model", config.model());
         body.put("stream", false);
         body.put("think", false);
         body.put("keep_alive", config.keepAlive());
-        body.set("format", jsonMapper.valueToTree(SCHEMA));
-        body.putObject("options").put("temperature", 0.6).put("num_ctx", 8192);
+        body.set("format", jsonMapper.valueToTree(schema));
+        body.putObject("options").put("temperature", prompt.temperature()).put("num_ctx", 8192);
         var messages = body.putArray("messages");
         messages.addObject().put("role", "system").put("content", prompt.system());
         messages.addObject().put("role", "user").put("content", prompt.user());
@@ -88,7 +111,21 @@ class OllamaIdeas implements IdeaModel {
             log.warn("Ollama fora do ar: {}", e.getMessage());
             throw unavailable("A IA não está ligada agora. Tente de novo em instantes.").causedBy(e);
         }
-        return parse(response, jsonMapper);
+        return response;
+    }
+
+    /** Os apontamentos da revisão, no mesmo envelope do Ollama. */
+    static List<Finding> parseFindings(String response, JsonMapper jsonMapper) {
+        try {
+            String content = jsonMapper.readTree(response).path("message").path("content").stringValue("");
+            return jsonMapper.readTree(content).path("findings").valueStream()
+                    .map(f -> new Finding(f.path("quote").stringValue(""), f.path("problem").stringValue(""),
+                            f.path("suggestion").stringValue("")))
+                    .toList();
+        } catch (JacksonException e) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "ai_bad_answer",
+                    "A IA respondeu num formato inesperado. Tente de novo.").causedBy(e);
+        }
     }
 
     /** A resposta do Ollama traz o JSON das ideias como texto em {@code message.content}. */

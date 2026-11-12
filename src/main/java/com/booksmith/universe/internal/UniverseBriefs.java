@@ -52,6 +52,7 @@ class UniverseBriefs {
     private final RelationRepository relationRepository;
     private final TimelineEventRepository timelineRepository;
     private final UniverseForm universeForm;
+    private final AppearanceForm appearanceForm;
     private final LoreForm loreForm;
     private final JsonMapper jsonMapper;
 
@@ -92,6 +93,7 @@ class UniverseBriefs {
             add(parts, "idade: ", sheet.path("age").stringValue(""));
             add(parts, "jeito: ", sheet.path("personality").stringValue(""));
             add(parts, "quer: ", sheet.path("desires").stringValue(""));
+            add(parts, "aparência: ", appearanceForm.summary(jsonMapper.readTree(person.getAppearance())));
             if (!parts.isEmpty()) {
                 line.append(" — ").append(String.join("; ", parts));
             }

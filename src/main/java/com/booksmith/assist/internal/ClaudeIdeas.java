@@ -53,14 +53,28 @@ class ClaudeIdeas implements IdeaModel {
 
     @Override
     public List<Idea> ideas(Prompt prompt) {
-        StructuredMessageCreateParams<IdeaList> params = MessageCreateParams.builder()
+        List<Idea> ideas = new ArrayList<>();
+        ask(prompt, IdeaList.class).forEach(list -> ideas.addAll(list.suggestions()));
+        return ideas;
+    }
+
+    @Override
+    public List<Finding> findings(Prompt prompt) {
+        List<Finding> findings = new ArrayList<>();
+        ask(prompt, FindingList.class).forEach(list -> findings.addAll(list.findings()));
+        return findings;
+    }
+
+    /** Um pedido com saída estruturada no formato {@code type}; devolve cada bloco de texto já convertido. */
+    private <T> List<T> ask(Prompt prompt, Class<T> type) {
+        StructuredMessageCreateParams<T> params = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(16_000L)
                 .system(prompt.system())
                 .addUserMessage(prompt.user())
                 .putAdditionalHeader("anthropic-beta", FALLBACK_BETA)
                 .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
-                .outputConfig(IdeaList.class)
+                .outputConfig(type)
                 .build();
         try {
             var message = client.messages().create(params);
@@ -68,11 +82,10 @@ class ClaudeIdeas implements IdeaModel {
                 throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "ai_refused",
                         "A IA não quis responder a este pedido. Tente com outras palavras.");
             }
-            List<Idea> ideas = new ArrayList<>();
-            message.content().stream()
+            return message.content().stream()
                     .flatMap(block -> block.text().stream())
-                    .forEach(typed -> ideas.addAll(typed.text().suggestions()));
-            return ideas;
+                    .map(typed -> typed.text())
+                    .toList();
         } catch (AnthropicException e) {
             log.warn("API do Claude falhou: {}", e.getMessage());
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai_unavailable",

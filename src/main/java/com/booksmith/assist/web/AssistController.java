@@ -1,6 +1,7 @@
 package com.booksmith.assist.web;
 
 import com.booksmith.assist.internal.AssistService;
+import com.booksmith.assist.internal.ReviewService;
 import com.booksmith.identity.api.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 class AssistController {
 
     private final AssistService assistService;
+    private final ReviewService reviewService;
     private final CurrentUser currentUser;
 
     @GetMapping("/status")
@@ -26,5 +28,11 @@ class AssistController {
     @PostMapping("/suggestions")
     AssistService.Result suggest(@RequestBody AssistService.Request request) {
         return assistService.suggest(currentUser.id(), request);
+    }
+
+    /** Revisão do capítulo pela IA, uma parte por vez. */
+    @PostMapping("/review")
+    ReviewService.Result review(@RequestBody ReviewService.Request request) {
+        return reviewService.review(currentUser.id(), request);
     }
 }

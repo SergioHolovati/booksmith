@@ -37,8 +37,8 @@ class AssistServiceTest {
     private final AiProperties properties = new AiProperties("ollama", 3, 1,
             new AiProperties.Ollama("http://localhost:11434", "qwen3:8b", "30m", Duration.ofMinutes(4)),
             new AiProperties.Anthropic("", "claude-opus-5-5"));
-    private final AssistService service = new AssistService(model, properties, repository, universes, manuscripts,
-            Clock.fixed(NOW, ZoneOffset.UTC));
+    private final AssistService service = new AssistService(
+            new AiUsage(model, properties, repository, Clock.fixed(NOW, ZoneOffset.UTC)), universes, manuscripts);
 
     private final UUID owner = UUID.randomUUID();
     private final UUID universe = UUID.randomUUID();

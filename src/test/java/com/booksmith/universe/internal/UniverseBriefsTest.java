@@ -18,7 +18,7 @@ class UniverseBriefsTest {
     private final RelationRepository relations = mock(RelationRepository.class);
     private final TimelineEventRepository timeline = mock(TimelineEventRepository.class);
     private final UniverseBriefs briefs = new UniverseBriefs(entities, relations, timeline, new UniverseForm(mapper),
-            new LoreForm(mapper), mapper);
+            new AppearanceForm(mapper), new LoreForm(mapper), mapper);
 
     private final UUID universeId = UUID.randomUUID();
     private final Universe universe = Universe.builder().id(universeId).name("Vel").build();
