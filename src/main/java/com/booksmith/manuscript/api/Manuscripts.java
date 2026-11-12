@@ -86,11 +86,29 @@ public interface Manuscripts {
      * @param credits        verso da folha de rosto: direitos, capa, ilustrações, revisão
      * @param epigraphSource   de quem é a epígrafe ("Clarice Lispector, A hora da estrela")
      * @param aboutAuthorTitle título da página "sobre": "Sobre a autora", "Sobre mim"; null = o nome do autor
+     * @param isbnPrint        ISBN do impresso (guia de publicação), nos créditos do PDF; só na exportação
+     * @param isbnEbook        ISBN do e-book, nos créditos e no identificador do ePub; só na exportação (os dois ficam
+     *                         fora do JSON: na API, o ISBN é do guia de publicação)
      */
     record BookPages(String credits, String dedication, String epigraph, String epigraphSource,
-                     String acknowledgments, String aboutAuthor, String aboutAuthorTitle) {
+                     String acknowledgments, String aboutAuthor, String aboutAuthorTitle,
+                     @com.fasterxml.jackson.annotation.JsonIgnore String isbnPrint,
+                     @com.fasterxml.jackson.annotation.JsonIgnore String isbnEbook) {
 
         public static final BookPages EMPTY = new BookPages(null, null, null, null, null, null, null);
+
+        /** As páginas que o autor escreve, sem ISBN (o ISBN vem do guia de publicação). */
+        public BookPages(String credits, String dedication, String epigraph, String epigraphSource,
+                         String acknowledgments, String aboutAuthor, String aboutAuthorTitle) {
+            this(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor, aboutAuthorTitle, null,
+                    null);
+        }
+
+        /** As mesmas páginas com os ISBNs do guia de publicação, que saem nos créditos. */
+        public BookPages withIsbn(String print, String ebook) {
+            return new BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
+                    aboutAuthorTitle, print, ebook);
+        }
 
         /** Texto limpo: sem espaços nas pontas, quebras de linha unificadas, vazio vira null. */
         public BookPages {

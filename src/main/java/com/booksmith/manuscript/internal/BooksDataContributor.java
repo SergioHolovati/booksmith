@@ -63,7 +63,8 @@ class BooksDataContributor implements PersonalDataContributor {
                     book.getStatus() == null ? null : book.getStatus().name(), book.getUniverseId(), cover,
                     book.getCreatedAt(), book.getUpdatedAt(), book.pages(),
                     jsonMapper.readTree(book.getLayout() == null ? "{}" : book.getLayout()),
-                    book.getCoverDesign() == null ? null : jsonMapper.readTree(book.getCoverDesign()), chapterData));
+                    book.getCoverDesign() == null ? null : jsonMapper.readTree(book.getCoverDesign()),
+                    jsonMapper.readTree(book.getPublishing() == null ? "{}" : book.getPublishing()), chapterData));
             archive.text(folder + "texto.txt", plainText(book, chapters));
         }
     }
@@ -93,11 +94,12 @@ class BooksDataContributor implements PersonalDataContributor {
     /**
      * {@code cover}: nome do arquivo da capa na pasta do livro. {@code pages}: créditos, dedicatória, epígrafe,
      * agradecimentos e "sobre o autor". {@code layout}: a diagramação do PDF. {@code coverDesign}: o desenho da capa
-     * feita no editor (null = não foi feita nele).
+     * feita no editor (null = não foi feita nele). {@code publishing}: o guia de publicação (destino, ISBNs,
+     * palavras-chave e passos feitos).
      */
     record BookData(UUID id, String title, String synopsis, String kind, String fandom, String language, String status,
                     UUID universeId, String cover, Instant createdAt, Instant updatedAt,
                     com.booksmith.manuscript.api.Manuscripts.BookPages pages, JsonNode layout, JsonNode coverDesign,
-                    List<ChapterData> chapters) {
+                    JsonNode publishing, List<ChapterData> chapters) {
     }
 }

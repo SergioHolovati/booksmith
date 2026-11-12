@@ -53,7 +53,7 @@ final class EpubWriter {
             if (book.fanfic()) {
                 text(zip, "EPUB/fan-notice.xhtml", page(book, "Aviso", "frontmatter", fanNotice(book)));
             }
-            for (BookPagesHtml.Page extra : BookPagesHtml.front(book.pages())) {
+            for (BookPagesHtml.Page extra : BookPagesHtml.front(book.pages(), book.pages().isbnEbook())) {
                 text(zip, "EPUB/" + extra.id() + ".xhtml", page(book, extra.title(), "frontmatter", extra.html()));
             }
             for (int i = 0; i < book.chapters().size(); i++) {
@@ -123,7 +123,7 @@ final class EpubWriter {
             manifest.append("    <item id=\"fan-notice\" href=\"fan-notice.xhtml\" media-type=\"application/xhtml+xml\"/>\n");
             spine.append("    <itemref idref=\"fan-notice\"/>\n");
         }
-        extras(BookPagesHtml.front(book.pages()), manifest, spine);
+        extras(BookPagesHtml.front(book.pages(), book.pages().isbnEbook()), manifest, spine);
         for (int i = 0; i < book.chapters().size(); i++) {
             if (book.chapters().get(i).partTitle() != null) {
                 manifest.append("    <item id=\"part-%d\" href=\"%s\" media-type=\"application/xhtml+xml\"/>\n"
@@ -143,7 +143,7 @@ final class EpubWriter {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" xml:lang="%1$s">
                   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-                    <dc:identifier id="book-id">urn:uuid:%2$s</dc:identifier>
+                    <dc:identifier id="book-id">%2$s</dc:identifier>
                     <dc:title>%3$s</dc:title>
                     <dc:creator>%4$s</dc:creator>
                     <dc:language>%1$s</dc:language>
@@ -154,7 +154,7 @@ final class EpubWriter {
                   <spine toc="ncx">
                 %9$s  </spine>
                 </package>
-                """.formatted(book.language(), book.id(), escape(book.title()), escape(book.author()), description,
+                """.formatted(book.language(), identifier(book), escape(book.title()), escape(book.author()), description,
                 MODIFIED.format(book.generatedAt().truncatedTo(ChronoUnit.SECONDS)), coverMeta, manifest, spine);
     }
 
@@ -251,13 +251,19 @@ final class EpubWriter {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
                   <head>
-                    <meta name="dtb:uid" content="urn:uuid:%s"/>
+                    <meta name="dtb:uid" content="%s"/>
                   </head>
                   <docTitle><text>%s</text></docTitle>
                   <navMap>
                 %s  </navMap>
                 </ncx>
-                """.formatted(book.id(), escape(book.title()), points);
+                """.formatted(identifier(book), escape(book.title()), points);
+    }
+
+    /** Com ISBN do e-book, o ePub é identificado por ele (as lojas leem daqui); sem, pelo id do livro. */
+    static String identifier(ExportBook book) {
+        String isbn = book.pages().isbnEbook();
+        return isbn == null ? "urn:uuid:" + book.id() : "urn:isbn:" + com.booksmith.manuscript.api.Publishing.digits(isbn);
     }
 
     private static String titlePage(ExportBook book) {

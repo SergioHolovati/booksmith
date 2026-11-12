@@ -255,6 +255,46 @@ class ExportWritersTest {
         }
     }
 
+    private static ExportBook withIsbn() {
+        ExportBook base = withPages(null);
+        return new ExportBook(base.id(), base.title(), base.author(), base.language(), null, null, null,
+                base.generatedAt(), base.chapters(), java.util.Map.of(),
+                base.pages().withIsbn("978-65-00-12345-6", "978-65-00-12346-3"));
+    }
+
+    @Test
+    void theEbookIsbnClosesTheCreditsAndIdentifiesTheEpub(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(withIsbn());
+        Path file = dir.resolve("isbn.epub");
+        Files.write(file, epub);
+
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        assertThat(entry(epub, "EPUB/credits.xhtml"))
+                .containsSubsequence("Capa: Ana &amp; Bia", "<p class=\"isbn\">ISBN 978-65-00-12346-3</p>")
+                .doesNotContain("12345-6");
+        assertThat(entry(epub, "EPUB/package.opf")).contains("<dc:identifier id=\"book-id\">urn:isbn:9786500123463</dc:identifier>");
+        assertThat(entry(epub, "EPUB/toc.ncx")).contains("content=\"urn:isbn:9786500123463\"");
+    }
+
+    @Test
+    void thePrintIsbnGoesInThePdfCredits() throws Exception {
+        try (PDDocument document = Loader.loadPDF(PdfWriter.write(withIsbn()))) {
+            String text = new PDFTextStripper().getText(document);
+            assertThat(text).containsSubsequence("Capa: Ana & Bia", "ISBN 978-65-00-12345-6", "Sumário")
+                    .doesNotContain("12346-3");
+        }
+    }
+
+    @Test
+    void anIsbnAloneMakesTheCreditsPage() {
+        var pages = com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY.withIsbn("978-65-00-12345-6", null);
+        assertThat(BookPagesHtml.front(pages, pages.isbnPrint())).singleElement()
+                .satisfies(page -> assertThat(page.html()).contains("<p class=\"isbn\">ISBN 978-65-00-12345-6</p>"));
+        assertThat(BookPagesHtml.front(pages, pages.isbnEbook())).isEmpty();
+    }
+
     @Test
     void wordBookPagesDoNotBecomeChaptersWhenImported() throws Exception {
         byte[] docx = DocxWriter.write(withPages(null));

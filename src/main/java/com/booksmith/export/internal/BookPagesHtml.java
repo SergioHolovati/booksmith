@@ -27,14 +27,24 @@ final class BookPagesHtml {
     record Page(String id, String title, String html, boolean inToc) {
     }
 
-    /** Créditos, dedicatória e epígrafe, as que existirem. */
+    /** Créditos, dedicatória e epígrafe, as que existirem, sem ISBN. */
     static List<Page> front(BookPages pages) {
+        return front(pages, null);
+    }
+
+    /**
+     * Créditos, dedicatória e epígrafe. O ISBN do formato (o do impresso no PDF, o do e-book no ePub) fecha a página
+     * de créditos, como nos livros; só com ISBN, a página sai só com ele.
+     */
+    static List<Page> front(BookPages pages, String isbn) {
         List<Page> front = new ArrayList<>();
-        if (pages.credits() != null) {
+        if (pages.credits() != null || isbn != null) {
+            String credits = pages.credits() == null ? "" : paragraphs(pages.credits());
+            String line = isbn == null ? "" : "<p class=\"isbn\">ISBN " + escape(isbn) + "</p>\n";
             front.add(new Page("credits", "Créditos", """
                     <section epub:type="copyright-page" class="credits">
-                    %s</section>
-                    """.formatted(paragraphs(pages.credits())), false));
+                    %s%s</section>
+                    """.formatted(credits, line), false));
         }
         if (pages.dedication() != null) {
             front.add(new Page("dedication", "Dedicatória", """

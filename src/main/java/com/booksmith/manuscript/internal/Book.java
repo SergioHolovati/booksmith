@@ -90,6 +90,12 @@ public class Book {
     @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
     private String coverDesign;
 
+    /** Guia de publicação (V27), JSON de {@link com.booksmith.manuscript.api.Publishing}; "{}" = nada preenchido. */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
+    private String publishing = "{}";
+
     /** Capa importada em PDF (V24), JSON de {@link com.booksmith.manuscript.api.CoverPdf}; null = sem PDF. */
     @Column(columnDefinition = "jsonb")
     @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")

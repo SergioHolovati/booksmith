@@ -129,6 +129,22 @@ class BookController {
         return bookService.updateLayout(currentUser.id(), bookId, request.toLayout());
     }
 
+    /** O guia de publicação: destino, ISBNs, palavras-chave e passos feitos (422 {@code publishing_invalid}). */
+    @PutMapping("/{bookId}/publishing")
+    com.booksmith.manuscript.api.Publishing updatePublishing(@PathVariable UUID bookId,
+                                                             @RequestBody PublishingRequest request) {
+        return bookService.updatePublishing(currentUser.id(), bookId, request.toPublishing());
+    }
+
+    /** Recebido solto e conferido no {@link com.booksmith.manuscript.api.Publishing}, fora do Jackson. */
+    record PublishingRequest(String destination, String isbnPrint, String isbnEbook, java.util.List<String> keywords,
+                             java.util.Set<String> done) {
+
+        com.booksmith.manuscript.api.Publishing toPublishing() {
+            return new com.booksmith.manuscript.api.Publishing(destination, isbnPrint, isbnEbook, keywords, done);
+        }
+    }
+
     /** Recebido solto e conferido no {@link BookLayout} (422 {@code layout_invalid}), fora do Jackson. */
     record LayoutRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                          String sceneBreak) {

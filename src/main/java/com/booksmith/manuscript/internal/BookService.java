@@ -3,6 +3,7 @@ package com.booksmith.manuscript.internal;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.common.text.SlugUtils;
 import com.booksmith.manuscript.api.BookLayout;
+import com.booksmith.manuscript.api.Publishing;
 import com.booksmith.manuscript.api.CoverPdf;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.media.api.ImageCategory;
@@ -49,7 +50,7 @@ public class BookService {
     public BookDetail get(UUID ownerId, UUID bookId) {
         Book book = require(ownerId, bookId);
         return new BookDetail(book, chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId),
-                layoutOf(book), coverDesignOf(book), coverPdfOf(book));
+                layoutOf(book), coverDesignOf(book), coverPdfOf(book), publishingOf(book));
     }
 
     @Transactional
@@ -230,6 +231,28 @@ public class BookService {
         return layout;
     }
 
+    /**
+     * Troca o guia de publicação do livro. Edição de fã não tem ISBN: não pode ser vendida (§13.5).
+     *
+     * @throws com.booksmith.common.error.ApiException 422 {@code publishing_fanfic} com ISBN em fanfic
+     */
+    @Transactional
+    public Publishing updatePublishing(UUID ownerId, UUID bookId, Publishing publishing) {
+        Book book = require(ownerId, bookId);
+        if (book.getKind() == BookKind.FANFIC && (publishing.isbnPrint() != null || publishing.isbnEbook() != null)) {
+            throw ApiException.unprocessable("publishing_fanfic",
+                    "Fanfic não tem ISBN: a edição de fã é para ler e compartilhar, não para vender.");
+        }
+        book.setPublishing(jsonMapper.writeValueAsString(publishing));
+        return publishing;
+    }
+
+    /** O guia de publicação guardado (sempre válido: só entra pelo {@link #updatePublishing}). */
+    public Publishing publishingOf(Book book) {
+        String json = book.getPublishing();
+        return json == null || "{}".equals(json) ? Publishing.EMPTY : jsonMapper.readValue(json, Publishing.class);
+    }
+
     /** A diagramação guardada no livro (sempre válida: só entra pelo {@link #updateLayout}). */
     public BookLayout layoutOf(Book book) {
         return book.getLayout() == null ? BookLayout.DEFAULT : jsonMapper.readValue(book.getLayout(), BookLayout.class);
@@ -303,10 +326,10 @@ public class BookService {
 
     /** {@code layout}: a diagramação já lida do JSON guardado. */
     public record BookDetail(Book book, List<Chapter> chapters, BookLayout layout, CoverDesign coverDesign,
-                             CoverPdf coverPdf) {
+                             CoverPdf coverPdf, Publishing publishing) {
 
         public BookDetail(Book book, List<Chapter> chapters) {
-            this(book, chapters, BookLayout.DEFAULT, null, null);
+            this(book, chapters, BookLayout.DEFAULT, null, null, Publishing.EMPTY);
         }
     }
 }

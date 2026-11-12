@@ -81,7 +81,7 @@ final class PdfWriter {
             chapters.append("<div class=\"back\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()));
         }
         String notice = (book.fanfic() ? "<div class=\"front\">" + EpubWriter.fanNotice(book) + "</div>\n" : "")
-                + BookPagesHtml.front(book.pages()).stream()
+                + BookPagesHtml.front(book.pages(), book.pages().isbnPrint()).stream()
                 .map(extra -> "<div class=\"front\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()))
                 .collect(java.util.stream.Collectors.joining());
         return """
@@ -208,6 +208,7 @@ final class PdfWriter {
             .front p { margin: 0 0 4mm; }
             .credits { padding-top: 110mm; font-size: 9pt; }
             .credits p { margin: 0 0 2mm; text-align: left; }
+            .credits p.isbn { margin-top: 4mm; }
             .dedication { padding-top: 50mm; margin-left: 35mm; font-style: italic; }
             .dedication p, p.epigraph-source { text-align: right; }
             .epigraph { padding-top: 50mm; margin-left: 30mm; }
