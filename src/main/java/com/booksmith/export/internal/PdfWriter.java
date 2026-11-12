@@ -108,7 +108,7 @@ final class PdfWriter {
                 %9$s</body>
                 </html>
                 """.formatted(book.language(), escape(book.title()), escape(book.author()), CSS, bookmarks, cover,
-                notice, toc, chapters, layoutCss(book.layout(), !cover.isEmpty()));
+                notice, toc, chapters, layoutCss(book.layout()));
     }
 
     /** O "* * *" do HTML comum vira o ornamento escolhido na diagramação. */
@@ -127,7 +127,7 @@ final class PdfWriter {
      * O que muda com a diagramação, depois do CSS fixo (ganha dele): página, margens, letra, entrelinha e a
      * abertura de capítulo. Margens em mm: em cima, dos lados, embaixo.
      */
-    static String layoutCss(BookLayout layout, boolean hasCover) {
+    static String layoutCss(BookLayout layout) {
         int[] margins = switch (layout.margins()) {
             case "narrow" -> new int[] {16, 13, 18};
             case "wide" -> new int[] {24, 21, 26};
@@ -145,15 +145,17 @@ final class PdfWriter {
             default -> "";
         };
         String width = number(layout.widthMm());
+        // A capa tem a sua página com nome, sem margem. Com "@page :first { margin: 0 }", o OpenHTMLtoPDF calculava
+        // a largura do texto pela primeira página (a da capa) e o texto do livro inteiro saía pela margem direita.
         return """
                 @page { size: %1$smm %2$smm; margin: %3$dmm %4$dmm %5$dmm %4$dmm; }
                 body { font-size: %6$spt; line-height: %7$s; }
+                @page cover { margin: 0; }
+                .cover { page: cover; }
                 .cover img { width: %1$smm; height: %8$smm; }
                 .chapter > h1 + p.indent { text-indent: 0; }
-                %9$s
-                %10$s""".formatted(width, number(layout.heightMm()), margins[0], margins[1], margins[2],
-                number(layout.fontSize()), number(leading), number(layout.heightMm() - 1), chapter,
-                hasCover ? "@page :first { margin: 0; }" : "");
+                %9$s""".formatted(width, number(layout.heightMm()), margins[0], margins[1], margins[2],
+                number(layout.fontSize()), number(leading), number(layout.heightMm() - 1), chapter);
     }
 
     /** 148 → "148"; 152.4 → "152.4" (CSS não aceita vírgula). */

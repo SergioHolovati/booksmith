@@ -363,6 +363,33 @@ class ExportWritersTest {
     }
 
     @Test
+    void withACoverTheTextStillStaysInsideTheMargins() throws Exception {
+        byte[] pdf = PdfWriter.write(book(new ImageData(PNG, "image/png", "png"), null));
+
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            float pageWidth = document.getPage(0).getMediaBox().getWidth();
+            float[] rightmost = {0};
+            float[] leftmost = {pageWidth};
+            PDFTextStripper stripper = new PDFTextStripper() {
+                @Override
+                protected void writeString(String text, java.util.List<org.apache.pdfbox.text.TextPosition> positions) {
+                    for (var p : positions) {
+                        rightmost[0] = Math.max(rightmost[0], p.getXDirAdj() + p.getWidthDirAdj());
+                        leftmost[0] = Math.min(leftmost[0], p.getXDirAdj());
+                    }
+                }
+            };
+            // Da folha de rosto em diante (a página 1 é a capa)
+            stripper.setStartPage(2);
+            stripper.getText(document);
+            float sideMargin = (float) (17 / 25.4 * 72);
+            // Antes, com a capa sem margem, a largura do texto virava a da página inteira e o texto saía pela direita
+            assertThat(rightmost[0]).as("texto mais à direita").isLessThanOrEqualTo(pageWidth - sideMargin + 2);
+            assertThat(leftmost[0]).as("texto mais à esquerda").isGreaterThanOrEqualTo(sideMargin - 2);
+        }
+    }
+
+    @Test
     void pdfHasTheTextTocAndBookmarks() throws Exception {
         byte[] pdf = PdfWriter.write(book(new ImageData(PNG, "image/png", "png"), null));
 
