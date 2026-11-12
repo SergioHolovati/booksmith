@@ -128,6 +128,12 @@ class ReviewServiceTest {
         assertThat(ReviewService.fullCorrection("abriu as janela", "as portas")).isEmpty();
         // a "correção" igual à palavra que já está lá vira o mesmo trecho e é descartada pelo serviço
         assertThat(ReviewService.fullCorrection("abriu as janela", "janela")).isEqualTo("abriu as janela");
+        // a frase inteira para um trecho curto: vale só o pedaço que corresponde, senão o texto duplicaria
+        String sentence = "Ela não respondeu. Guardou a carta no bolso e serviu o café.";
+        assertThat(ReviewService.fullCorrection("Ela nao respondeu", sentence)).isEqualTo("Ela não respondeu");
+        assertThat(ReviewService.fullCorrection("bolço", sentence)).isEqualTo("bolso");
+        assertThat(ReviewService.fullCorrection("o café.", sentence)).isEqualTo("o café.");
+        assertThat(ReviewService.fullCorrection("abriu a janela", sentence)).isEmpty();
         assertThat(ReviewService.distance("nao", "nao")).isZero();
         assertThat(ReviewService.distance("bolco", "bolso")).isEqualTo(1);
     }

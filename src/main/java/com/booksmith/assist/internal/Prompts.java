@@ -115,9 +115,10 @@ final class Prompts {
                     de estilo, falas propositalmente informais ou regionais, nem os nomes próprios listados no \
                     material. quote: o trecho com o erro, de 2 a 6 palavras. suggestion: o MESMO trecho inteiro, \
                     já corrigido, para substituir quote. Exemplos: quote "as janela", suggestion "as janelas"; \
-                    quote "Ela nao respondeu", suggestion "Ela não respondeu". problem: o nome do erro (falta de \
-                    acento, grafia, concordância, crase, pontuação), sem repetir a palavra errada como se fosse a \
-                    certa. No máximo 15 apontamentos.""",
+                    quote "Ela nao respondeu", suggestion "Ela não respondeu". Nunca devolva a frase inteira em \
+                    suggestion: só o trecho de quote, corrigido. Um apontamento por erro. problem: o nome do erro \
+                    (falta de acento, grafia, concordância, crase, pontuação), sem repetir a palavra errada como se \
+                    fosse a certa. No máximo 15 apontamentos.""",
             "holes", """
                     Tarefa: furos de roteiro. Procure no capítulo o que não se sustenta: acontecimentos sem causa, \
                     personagem que sabe algo que não poderia saber, objetos ou pessoas que aparecem ou somem sem \

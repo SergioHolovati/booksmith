@@ -11,6 +11,7 @@ import com.booksmith.universe.api.Universes;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -229,13 +230,18 @@ public class ReviewService {
     /**
      * A correção precisa substituir o trecho inteiro ("Corrigir" troca quote por ela). Modelos pequenos às vezes
      * devolvem só a palavra corrigida ("nao respondeu" → "não"): aí a palavra entra no lugar da mais parecida do
-     * trecho ("não respondeu"). Sem palavra parecida, a correção é descartada (vazio): aplicar seria apagar texto.
+     * trecho ("não respondeu"). Outras vezes devolvem a frase inteira para um trecho curto ("bolço" → "Ela não
+     * respondeu. Guardou a carta no bolso."): aí vale só o pedaço da frase que corresponde ao trecho ("bolso"),
+     * senão o texto sairia duplicado. Sem correspondência parecida, a correção é descartada (vazio).
      */
     static String fullCorrection(String quote, String suggestion) {
         String[] quoteWords = quote.split("\\s+");
         String[] fixWords = suggestion.split("\\s+");
-        if (suggestion.isBlank() || fixWords.length >= quoteWords.length) {
+        if (suggestion.isBlank() || fixWords.length == quoteWords.length) {
             return suggestion;
+        }
+        if (fixWords.length > quoteWords.length) {
+            return matchingPiece(quote, quoteWords.length, fixWords);
         }
         if (fixWords.length != 1) {
             return "";
@@ -256,6 +262,41 @@ public class ReviewService {
         }
         quoteWords[best] = quoteWords[best].replace(word, core(fix));
         return String.join(" ", quoteWords);
+    }
+
+    /**
+     * O pedaço da correção longa, com o mesmo número de palavras do trecho, mais parecido com ele. A pontuação das
+     * pontas só fica se o trecho também a tinha ("respondeu." não entra no lugar de "respondeu").
+     */
+    private static String matchingPiece(String quote, int size, String[] fixWords) {
+        String target = plain(quote);
+        String best = "";
+        int bestDistance = Integer.MAX_VALUE;
+        for (int start = 0; start + size <= fixWords.length; start++) {
+            String piece = trimLike(quote, String.join(" ", Arrays.copyOfRange(fixWords, start, start + size)));
+            int distance = distance(target, plain(piece));
+            if (distance < bestDistance) {
+                best = piece;
+                bestDistance = distance;
+            }
+        }
+        return bestDistance <= Math.max(2, quote.length() / 3) ? best : "";
+    }
+
+    /** Tira a pontuação das pontas do pedaço quando o trecho original não a tem ali. */
+    private static String trimLike(String quote, String piece) {
+        String result = piece;
+        if (!quote.isEmpty() && !isMark(quote.charAt(quote.length() - 1))) {
+            result = result.replaceAll("[\\p{Punct}«»“”…]+$", "");
+        }
+        if (!quote.isEmpty() && !isMark(quote.charAt(0))) {
+            result = result.replaceAll("^[\\p{Punct}«»“”…]+", "");
+        }
+        return result;
+    }
+
+    private static boolean isMark(char c) {
+        return !Character.isLetterOrDigit(c) && !Character.isWhitespace(c);
     }
 
     /** A palavra sem a pontuação em volta ("bolço." → "bolço"). */
