@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /** Sugestões de IA (§4.11): o app pergunta se estão ligadas e pede ideias ou perguntas para um campo. */
@@ -60,7 +61,16 @@ class AssistController {
         return bookTextsService.compare(currentUser.id(), request.bookId());
     }
 
+    /** Aplica as correções marcadas na sinopse, no "sobre o autor" e nas fichas (cada trecho é conferido antes). */
+    @PostMapping("/book-texts/apply")
+    BookTextsService.ApplyResult applyBookTexts(@RequestBody BookTextsFixes request) {
+        return bookTextsService.apply(currentUser.id(), request.bookId(), request.fixes());
+    }
+
     record BookTextsRequest(UUID bookId) {
+    }
+
+    record BookTextsFixes(UUID bookId, List<BookTextsService.Fix> fixes) {
     }
 
     /** "Pergunte ao seu livro": a resposta da IA, com os trechos de origem conferidos contra o texto. */

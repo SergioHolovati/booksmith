@@ -7,9 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -74,6 +76,26 @@ public class CharacterService {
         character.setAppearanceFormVersion(AppearanceForm.VERSION);
         customFieldService.apply(character, UniverseEntity.CHARACTER, data.custom());
         return entityRepository.saveAndFlush(character);
+    }
+
+    /** Um texto só da ficha (nome, apelidos ou campo de texto), sem mexer no resto. */
+    @Transactional
+    public void replaceText(UUID ownerId, UUID characterId, String field, String text) {
+        UniverseEntity character = require(ownerId, characterId);
+        switch (field) {
+            case "name" -> character.setName(requireName(text));
+            case "aliases" -> character.setAliases(CharacterSheet.aliases(
+                    Arrays.stream(text.split(",")).map(String::strip).toList()));
+            default -> {
+                if (!CharacterSheet.FIELDS.containsKey(field) || "role".equals(field)) {
+                    throw ApiException.unprocessable("character_field_invalid", "Campo da ficha desconhecido.");
+                }
+                var sheet = (ObjectNode) jsonMapper.readTree(character.getAttributes());
+                sheet.put(field, text);
+                character.setAttributes(jsonMapper.writeValueAsString(CharacterSheet.normalize(sheet, jsonMapper)));
+            }
+        }
+        entityRepository.saveAndFlush(character);
     }
 
     @Transactional

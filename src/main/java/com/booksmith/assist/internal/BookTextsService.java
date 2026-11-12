@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -90,9 +91,21 @@ public class BookTextsService {
      * @param quote   o trecho do texto (sinopse, ficha…) com o problema
      * @param context o trecho com algumas palavras em volta, para achar
      * @param kind    {@code spelling}, {@code grammar}, {@code format}, {@code name} ou {@code fact} (IA)
+     * @param key     o texto onde está ({@code synopsis}, {@code about}, {@code c:<ficha>:<campo>}), para corrigir
+     * @param offset  onde o trecho começa no texto
+     * @param fix     a sugestão pode substituir o trecho ("Corrigir"); os fatos da IA só apontam
+     * @param all     a correção vale para todas as ocorrências no texto (nomes: "Sergio" → "Sérgio")
      */
     public record Item(String source, UUID id, String label, String quote, String context, String problem,
-                       String suggestion, String kind) {
+                       String suggestion, String kind, String key, int offset, boolean fix, boolean all) {
+    }
+
+    /** Uma correção marcada no app: o trecho que estava em {@code offset} vira {@code suggestion}. */
+    public record Fix(String key, int offset, String quote, String suggestion, boolean all) {
+    }
+
+    /** @param skipped correções cujo trecho já não estava no texto (o autor mudou antes) */
+    public record ApplyResult(int applied, int skipped) {
     }
 
     public record Result(List<Item> items, int texts, String provider, String model, boolean local, int remaining) {
@@ -131,6 +144,80 @@ public class BookTextsService {
                 () -> facts(model.findings(prompt), texts), List::size);
         return new Result(items, texts.size(), model.provider(), model.model(), model.local(),
                 usage.remaining(ownerId));
+    }
+
+    /**
+     * Aplica as correções marcadas e salva cada texto alterado. Cada trecho é conferido no texto atual: se o autor
+     * já mudou aquele ponto, a correção é pulada. As de posição vão do fim para o começo (as da frente não mudam
+     * as posições de trás); as de nome trocam todas as ocorrências da palavra inteira.
+     */
+    public ApplyResult apply(UUID ownerId, UUID bookId, List<Fix> fixes) {
+        if (fixes == null || fixes.isEmpty() || fixes.size() > MAX_ITEMS) {
+            throw ApiException.unprocessable("fixes_invalid", "Marque de 1 a " + MAX_ITEMS + " correções.");
+        }
+        BookText book = manuscripts.bookText(ownerId, bookId);
+        Map<String, Text> byKey = new LinkedHashMap<>();
+        texts(ownerId, bookId, book).forEach(t -> byKey.put(t.key(), t));
+        Map<String, List<Fix>> grouped = new LinkedHashMap<>();
+        fixes.forEach(f -> grouped.computeIfAbsent(f.key(), k -> new ArrayList<>()).add(f));
+        int applied = 0;
+        int skipped = 0;
+        for (Map.Entry<String, List<Fix>> entry : grouped.entrySet()) {
+            Text text = byKey.get(entry.getKey());
+            if (text == null) {
+                skipped += entry.getValue().size();
+                continue;
+            }
+            Applied result = applyTo(text.text(), entry.getValue());
+            applied += result.applied();
+            skipped += entry.getValue().size() - result.applied();
+            if (!result.text().equals(text.text())) {
+                save(ownerId, bookId, text, result.text());
+            }
+        }
+        return new ApplyResult(applied, skipped);
+    }
+
+    record Applied(String text, int applied) {
+    }
+
+    /** As correções num texto: as de posição (conferidas e sem sobrepor), depois as de nome (todas as ocorrências). */
+    static Applied applyTo(String original, List<Fix> fixes) {
+        String text = original;
+        int applied = 0;
+        int limit = text.length();
+        List<Fix> positioned = fixes.stream().filter(f -> !f.all())
+                .sorted(Comparator.comparingInt(Fix::offset).reversed()).toList();
+        for (Fix fix : positioned) {
+            if (fix.quote() == null || fix.suggestion() == null || fix.offset() < 0
+                    || fix.offset() + fix.quote().length() > limit || !text.startsWith(fix.quote(), fix.offset())) {
+                continue;
+            }
+            int end = fix.offset() + fix.quote().length();
+            text = text.substring(0, fix.offset()) + fix.suggestion() + text.substring(end);
+            limit = fix.offset();
+            applied++;
+        }
+        for (Fix fix : fixes.stream().filter(Fix::all).toList()) {
+            if (fix.quote() == null || fix.quote().isBlank() || fix.suggestion() == null) {
+                continue;
+            }
+            Matcher m = Pattern.compile("(?<![\\p{L}])" + Pattern.quote(fix.quote()) + "(?![\\p{L}])").matcher(text);
+            if (m.find()) {
+                text = m.replaceAll(Matcher.quoteReplacement(fix.suggestion()));
+                applied++;
+            }
+        }
+        return new Applied(text, applied);
+    }
+
+    private void save(UUID ownerId, UUID bookId, Text text, String value) {
+        switch (text.source()) {
+            case "synopsis" -> manuscripts.replaceSynopsis(ownerId, bookId, value);
+            case "about" -> manuscripts.replaceAboutAuthor(ownerId, bookId, value);
+            default -> universes.replaceCharacterText(ownerId, text.id(),
+                    text.key().substring(text.key().lastIndexOf(':') + 1), value);
+        }
     }
 
     /** A sinopse, o "Sobre o autor" e cada campo de texto das fichas (com o nome e os apelidos). */
@@ -202,8 +289,9 @@ public class BookTextsService {
                 }
                 String quote = text.text().substring(issue.offset(), issue.offset() + issue.length());
                 String suggestion = issue.replacements().isEmpty() ? "" : issue.replacements().getFirst();
-                items.add(item(text, quote, context(text.text(), issue.offset(), issue.offset() + issue.length()),
-                        issue.message(), suggestion, issue.type()));
+                items.add(item(text, quote, issue.offset(),
+                        context(text.text(), issue.offset(), issue.offset() + issue.length()), issue.message(),
+                        suggestion, issue.type(), !suggestion.isEmpty(), false));
             }
         });
         return items;
@@ -215,24 +303,25 @@ public class BookTextsService {
         String t = text.text();
         Matcher m = DOUBLE_SPACE.matcher(t);
         while (m.find()) {
-            items.add(item(text, m.group(), context(t, m.start(), m.end()), "Espaço duplo.", " ", "format"));
+            items.add(item(text, m.group(), m.start(), context(t, m.start(), m.end()), "Espaço duplo.", " ", "format",
+                    true, false));
         }
         m = SPACE_BEFORE.matcher(t);
         while (m.find()) {
-            items.add(item(text, m.group(), context(t, m.start(), m.end()),
-                    "Espaço antes de \"" + m.group(1) + "\".", m.group(1), "format"));
+            items.add(item(text, m.group(), m.start(), context(t, m.start(), m.end()),
+                    "Espaço antes de \"" + m.group(1) + "\".", m.group(1), "format", true, false));
         }
         m = NO_SPACE_AFTER.matcher(t);
         while (m.find()) {
-            items.add(item(text, m.group(), context(t, m.start(), m.end()),
-                    "Falta espaço depois de \"" + m.group(1) + "\".", m.group(1) + " ", "format"));
+            items.add(item(text, m.group(), m.start(), context(t, m.start(), m.end()),
+                    "Falta espaço depois de \"" + m.group(1) + "\".", m.group(1) + " ", "format", true, false));
         }
         m = LOWER_AFTER_STOP.matcher(t);
         while (m.find()) {
             String fixed = m.group(1) + m.group(2) + " " + m.group(3).toUpperCase(Locale.ROOT);
             String quote = m.group(1) + m.group(2) + " " + m.group(3);
-            items.add(item(text, quote, context(t, m.start(), m.end()),
-                    "A frase começa com letra minúscula.", fixed, "format"));
+            items.add(item(text, quote, m.start(), context(t, m.start(), m.end()),
+                    "A frase começa com letra minúscula.", fixed, "format", true, false));
         }
         return items;
     }
@@ -260,16 +349,17 @@ public class BookTextsService {
                 if (variants != null && !variants.containsKey(word)) {
                     Map.Entry<String, Integer> usual = most(variants);
                     if (usual.getValue() >= MIN_NAME_COUNT) {
-                        items.add(item(text, word, context(text.text(), m.start(), m.end()),
+                        items.add(item(text, word, m.start(), context(text.text(), m.start(), m.end()),
                                 "Na história aparece \"" + usual.getKey() + "\" (" + usual.getValue()
-                                        + " vezes); aqui está \"" + word + "\".", usual.getKey(), "name"));
+                                        + " vezes); aqui está \"" + word + "\".", usual.getKey(), "name", true,
+                                true));
                     }
                 } else if (variants == null && "character".equals(text.source()) && word.length() >= MIN_NEAR_LENGTH
                         && (text.key().endsWith(":name") || text.key().endsWith(":aliases"))) {
-                    near(story, word).ifPresent(usual -> items.add(item(text, word,
+                    near(story, word).ifPresent(usual -> items.add(item(text, word, m.start(),
                             context(text.text(), m.start(), m.end()), "\"" + word + "\" não aparece na história, "
                                     + "mas \"" + usual.getKey() + "\" aparece " + usual.getValue() + " vezes.",
-                            usual.getKey(), "name")));
+                            usual.getKey(), "name", true, true)));
                 }
             }
         }
@@ -333,9 +423,9 @@ public class BookTextsService {
             for (Text text : texts) {
                 int at = text.text().toLowerCase(Locale.ROOT).indexOf(quote.toLowerCase(Locale.ROOT));
                 if (at >= 0 && seen.add(text.key() + "|" + quote.toLowerCase(Locale.ROOT))) {
-                    items.add(item(text, text.text().substring(at, at + quote.length()),
+                    items.add(item(text, text.text().substring(at, at + quote.length()), at,
                             context(text.text(), at, at + quote.length()), finding.problem(), finding.suggestion(),
-                            "fact"));
+                            "fact", false, false));
                     break;
                 }
             }
@@ -343,9 +433,10 @@ public class BookTextsService {
         return items;
     }
 
-    private static Item item(Text text, String quote, String context, String problem, String suggestion,
-                             String kind) {
-        return new Item(text.source(), text.id(), text.label(), quote, context, problem, suggestion, kind);
+    private static Item item(Text text, String quote, int offset, String context, String problem, String suggestion,
+                             String kind, boolean fix, boolean all) {
+        return new Item(text.source(), text.id(), text.label(), quote, context, problem, suggestion, kind, text.key(),
+                offset, fix, all);
     }
 
     /** O trecho com até {@link #CONTEXT} caracteres de cada lado, sem cortar palavra. */

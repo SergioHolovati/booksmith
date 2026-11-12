@@ -147,4 +147,14 @@ class ManuscriptReader implements Manuscripts {
         }
         return result;
     }
+
+    @Override
+    public void replaceSynopsis(UUID ownerId, UUID bookId, String synopsis) {
+        bookService.replaceSynopsis(ownerId, bookId, synopsis);
+    }
+
+    @Override
+    public void replaceAboutAuthor(UUID ownerId, UUID bookId, String aboutAuthor) {
+        bookService.replaceAboutAuthor(ownerId, bookId, aboutAuthor);
+    }
 }

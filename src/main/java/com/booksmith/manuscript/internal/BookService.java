@@ -92,6 +92,21 @@ public class BookService {
         return book;
     }
 
+    /** Só a sinopse (correções da revisão dos textos do livro). */
+    @Transactional
+    public void replaceSynopsis(UUID ownerId, UUID bookId, String synopsis) {
+        require(ownerId, bookId).setSynopsis(synopsis);
+    }
+
+    /** Só o "sobre o autor": as outras páginas ficam. */
+    @Transactional
+    public void replaceAboutAuthor(UUID ownerId, UUID bookId, String aboutAuthor) {
+        Book book = require(ownerId, bookId);
+        Manuscripts.BookPages p = book.pages();
+        book.setPages(new Manuscripts.BookPages(p.credits(), p.dedication(), p.epigraph(), p.epigraphSource(),
+                p.acknowledgments(), aboutAuthor, p.aboutAuthorTitle()));
+    }
+
     /** Troca as páginas antes e depois da história (créditos, dedicatória...); vazio tira a página do livro. */
     @Transactional
     public Manuscripts.BookPages updatePages(UUID ownerId, UUID bookId, Manuscripts.BookPages pages) {

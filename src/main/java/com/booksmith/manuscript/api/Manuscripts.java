@@ -48,6 +48,12 @@ public interface Manuscripts {
      */
     Map<String, List<TextIssue>> proofread(UUID ownerId, UUID bookId, Map<String, String> texts);
 
+    /** Troca a sinopse (correções da revisão dos textos do livro). */
+    void replaceSynopsis(UUID ownerId, UUID bookId, String synopsis);
+
+    /** Troca o "sobre o autor"; as outras páginas do livro ficam como estão. */
+    void replaceAboutAuthor(UUID ownerId, UUID bookId, String aboutAuthor);
+
     /** Um erro do corretor: onde está no texto, o tipo (spelling, grammar, style) e as sugestões. */
     record TextIssue(int offset, int length, String type, String message, List<String> replacements) {
     }

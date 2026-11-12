@@ -49,6 +49,28 @@ class CharacterServiceTest {
     }
 
     @Test
+    void replacesOneTextOfTheSheetKeepingTheRest() {
+        UniverseEntity lia = character(3);
+        lia.setAttributes("{\"role\":\"protagonist\",\"fears\":\"o fogo\"}");
+        lia.setAliases(new String[] {"Li"});
+        when(entities.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.replaceText(owner, lia.getId(), "fears", "o fogo, e a água");
+        service.replaceText(owner, lia.getId(), "name", "Lía");
+        service.replaceText(owner, lia.getId(), "aliases", "Li, Liazinha");
+
+        assertThat(lia.getAttributes()).isEqualTo("{\"role\":\"protagonist\",\"fears\":\"o fogo, e a água\"}");
+        assertThat(lia.getName()).isEqualTo("Lía");
+        assertThat(lia.getAliases()).containsExactly("Li", "Liazinha");
+        // o papel guarda um código, e campos desconhecidos não entram
+        assertThatThrownBy(() -> service.replaceText(owner, lia.getId(), "role", "vilão"))
+                .isInstanceOfSatisfying(ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("character_field_invalid"));
+        assertThatThrownBy(() -> service.replaceText(owner, lia.getId(), "inventado", "x"))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
     void staleVersionIsAConflict() {
         UniverseEntity lia = character(5);
 

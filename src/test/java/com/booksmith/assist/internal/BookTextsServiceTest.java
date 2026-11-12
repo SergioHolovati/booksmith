@@ -160,6 +160,50 @@ class BookTextsServiceTest {
     }
 
     @Test
+    void applyingFixesChecksEachPassageAndKeepsPositions() {
+        String text = "Sergio, pai de familia , protege a familia. Sergio corre.";
+        var fixes = List.of(
+                new BookTextsService.Fix("synopsis", text.indexOf("familia"), "familia", "família", false),
+                new BookTextsService.Fix("synopsis", text.indexOf(" ,"), " ,", ",", false),
+                new BookTextsService.Fix("synopsis", text.lastIndexOf("familia"), "familia", "família", false),
+                new BookTextsService.Fix("synopsis", 0, "Sergio", "Sérgio", true),
+                // o autor já tinha mudado este ponto: pula
+                new BookTextsService.Fix("synopsis", 3, "xyz", "abc", false));
+
+        var result = BookTextsService.applyTo(text, fixes);
+
+        assertThat(result.text()).isEqualTo("Sérgio, pai de família, protege a família. Sérgio corre.");
+        assertThat(result.applied()).isEqualTo(4);
+    }
+
+    @Test
+    void applySavesEachChangedText() {
+        var result = service.apply(owner, book, List.of(
+                new BookTextsService.Fix("synopsis", 0, "Esta", "Essa", false),
+                new BookTextsService.Fix("about", 0, "Sergio", "Sérgio", true),
+                new BookTextsService.Fix("c:" + sergio + ":name", 0, "Sergio", "Sérgio", true),
+                new BookTextsService.Fix("c:" + sergio + ":personality", 7, ",", ", ", false),
+                new BookTextsService.Fix("texto-que-nao-existe", 0, "a", "b", false)));
+
+        assertThat(result.applied()).isEqualTo(4);
+        assertThat(result.skipped()).isEqualTo(1);
+        verify(manuscripts).replaceSynopsis(owner, book,
+                "Essa é a história de Sergio, que protege o filho de 6 meses.");
+        verify(manuscripts).replaceAboutAuthor(owner, book, "Sérgio mora em São Paulo  e escreve à noite .");
+        verify(universes).replaceCharacterText(owner, sergio, "name", "Sérgio Henrique");
+        verify(universes).replaceCharacterText(owner, sergio, "personality", "teimoso, amoroso");
+    }
+
+    @Test
+    void factsFromTheAiOnlyPoint() {
+        when(model.findings(any())).thenReturn(List.of(new Finding("filho de 6 meses", "Diverge", "Confira")));
+        assertThat(service.compare(owner, book).items()).allSatisfy(i -> {
+            assertThat(i.fix()).isFalse();
+            assertThat(i.key()).isEqualTo("synopsis");
+        });
+    }
+
+    @Test
     void comparingNeedsTheAiAndAUse() {
         when(repository.countByUserIdAndKindNotAndCreatedAtAfter(eq(owner), eq("review"), any())).thenReturn(3L);
         assertThatThrownBy(() -> service.compare(owner, book))

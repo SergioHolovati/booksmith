@@ -42,6 +42,12 @@ public interface Universes {
      */
     List<CharacterSheet> characterSheets(UUID universeId);
 
+    /**
+     * Troca um texto da ficha: {@code name}, {@code aliases} (separados por vírgula) ou um campo de texto
+     * (personalidade, medos…). Correções da revisão dos textos do livro; conferem o dono.
+     */
+    void replaceCharacterText(UUID ownerId, UUID characterId, String field, String text);
+
     /** Resumo do universo para as sugestões de IA, sem foco em nenhum personagem. */
     default Brief brief(UUID universeId) {
         return brief(universeId, null);

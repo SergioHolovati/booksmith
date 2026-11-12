@@ -44,6 +44,7 @@ public class UniverseService implements Universes {
     private final JsonMapper jsonMapper;
     private final CustomFields customFields;
     private final UniverseBriefs briefs;
+    private final CharacterService characterService;
 
     @Override
     @Transactional
@@ -175,6 +176,11 @@ public class UniverseService implements Universes {
             result.add(new CharacterSheet(entity.getId(), entity.getName(), List.of(entity.getAliases()), fields));
         }
         return result;
+    }
+
+    @Override
+    public void replaceCharacterText(UUID ownerId, UUID characterId, String field, String text) {
+        characterService.replaceText(ownerId, characterId, field, text);
     }
 
     @Override
