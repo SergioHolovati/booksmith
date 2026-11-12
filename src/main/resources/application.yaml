@@ -85,7 +85,8 @@ booksmith:
     concurrency: ${AI_CONCURRENCY:4}
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}
-      model: ${ANTHROPIC_MODEL:claude-opus-5-5}
+      # Haiku: o mais barato (~R$ 0,04 por revisão completa); trocar de modelo é só configurar
+      model: ${ANTHROPIC_MODEL:claude-haiku-5-5}
   mail:
     enabled: ${MAIL_ENABLED:true}
     resend-api-key: ${RESEND_API_KEY:}

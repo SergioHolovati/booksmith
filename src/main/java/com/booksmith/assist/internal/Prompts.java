@@ -111,7 +111,9 @@ final class Prompts {
     static final java.util.Map<String, String> REVIEW_TASKS = java.util.Map.of(
             "spelling", """
                     Tarefa: revisão de ortografia e gramática. Aponte erros de ortografia, acentuação, \
-                    concordância, regência, crase, pontuação e palavras repetidas por engano. Não aponte escolhas \
+                    concordância, regência, crase, pontuação (inclusive a vírgula entre a fala e o verbo de fala: \
+                    "sozinha" respondeu → "sozinha", respondeu), letra maiúscula no começo de frase e de fala, e \
+                    palavras repetidas por engano. Confira o texto inteiro, até o fim. Não aponte escolhas \
                     de estilo, falas propositalmente informais ou regionais, nem os nomes próprios listados no \
                     material. quote: o trecho com o erro, de 2 a 6 palavras. suggestion: o MESMO trecho inteiro, \
                     já corrigido, para substituir quote. Exemplos: quote "as janela", suggestion "as janelas"; \
@@ -133,6 +135,16 @@ final class Prompts {
                     explica no próprio texto: passagem de tempo (alguém que tinha vinte anos no passado e tem \
                     sessenta hoje), lembranças, disfarces ou personagem mentindo. problem: o que contradiz o quê, \
                     citando a ficha ou o capítulo. suggestion: o que o autor deve conferir. No máximo 8.""",
+            "style", """
+                    Tarefa: frases e estilo. Aponte frases que podem ficar mais claras ou naturais: redundâncias \
+                    ("só se transformou sozinha"), ordem estranha das palavras ("não tinha machucado nenhum" → "não \
+                    tinha nenhum machucado"), palavras que soam fora do tom da cena, advérbios que sobram, dupla \
+                    negação que confunde, a mesma palavra repetida perto demais, frases longas que se perdem. \
+                    Respeite a voz do autor e a fala informal dos personagens: não corrija gírias nem "pra", e não \
+                    aponte erros de ortografia (outra revisão cuida deles). quote: a frase ou o pedaço exato do \
+                    texto. suggestion: só esse pedaço reescrito, pronto para substituir quote, mudando o mínimo \
+                    necessário. problem: em poucas palavras, por que soa melhor assim. No máximo 10, os mais \
+                    importantes primeiro.""",
             "improvements", """
                     Tarefa: sugestões de melhoria no enredo deste capítulo. Pense em ritmo, tensão, motivação dos \
                     personagens, ganchos, conflitos pouco aproveitados, cenas que poderiam render mais e ligações \

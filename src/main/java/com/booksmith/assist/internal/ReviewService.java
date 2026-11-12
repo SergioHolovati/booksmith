@@ -32,10 +32,11 @@ public class ReviewService {
 
     /** As revisões e o nome de cada uma no registro de uso. */
     static final Map<String, String> CHECKS = Map.of(
-            "spelling", "ortografia", "holes", "furos de roteiro", "continuity", "continuidade",
-            "improvements", "melhorias no enredo");
+            "format", "formatação", "spelling", "ortografia", "style", "frases e estilo",
+            "holes", "furos de roteiro", "continuity", "continuidade", "improvements", "melhorias no enredo");
     /** Tamanho de cada parte do capítulo: a ortografia olha de perto, as outras precisam de mais texto. */
     static final int SPELLING_PART = 3_500;
+    static final int STYLE_PART = 6_000;
     static final int STORY_PART = 9_000;
     /** Material de contexto em cada pedido (cabe com o trecho no contexto do modelo local). */
     static final int SPELLING_MATERIAL = 2_000;
@@ -64,8 +65,11 @@ public class ReviewService {
     public record Request(UUID bookId, UUID chapterId, String check, String fromBlock) {
     }
 
-    /** @param blockId o bloco do capítulo onde está o trecho, ou null se o apontamento é do capítulo todo */
-    public record Item(String blockId, String quote, String problem, String suggestion) {
+    /**
+     * @param blockId o bloco do capítulo onde está o trecho, ou null se o apontamento é do capítulo todo
+     * @param fix     a sugestão pode substituir o trecho direto ("Corrigir" no app)
+     */
+    public record Item(String blockId, String quote, String problem, String suggestion, boolean fix) {
     }
 
     /** @param nextBlock onde começa a próxima parte; null quando o capítulo acabou */
@@ -81,15 +85,23 @@ public class ReviewService {
         if (request.bookId() == null || request.chapterId() == null) {
             throw invalid("Diga qual capítulo revisar.");
         }
-        usage.requireAvailable(ownerId);
+        boolean rules = "format".equals(check);
+        if (!rules) {
+            usage.requireAvailable(ownerId);
+        }
         BookText book = manuscripts.bookText(ownerId, request.bookId());
         ChapterText chapter = book.chapters().stream()
                 .filter(c -> c.chapterId().equals(request.chapterId()))
                 .findFirst()
                 .orElseThrow(() -> ApiException.notFound("chapter_not_found", "Capítulo não encontrado."));
-        List<List<Block>> parts = parts(chapter.blocks(), "spelling".equals(check) ? SPELLING_PART : STORY_PART);
+        List<List<Block>> parts = parts(chapter.blocks(), partSize(check));
         if (parts.isEmpty()) {
             throw ApiException.unprocessable("chapter_empty", "O capítulo ainda não tem texto para revisar.");
+        }
+        if (rules) {
+            // Formatação: regras, sem IA e sem gastar a cota; o capítulo todo de uma vez, comparado com o livro
+            return new Result(FormatChecks.check(book, chapter), null, 1, 1,
+                    usage.enabled() ? usage.remaining(ownerId) : 0, "regras", "", true);
         }
         int index = partIndex(parts, request.fromBlock());
         List<Block> part = parts.get(index);
@@ -97,14 +109,15 @@ public class ReviewService {
         String label = "o capítulo " + chapter.position()
                 + (chapter.title() == null || chapter.title().isBlank() ? "" : " (\"" + chapter.title() + "\")")
                 + (parts.size() > 1 ? ", parte " + (index + 1) + " de " + parts.size() : "");
-        IdeaModel.Prompt prompt = "spelling".equals(check)
+        boolean local = "spelling".equals(check) || "style".equals(check);
+        IdeaModel.Prompt prompt = local
                 ? Prompts.review(check, label, spellingMaterial(book), SPELLING_MATERIAL, render(part))
                 : Prompts.review(check, label, storyMaterial(ownerId, request.bookId(), book, chapter, check),
                 STORY_MATERIAL, render(part));
 
         IdeaModel model = usage.model();
         List<Item> items = usage.run(ownerId, "review", check, "review",
-                () -> locate(model.findings(prompt), part, "spelling".equals(check)), List::size);
+                () -> locate(model.findings(prompt), part, check), List::size);
         String next = index + 1 < parts.size() ? parts.get(index + 1).getFirst().blockId() : null;
         return new Result(items, next, index + 1, parts.size(), usage.remaining(ownerId), model.provider(),
                 model.model(), model.local());
@@ -143,6 +156,14 @@ public class ReviewService {
             material.add(Section.list("Fichas do mundo", brief.lore()));
         }
         return material;
+    }
+
+    private static int partSize(String check) {
+        return switch (check) {
+            case "spelling" -> SPELLING_PART;
+            case "style" -> STYLE_PART;
+            default -> STORY_PART;
+        };
     }
 
     /** Divide os blocos com texto em partes de até {@code size} caracteres, sem quebrar parágrafo. */
@@ -192,10 +213,13 @@ public class ReviewService {
 
     /**
      * Confere cada apontamento contra o trecho revisado: acha o bloco do trecho citado (exato, ou sem diferença de
-     * maiúsculas) e usa o texto como está no capítulo. Na ortografia, sem trecho achado ou sem correção diferente,
-     * o apontamento cai; nos outros, fica sem trecho. Repetidos caem.
+     * maiúsculas) e usa o texto como está no capítulo. Na ortografia e nas frases, sem trecho achado ou sem
+     * sugestão diferente, o apontamento cai (a sugestão substitui o trecho); nos outros, fica sem trecho.
+     * Repetidos caem.
      */
-    static List<Item> locate(List<Finding> findings, List<Block> part, boolean spelling) {
+    static List<Item> locate(List<Finding> findings, List<Block> part, String check) {
+        boolean spelling = "spelling".equals(check);
+        boolean replaces = spelling || "style".equals(check);
         List<Item> items = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         if (findings == null) {
@@ -209,8 +233,11 @@ public class ReviewService {
             String suggestion = clip(finding.suggestion(), MAX_SUGGESTION);
             String quote = clip(finding.quote(), MAX_QUOTE);
             Item placed = place(quote, part);
-            if (spelling) {
-                suggestion = placed == null ? "" : fullCorrection(placed.quote(), suggestion);
+            if (replaces) {
+                if (placed == null) {
+                    continue;
+                }
+                suggestion = spelling ? fullCorrection(placed.quote(), suggestion) : suggestion.strip();
                 if (suggestion.isEmpty() || suggestion.equals(placed.quote())) {
                     continue;
                 }
@@ -222,7 +249,7 @@ public class ReviewService {
             if (!seen.add(foundQuote + "|" + problem)) {
                 continue;
             }
-            items.add(new Item(placed == null ? null : placed.blockId(), foundQuote, problem, suggestion));
+            items.add(new Item(placed == null ? null : placed.blockId(), foundQuote, problem, suggestion, replaces));
         }
         return items;
     }
@@ -337,14 +364,14 @@ public class ReviewService {
         }
         for (Block block : part) {
             if (block.text().contains(quote)) {
-                return new Item(block.blockId(), quote, null, null);
+                return new Item(block.blockId(), quote, null, null, false);
             }
         }
         String lower = quote.toLowerCase(Locale.ROOT);
         for (Block block : part) {
             int at = block.text().toLowerCase(Locale.ROOT).indexOf(lower);
             if (at >= 0) {
-                return new Item(block.blockId(), block.text().substring(at, at + quote.length()), null, null);
+                return new Item(block.blockId(), block.text().substring(at, at + quote.length()), null, null, false);
             }
         }
         return null;

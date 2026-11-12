@@ -45,8 +45,8 @@ class ReviewServiceTest {
 
     ReviewServiceTest() {
         when(model.provider()).thenReturn("anthropic");
-        when(model.model()).thenReturn("qwen3:8b");
-        when(model.local()).thenReturn(true);
+        when(model.model()).thenReturn("claude-haiku-5-5");
+        when(model.local()).thenReturn(false);
         when(manuscripts.bookText(owner, book)).thenReturn(new Manuscripts.BookText(book, "Café em Vel", universe, List.of(
                 new Manuscripts.ChapterText(chapter1, 1, "A chegada",
                         List.of(new Block("a1", "Lia herdou o café da avó."), new Block("a2", "Tomás quer o café."))),
@@ -72,7 +72,7 @@ class ReviewServiceTest {
 
         var result = service.review(owner, new ReviewService.Request(book, chapter2, "spelling", null));
 
-        assertThat(result.findings()).containsExactly(new Item("b1", "as xícara", "Concordância", "as xícaras"));
+        assertThat(result.findings()).containsExactly(new Item("b1", "as xícara", "Concordância", "as xícaras", true));
         assertThat(result.part()).isEqualTo(1);
         assertThat(result.parts()).isEqualTo(1);
         assertThat(result.nextBlock()).isNull();
@@ -98,8 +98,10 @@ class ReviewServiceTest {
         var result = service.review(owner, new ReviewService.Request(book, chapter2, "continuity", null));
 
         assertThat(result.findings()).containsExactly(
-                new Item("b3", "Tomás tinha olhos azuis", "Na ficha, Tomás tem olhos verdes.", "Confira a cor dos olhos."),
-                new Item(null, null, "O capítulo inteiro ignora o bilhete das notas.", "Veja se o bilhete aparece."));
+                new Item("b3", "Tomás tinha olhos azuis", "Na ficha, Tomás tem olhos verdes.",
+                        "Confira a cor dos olhos.", false),
+                new Item(null, null, "O capítulo inteiro ignora o bilhete das notas.", "Veja se o bilhete aparece.",
+                        false));
         ArgumentCaptor<IdeaModel.Prompt> prompt = ArgumentCaptor.forClass(IdeaModel.Prompt.class);
         verify(model).findings(prompt.capture());
         assertThat(prompt.getValue().user())
@@ -144,7 +146,7 @@ class ReviewServiceTest {
 
         var result = service.review(owner, new ReviewService.Request(book, chapter2, "spelling", null));
 
-        assertThat(result.findings()).containsExactly(new Item("b1", "viu as xícara", "Concordância", "viu as xícaras"));
+        assertThat(result.findings()).containsExactly(new Item("b1", "viu as xícara", "Concordância", "viu as xícaras", true));
     }
 
     @Test
@@ -161,12 +163,39 @@ class ReviewServiceTest {
 
     @Test
     void wrongCheckOtherChapterOrEmptyChapterAreRejected() {
-        assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, chapter2, "style", null)))
+        assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, chapter2, "poetry", null)))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("review_invalid"));
         assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, UUID.randomUUID(), "spelling", null)))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("chapter_not_found"));
         assertThatThrownBy(() -> service.review(owner, new ReviewService.Request(book, chapter2, "spelling", "zzz")))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("review_part_invalid"));
         verify(model, never()).findings(any());
+    }
+
+    @Test
+    void formatUsesRulesWithoutTheModelOrTheQuota() {
+        var result = service.review(owner, new ReviewService.Request(book, chapter2, "format", null));
+
+        assertThat(result.provider()).isEqualTo("regras");
+        assertThat(result.parts()).isEqualTo(1);
+        assertThat(result.nextBlock()).isNull();
+        verify(model, never()).findings(any());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void styleKeepsOnlyRewritesOfPassagesThatExist() {
+        when(model.findings(any())).thenReturn(List.of(
+                new Finding("mentia muito", "Advérbio que sobra", "mentia"),
+                new Finding("uma frase que não está no texto", "Redundância", "outra frase"),
+                new Finding("viu as xícara", "Igual", "viu as xícara")));
+
+        var result = service.review(owner, new ReviewService.Request(book, chapter2, "style", null));
+
+        assertThat(result.findings()).containsExactly(new Item("b3", "mentia muito", "Advérbio que sobra", "mentia", true));
+        ArgumentCaptor<IdeaModel.Prompt> prompt = ArgumentCaptor.forClass(IdeaModel.Prompt.class);
+        verify(model).findings(prompt.capture());
+        assertThat(prompt.getValue().system()).contains("frases e estilo");
+        assertThat(prompt.getValue().user()).contains("Nomes próprios do universo").doesNotContain("Sinopse");
     }
 }
