@@ -1,24 +1,34 @@
 package com.booksmith.assist.internal;
 
 import com.booksmith.common.error.ApiException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 import java.util.Locale;
 
-/** Escolhe o modelo pela configuração {@code booksmith.ai.provider}. */
+/**
+ * Escolhe o modelo pela configuração {@code booksmith.ai.provider}. Sem a chave da Anthropic, a API sobe assim
+ * mesmo, com a IA desligada (o resto do produto não depende dela).
+ */
+@Slf4j
 @Configuration
 class IdeaModelConfig {
 
     @Bean
-    IdeaModel ideaModel(AiProperties properties, JsonMapper jsonMapper) {
+    IdeaModel ideaModel(AiProperties properties) {
         String provider = properties.provider() == null ? "off" : properties.provider().toLowerCase(Locale.ROOT);
         return switch (provider) {
-            case "ollama" -> new OllamaIdeas(properties.ollama(), jsonMapper);
-            case "anthropic" -> new ClaudeIdeas(properties.anthropic());
+            case "anthropic" -> {
+                String key = properties.anthropic().apiKey();
+                if (key == null || key.isBlank()) {
+                    log.warn("IA desligada: booksmith.ai.provider=anthropic, mas ANTHROPIC_API_KEY está vazia");
+                    yield new Disabled();
+                }
+                yield new ClaudeIdeas(properties.anthropic());
+            }
             case "off" -> new Disabled();
             default -> throw new IllegalStateException("booksmith.ai.provider desconhecido: " + provider);
         };

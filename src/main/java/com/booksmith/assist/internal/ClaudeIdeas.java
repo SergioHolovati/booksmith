@@ -65,19 +65,33 @@ class ClaudeIdeas implements IdeaModel {
         return findings;
     }
 
+    /**
+     * O modelo reserva do servidor ({@code fallbacks}) só existe para Opus 5.5, Sonnet 5.5 e Fable; o Haiku
+     * recusaria o pedido inteiro com esse campo.
+     */
+    static boolean supportsFallback(String model) {
+        return model.startsWith("claude-opus-5-5") || model.startsWith("claude-sonnet-5-5")
+                || model.startsWith("claude-fable-");
+    }
+
     /** Um pedido com saída estruturada no formato {@code type}; devolve cada bloco de texto já convertido. */
     private <T> List<T> ask(Prompt prompt, Class<T> type) {
-        StructuredMessageCreateParams<T> params = MessageCreateParams.builder()
+        var builder = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(16_000L)
                 .system(prompt.system())
-                .addUserMessage(prompt.user())
-                .putAdditionalHeader("anthropic-beta", FALLBACK_BETA)
-                .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
-                .outputConfig(type)
-                .build();
+                .addUserMessage(prompt.user());
+        if (supportsFallback(model)) {
+            builder.putAdditionalHeader("anthropic-beta", FALLBACK_BETA)
+                    .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"));
+        }
+        StructuredMessageCreateParams<T> params = builder.outputConfig(type).build();
         try {
             var message = client.messages().create(params);
+            var usage = message.usage();
+            // Os tokens de cada pedido, para medir o custo real (entrada, saída com o raciocínio, cache lido)
+            log.info("Claude {}: {} tokens de entrada, {} de saída, {} do cache", message.model().asString(),
+                    usage.inputTokens(), usage.outputTokens(), usage.cacheReadInputTokens().orElse(0L));
             if (message.stopReason().map(StopReason.REFUSAL::equals).orElse(false)) {
                 throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "ai_refused",
                         "A IA não quis responder a este pedido. Tente com outras palavras.");

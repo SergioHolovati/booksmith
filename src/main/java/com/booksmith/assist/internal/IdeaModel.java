@@ -8,7 +8,7 @@ import java.util.List;
  */
 public interface IdeaModel {
 
-    /** Nome curto do provedor ({@code ollama}, {@code anthropic}, {@code off}). */
+    /** Nome curto do provedor ({@code anthropic} ou {@code off}). */
     String provider();
 
     /** O modelo usado, para o registro de uso e a tela. */

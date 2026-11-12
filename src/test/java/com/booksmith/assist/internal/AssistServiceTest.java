@@ -34,8 +34,7 @@ class AssistServiceTest {
     private final SuggestionLogRepository repository = mock(SuggestionLogRepository.class);
     private final Universes universes = mock(Universes.class);
     private final Manuscripts manuscripts = mock(Manuscripts.class);
-    private final AiProperties properties = new AiProperties("ollama", 3, 1,
-            new AiProperties.Ollama("http://localhost:11434", "qwen3:8b", "30m", Duration.ofMinutes(4)),
+    private final AiProperties properties = new AiProperties("anthropic", 3, 1,
             new AiProperties.Anthropic("", "claude-opus-5-5"));
     private final AssistService service = new AssistService(
             new AiUsage(model, properties, repository, Clock.fixed(NOW, ZoneOffset.UTC)), universes, manuscripts);
@@ -45,7 +44,7 @@ class AssistServiceTest {
     private final UUID book = UUID.randomUUID();
 
     AssistServiceTest() {
-        when(model.provider()).thenReturn("ollama");
+        when(model.provider()).thenReturn("anthropic");
         when(model.model()).thenReturn("qwen3:8b");
         when(model.local()).thenReturn(true);
         when(universes.brief(eq(universe), any())).thenReturn(new Universes.Brief("Vel",
@@ -71,7 +70,7 @@ class AssistServiceTest {
         assertThat(result.suggestions()).containsExactly(
                 new Idea("Medo do silêncio", "E se Lia tivesse medo de ficar sozinha no café à noite?"),
                 new Idea("", "Talvez ela evite o mar."));
-        assertThat(result.provider()).isEqualTo("ollama");
+        assertThat(result.provider()).isEqualTo("anthropic");
         assertThat(result.local()).isTrue();
 
         ArgumentCaptor<IdeaModel.Prompt> prompt = ArgumentCaptor.forClass(IdeaModel.Prompt.class);

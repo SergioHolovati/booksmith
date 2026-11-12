@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -32,8 +31,7 @@ class ReviewServiceTest {
     private final SuggestionLogRepository repository = mock(SuggestionLogRepository.class);
     private final Manuscripts manuscripts = mock(Manuscripts.class);
     private final Universes universes = mock(Universes.class);
-    private final AiProperties properties = new AiProperties("ollama", 10, 1,
-            new AiProperties.Ollama("http://localhost:11434", "qwen3:8b", "30m", Duration.ofMinutes(4)),
+    private final AiProperties properties = new AiProperties("anthropic", 10, 1,
             new AiProperties.Anthropic("", "claude-opus-5-5"));
     private final ReviewService service = new ReviewService(
             new AiUsage(model, properties, repository, Clock.fixed(Instant.parse("2026-11-11T12:00:00Z"), ZoneOffset.UTC)),
@@ -46,7 +44,7 @@ class ReviewServiceTest {
     private final UUID chapter2 = UUID.randomUUID();
 
     ReviewServiceTest() {
-        when(model.provider()).thenReturn("ollama");
+        when(model.provider()).thenReturn("anthropic");
         when(model.model()).thenReturn("qwen3:8b");
         when(model.local()).thenReturn(true);
         when(manuscripts.bookText(owner, book)).thenReturn(new Manuscripts.BookText(book, "Café em Vel", universe, List.of(
