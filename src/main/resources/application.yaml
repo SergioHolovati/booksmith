@@ -24,6 +24,8 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      # Em produção o Redis exige senha (vazia em desenvolvimento)
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
   mvc:
     problemdetails:
       enabled: true
@@ -172,6 +174,11 @@ spring:
   config:
     activate:
       on-profile: stage,prod
+
+# Atrás do Caddy, na rede interna do Docker: o IP real vem do X-Forwarded-For, aceito só de proxies internos
+# (faixas privadas, o padrão do Tomcat). Sem isso o limite por IP trataria todo mundo como o IP do Caddy.
+server:
+  forward-headers-strategy: native
 
 # Só saúde e informação também em produção: /actuator/metrics ficaria legível por qualquer conta logada.
 management:
