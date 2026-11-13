@@ -8,4 +8,7 @@ public interface UserDirectory {
 
     /** E-mail cadastrado da conta, se ela existe. */
     Optional<String> email(UUID userId);
+
+    /** Nome que vai como autor nos livros exportados (o de exibição, ou o nome de usuário). */
+    Optional<String> displayName(UUID userId);
 }

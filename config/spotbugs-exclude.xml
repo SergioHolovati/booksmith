@@ -32,12 +32,14 @@
     </Match>
     <!--
       UNVALIDATED_REDIRECT: o destino é booksmith.security.frontend-url (configuração do servidor) mais um caminho
-      fixo; nada vem da requisição, então não há redirecionamento aberto.
+      fixo; nada vem da requisição, então não há redirecionamento aberto. No DriveController (12/11/2026), o
+      caminho sai de um switch com quatro destinos fixos (DriveController.profilePath).
     -->
     <Match>
         <Bug pattern="UNVALIDATED_REDIRECT"/>
         <Or>
             <Class name="com.booksmith.identity.internal.security.OAuth2SuccessHandler"/>
+            <Class name="com.booksmith.export.web.DriveController"/>
             <Class name="~com\.booksmith\.identity\.internal\.security\.SecurityConfig.*"/>
         </Or>
     </Match>
