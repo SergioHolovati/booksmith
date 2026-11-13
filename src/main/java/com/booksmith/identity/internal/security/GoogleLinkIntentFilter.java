@@ -18,6 +18,8 @@ import java.io.IOException;
 class GoogleLinkIntentFilter extends OncePerRequestFilter {
 
     static final String ATTRIBUTE = "booksmith.googleLinkTicket";
+    /** Código de convite para criar a conta pelo Google (beta fechado). */
+    static final String INVITE_ATTRIBUTE = "booksmith.googleInvite";
     private static final String START = "/oauth2/authorization/google";
 
     @Override
@@ -28,21 +30,33 @@ class GoogleLinkIntentFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String ticket = request.getParameter("link");
-        if (ticket != null && !ticket.isBlank() && ticket.length() <= 200) {
-            request.getSession(true).setAttribute(ATTRIBUTE, ticket);
+        remember(request, "link", ATTRIBUTE);
+        remember(request, "invite", INVITE_ATTRIBUTE);
+        chain.doFilter(request, response);
+    }
+
+    /** Guarda o parâmetro na sessão do fluxo OAuth; sem ele, tira o de uma tentativa anterior. */
+    private static void remember(HttpServletRequest request, String parameter, String attribute) {
+        String value = request.getParameter(parameter);
+        if (value != null && !value.isBlank() && value.length() <= 200) {
+            request.getSession(true).setAttribute(attribute, value);
         } else {
             HttpSession session = request.getSession(false);
             if (session != null) {
-                session.removeAttribute(ATTRIBUTE);
+                session.removeAttribute(attribute);
             }
         }
-        chain.doFilter(request, response);
     }
 
     /** O tíquete guardado no começo do fluxo, ou null num login comum. */
     static String ticket(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         return session == null ? null : (String) session.getAttribute(ATTRIBUTE);
+    }
+
+    /** O código de convite do "Criar conta com Google", ou null. */
+    static String invite(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        return session == null ? null : (String) session.getAttribute(INVITE_ATTRIBUTE);
     }
 }

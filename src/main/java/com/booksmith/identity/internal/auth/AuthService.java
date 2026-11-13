@@ -4,6 +4,7 @@ import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.IdentityProperties;
 import com.booksmith.identity.internal.security.JwtTokenProvider;
 import com.booksmith.identity.internal.security.JwtTokenProvider.IssuedToken;
+import com.booksmith.identity.internal.invite.InviteService;
 import com.booksmith.identity.internal.mfa.MfaService;
 import com.booksmith.identity.internal.security.OneTimeLoginCodes;
 import com.booksmith.identity.internal.security.SecurityProperties;
@@ -53,6 +54,7 @@ public class AuthService {
     private final LoginGuard loginGuard;
     private final OneTimeLoginCodes loginCodes;
     private final MfaService mfaService;
+    private final InviteService inviteService;
     private final Clock clock;
 
     /**
@@ -182,8 +184,12 @@ public class AuthService {
                     "É preciso ter pelo menos %d anos para criar uma conta.".formatted(identityProperties.minimumAge()));
         }
 
+        // Beta fechado: gasta um uso do convite (mesma transação: se o cadastro falhar, o uso volta)
+        UUID invite = inviteService.redeem(registration.inviteCode());
+
         String code = TokenHasher.randomCode(EMAIL_CODE_LENGTH);
         User user = userRepository.save(User.builder()
+                .inviteCodeId(invite)
                 .firstName(registration.firstName())
                 .lastName(registration.lastName())
                 .username(registration.username())
@@ -292,8 +298,14 @@ public class AuthService {
                 "Código de verificação inválido ou expirado.");
     }
 
+    /** {@code inviteCode}: obrigatório no beta fechado. */
     public record Registration(String firstName, String lastName, String username, String email,
-                               String password, LocalDate birthDate) {
+                               String password, LocalDate birthDate, String inviteCode) {
+
+        public Registration(String firstName, String lastName, String username, String email, String password,
+                            LocalDate birthDate) {
+            this(firstName, lastName, username, email, password, birthDate, null);
+        }
     }
 
     public record Session(User user, IssuedToken token) {

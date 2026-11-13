@@ -49,6 +49,8 @@ class AuthServiceTest {
     private final SessionRegistry sessionRegistry = mock(SessionRegistry.class);
     private final LoginGuard loginGuard = mock(LoginGuard.class);
     private final OneTimeLoginCodes loginCodes = mock(OneTimeLoginCodes.class);
+    private final com.booksmith.identity.internal.invite.InviteService inviteService =
+            mock(com.booksmith.identity.internal.invite.InviteService.class);
     private final com.booksmith.identity.internal.mfa.MfaService mfaService = mock(com.booksmith.identity.internal.mfa.MfaService.class);
 
     private final AuthService service = new AuthService(userRepository, resetTokens, passwordEncoder, tokenProvider,
@@ -56,7 +58,7 @@ class AuthServiceTest {
             new SecurityProperties("test-secret-with-at-least-32-characters!!", Duration.ofHours(1),
                     Duration.ofDays(30), "http://app.test", List.of()),
             new IdentityProperties(13),
-            loginGuard, loginCodes, mfaService,
+            loginGuard, loginCodes, mfaService, inviteService,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test

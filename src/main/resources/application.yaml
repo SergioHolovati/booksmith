@@ -78,6 +78,9 @@ booksmith:
       auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
   identity:
     minimum-age: 13
+  # Beta fechado: criar conta exige código de convite. Desligue (false) quando o Booksmith abrir para todos.
+  invites:
+    required: ${INVITE_REQUIRED:true}
   # Chave (32 bytes em base64) que criptografa segredos guardados no banco: segredo do MFA, acesso ao Google Drive.
   # Vazia em desenvolvimento: deriva do jwt-secret. Em produção, defina a sua e guarde fora do banco.
   crypto:

@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Conclui o login com Google: cria ou vincula o usuário e devolve ao frontend um <b>código de uso único</b> no
@@ -37,6 +38,7 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final OneTimeLoginCodes loginCodes;
     private final SecurityProperties properties;
     private final com.booksmith.notification.api.EmailSender emailSender;
+    private final com.booksmith.identity.internal.invite.InviteService invites;
 
     @Override
     @Transactional
@@ -52,6 +54,7 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // "sub": a identidade da conta Google, que não muda (o e-mail pode mudar)
         String subject = oauthUser.getName();
         String linkTicket = GoogleLinkIntentFilter.ticket(request);
+        String invite = GoogleLinkIntentFilter.invite(request);
 
         endHttpSession(request);
 
@@ -75,8 +78,20 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                 response.sendRedirect(properties.frontendUrl() + "/login?error=google_account_exists");
                 return;
             }
-            user = byEmail != null ? attachSubject(byEmail, subject, email)
-                    : createGoogleUser(email, oauthUser.getAttribute("name"), subject);
+            if (byEmail != null) {
+                user = attachSubject(byEmail, subject, email);
+            } else {
+                UUID inviteId;
+                try {
+                    // Beta fechado: conta nova pelo Google também gasta um convite
+                    inviteId = invites.redeem(invite);
+                } catch (com.booksmith.common.error.ApiException e) {
+                    response.sendRedirect(properties.frontendUrl() + "/login?error=google_invite_required");
+                    return;
+                }
+                user = createGoogleUser(email, oauthUser.getAttribute("name"), subject);
+                user.setInviteCodeId(inviteId);
+            }
         }
         user.setLastLoginAt(Instant.now());
 

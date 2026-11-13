@@ -34,9 +34,11 @@ class OAuth2SuccessHandlerTest {
     private final UserRepository users = mock(UserRepository.class);
     private final OneTimeLoginCodes codes = mock(OneTimeLoginCodes.class);
     private final EmailSender emailSender = mock(EmailSender.class);
+    private final com.booksmith.identity.internal.invite.InviteService invites =
+            mock(com.booksmith.identity.internal.invite.InviteService.class);
     private final OAuth2SuccessHandler handler = new OAuth2SuccessHandler(users, codes,
             new SecurityProperties("test-secret-with-at-least-32-characters!!", Duration.ofHours(1), Duration.ofDays(30),
-                    APP, List.of()), emailSender);
+                    APP, List.of()), emailSender, invites);
 
     @BeforeEach
     void setUp() {
@@ -113,6 +115,14 @@ class OAuth2SuccessHandlerTest {
 
         assertThat(finish("g-999", "nova@gmail.com", null)).isEqualTo(APP + "/auth/callback#code=codigo");
         verify(users).save(any(User.class));
+    }
+
+    @Test
+    void newGoogleAccountWithoutAValidInviteIsNotCreated() throws Exception {
+        when(invites.redeem(any())).thenThrow(com.booksmith.common.error.ApiException.unprocessable("invite_invalid", "x"));
+
+        assertThat(finish("g-novo", "nova@gmail.com", null)).isEqualTo(APP + "/login?error=google_invite_required");
+        verify(users, never()).save(any(User.class));
     }
 
     @Test

@@ -29,6 +29,7 @@ class AuthController {
     private static final String BEARER = "Bearer ";
 
     private final AuthService authService;
+    private final com.booksmith.identity.internal.invite.InviteService inviteService;
 
     @PostMapping("/login")
     SessionResponse login(@RequestBody @Valid LoginRequest request,
@@ -46,6 +47,27 @@ class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void verifyEmail(@RequestBody @Valid VerifyEmailRequest request) {
         authService.verifyEmail(request.email(), request.code());
+    }
+
+    /** O que a tela de cadastro precisa saber: se o beta está fechado (convite obrigatório). */
+    @org.springframework.web.bind.annotation.GetMapping("/config")
+    AuthConfig config() {
+        return new AuthConfig(inviteService.required());
+    }
+
+    /** Confere um código de convite sem gastar (antes de mandar para o Google). */
+    @PostMapping("/invite/check")
+    InviteCheck checkInvite(@RequestBody @Valid InviteCheckRequest request) {
+        return new InviteCheck(inviteService.valid(request.code()));
+    }
+
+    record AuthConfig(boolean inviteRequired) {
+    }
+
+    record InviteCheckRequest(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 40) String code) {
+    }
+
+    record InviteCheck(boolean valid) {
     }
 
     /** Novo código para confirmar o e-mail; responde 204 sempre (não revela se a conta existe). */

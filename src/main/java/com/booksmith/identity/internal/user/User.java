@@ -65,6 +65,12 @@ public class User {
 
     private Instant lastLoginAt;
 
+    /** O convite usado para criar a conta (beta fechado); null = conta de antes do beta ou sem convite. */
+    private UUID inviteCodeId;
+
+    /** Administrador do Booksmith: cria convites do beta. */
+    private boolean admin;
+
     @CreationTimestamp
     private Instant createdAt;
 

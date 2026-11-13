@@ -32,14 +32,15 @@ final class AuthDtos {
             String username,
             @NotBlank(message = "Informe o e-mail.") @Email(message = "E-mail inválido.") String email,
             @NotBlank @Pattern(regexp = PASSWORD_PATTERN, message = PASSWORD_MESSAGE) String password,
-            @NotNull(message = "Informe a data de nascimento.") @Past LocalDate birthDate) {
+            @NotNull(message = "Informe a data de nascimento.") @Past LocalDate birthDate,
+            @Size(max = 40) String inviteCode) {
 
         AuthService.Registration toRegistration() {
             String effectiveUsername = username == null || username.isBlank()
                     ? email.substring(0, email.indexOf('@'))
                     : username;
             return new AuthService.Registration(firstName.trim(), lastName == null ? null : lastName.trim(),
-                    effectiveUsername, email, password, birthDate);
+                    effectiveUsername, email, password, birthDate, inviteCode);
         }
     }
 
