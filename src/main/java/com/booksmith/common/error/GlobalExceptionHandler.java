@@ -1,5 +1,8 @@
 package com.booksmith.common.error;
 
+import com.booksmith.common.alerts.SecurityIncident;
+import org.springframework.context.ApplicationEventPublisher;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -24,6 +27,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    private final ApplicationEventPublisher events;
+
+    public GlobalExceptionHandler(ApplicationEventPublisher events) {
+        this.events = events;
+    }
+
     @ExceptionHandler(ApiException.class)
     public ProblemDetail handleApiException(ApiException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
@@ -43,6 +52,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception ex) {
         log.error("Erro inesperado", ex);
+        events.publishEvent(new SecurityIncident(SecurityIncident.Kind.SERVER_ERROR, ex.getClass().getSimpleName()));
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Erro inesperado. Tente novamente em instantes.");
         problem.setProperty("code", "internal_error");

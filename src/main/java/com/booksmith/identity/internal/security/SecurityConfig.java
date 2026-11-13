@@ -58,7 +58,8 @@ class SecurityConfig {
     @Order(2)
     SecurityFilterChain apiChain(HttpSecurity http,
                                  JwtTokenProvider tokenProvider,
-                                 RateLimitProperties rateLimits) throws Exception {
+                                 RateLimitProperties rateLimits,
+                                 org.springframework.context.ApplicationEventPublisher events) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -77,7 +78,7 @@ class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(new RateLimitingFilter(rateLimits), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new RateLimitingFilter(rateLimits, events), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new JwtAuthenticationFilter(tokenProvider), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception.authenticationEntryPoint((request, response, ex) -> {
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());

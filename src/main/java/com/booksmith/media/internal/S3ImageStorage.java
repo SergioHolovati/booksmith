@@ -36,6 +36,8 @@ class S3ImageStorage implements ImageStorage {
 
         ImageFormat format = ImageFormat.detect(bytes).orElseThrow(() ->
                 ApiException.unprocessable("image_format_not_supported", "Envie uma imagem PNG, JPEG ou WebP."));
+        // Cabeçalho legível e tamanho em pixels dentro do limite (contra "bomba de descompressão")
+        ImageDimensions.require(bytes, format);
 
         // Chave única por upload: evita cache desatualizado na CDN ao trocar a imagem
         String key = "%s/%s/%s.%s".formatted(category.keyPrefix(), ownerId, UUID.randomUUID(), format.extension);

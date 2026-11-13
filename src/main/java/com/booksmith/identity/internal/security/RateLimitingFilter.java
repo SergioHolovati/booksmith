@@ -3,7 +3,9 @@ package com.booksmith.identity.internal.security;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
+import com.booksmith.common.alerts.SecurityIncident;
 import io.github.bucket4j.Bucket;
+import org.springframework.context.ApplicationEventPublisher;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,13 +24,15 @@ import java.time.Duration;
 class RateLimitingFilter extends OncePerRequestFilter {
 
     private final RateLimitProperties limits;
+    private final ApplicationEventPublisher events;
     private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
             .maximumSize(100_000)
             .expireAfterAccess(Duration.ofMinutes(10))
             .build();
 
-    RateLimitingFilter(RateLimitProperties limits) {
+    RateLimitingFilter(RateLimitProperties limits, ApplicationEventPublisher events) {
         this.limits = limits;
+        this.events = events;
     }
 
     @Override
@@ -49,6 +53,7 @@ class RateLimitingFilter extends OncePerRequestFilter {
             return;
         }
 
+        events.publishEvent(new SecurityIncident(SecurityIncident.Kind.RATE_LIMITED, authRoute ? "auth" : "api"));
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setContentType("application/problem+json");
         response.getWriter().write("""

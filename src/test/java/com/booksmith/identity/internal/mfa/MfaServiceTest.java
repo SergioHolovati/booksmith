@@ -113,9 +113,10 @@ class MfaServiceTest {
 
         UserRepository users = mock(UserRepository.class);
         when(users.findById(lia.getId())).thenReturn(Optional.of(lia));
-        mfa = new MfaService(factors, codes, users, redis, box, emailSender, passwords, Clock.fixed(NOW, ZoneOffset.UTC), false);
+        mfa = new MfaService(factors, codes, users, redis, box, emailSender, passwords, Clock.fixed(NOW, ZoneOffset.UTC),
+                org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class), false);
         requiredMfa = new MfaService(factors, codes, users, redis, box, emailSender, passwords,
-                Clock.fixed(NOW, ZoneOffset.UTC), true);
+                Clock.fixed(NOW, ZoneOffset.UTC), org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class), true);
     }
 
     private String totpNow(String secret, long offsetSteps) {

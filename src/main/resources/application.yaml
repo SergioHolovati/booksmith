@@ -81,6 +81,19 @@ booksmith:
   # Beta fechado: criar conta exige código de convite. Desligue (false) quando o Booksmith abrir para todos.
   invites:
     required: ${INVITE_REQUIRED:true}
+  # Limites diários de PDF por pessoa (a operação mais cara da API): o PDF do livro e o PDF da capa aberta.
+  export:
+    pdf-per-day: ${PDF_PER_DAY:2}
+    cover-pdf-per-day: ${COVER_PDF_PER_DAY:5}
+  # Alertas de segurança por e-mail ao administrador: a partir de quantos eventos por hora cada tipo dispara.
+  # Sem ALERT_EMAIL, só o log.
+  alerts:
+    email: ${ALERT_EMAIL:}
+    login-locked-per-hour: ${ALERT_LOGIN_LOCKED_PER_HOUR:10}
+    rate-limited-per-hour: ${ALERT_RATE_LIMITED_PER_HOUR:100}
+    mfa-failed-per-hour: ${ALERT_MFA_FAILED_PER_HOUR:10}
+    server-errors-per-hour: ${ALERT_SERVER_ERRORS_PER_HOUR:10}
+    quota-hits-per-hour: ${ALERT_QUOTA_HITS_PER_HOUR:20}
   # Versão em vigor dos termos de uso, termo de responsabilidade e política de privacidade (data da versão). Mudou o
   # texto? Troque a versão: quem já tem conta precisa aceitar de novo antes de seguir usando o app.
   terms:
@@ -160,8 +173,9 @@ spring:
     activate:
       on-profile: stage,prod
 
+# Só saúde e informação também em produção: /actuator/metrics ficaria legível por qualquer conta logada.
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info

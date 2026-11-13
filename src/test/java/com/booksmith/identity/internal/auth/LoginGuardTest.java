@@ -60,7 +60,8 @@ class LoginGuardTest {
             boolean added = sets.computeIfAbsent(i.getArgument(0), k -> new HashSet<>()).add(i.getArgument(1));
             return added ? 1L : 0L;
         });
-        guard = new LoginGuard(redis, emailSender, Clock.fixed(Instant.parse("2026-11-12T20:30:00Z"), ZoneOffset.UTC));
+        guard = new LoginGuard(redis, emailSender, Clock.fixed(Instant.parse("2026-11-12T20:30:00Z"), ZoneOffset.UTC),
+                org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
     }
 
     @Test

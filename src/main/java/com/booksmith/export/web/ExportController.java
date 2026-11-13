@@ -1,6 +1,7 @@
 package com.booksmith.export.web;
 
 import com.booksmith.export.internal.ExportFormat;
+import com.booksmith.export.internal.ExportQuota;
 import com.booksmith.export.internal.PdfPreview;
 import com.booksmith.export.internal.PrintCheck;
 import com.booksmith.export.internal.PrintCover;
@@ -31,6 +32,7 @@ import java.util.UUID;
 class ExportController {
 
     private final ExportService exportService;
+    private final ExportQuota quota;
     private final CurrentUser currentUser;
 
     /**
@@ -75,22 +77,35 @@ class ExportController {
         return exportService.printCoverSpec(user.id(), authorName(user), bookId, profile, spineMm, bleedMm);
     }
 
-    /** PDF da capa aberta, a partir da imagem desenhada no aparelho. */
+    /** PDF da capa aberta, a partir da imagem desenhada no aparelho. Conta no limite diário de PDFs da capa. */
     @PostMapping("/books/{bookId}/export/print-cover")
     ResponseEntity<byte[]> printCover(@PathVariable UUID bookId, @RequestBody PrintCoverRequest request) {
         AuthenticatedUser user = currentUser.get();
-        return attachment(exportService.printCover(user.id(), authorName(user), bookId, request.profile(),
-                request.spineMm(), request.bleedMm(), request.image()));
+        ExportQuota.Use use = quota.consumeCoverPdf(user.id());
+        try {
+            return attachment(exportService.printCover(user.id(), authorName(user), bookId, request.profile(),
+                    request.spineMm(), request.bleedMm(), request.image()));
+        } catch (RuntimeException e) {
+            quota.refund(use);
+            throw e;
+        }
     }
 
     record PrintCoverRequest(String profile, Double spineMm, Double bleedMm, String image) {
     }
 
-    /** {@code format}: epub ou pdf. */
+    /** {@code format}: epub, pdf ou docx. O PDF conta no limite diário (429 {@code pdf_daily_limit}). */
     @GetMapping("/books/{bookId}/export/{format}")
     ResponseEntity<byte[]> export(@PathVariable UUID bookId, @PathVariable String format) {
         AuthenticatedUser user = currentUser.get();
-        return attachment(exportService.export(user.id(), authorName(user), bookId, ExportFormat.fromExtension(format)));
+        ExportFormat exportFormat = ExportFormat.fromExtension(format);
+        ExportQuota.Use use = exportFormat == ExportFormat.PDF ? quota.consumeBookPdf(user.id()) : null;
+        try {
+            return attachment(exportService.export(user.id(), authorName(user), bookId, exportFormat));
+        } catch (RuntimeException e) {
+            quota.refund(use);
+            throw e;
+        }
     }
 
     private static ResponseEntity<byte[]> attachment(ExportService.ExportFile file) {

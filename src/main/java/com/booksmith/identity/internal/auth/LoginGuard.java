@@ -1,7 +1,9 @@
 package com.booksmith.identity.internal.auth;
 
 import com.booksmith.common.error.ApiException;
+import com.booksmith.common.alerts.SecurityIncident;
 import com.booksmith.identity.internal.user.TokenHasher;
+import org.springframework.context.ApplicationEventPublisher;
 import com.booksmith.identity.internal.user.User;
 import com.booksmith.notification.api.EmailSender;
 import lombok.extern.slf4j.Slf4j;
@@ -39,11 +41,13 @@ class LoginGuard {
     private final StringRedisTemplate redis;
     private final EmailSender emailSender;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    LoginGuard(StringRedisTemplate redis, EmailSender emailSender, Clock clock) {
+    LoginGuard(StringRedisTemplate redis, EmailSender emailSender, Clock clock, ApplicationEventPublisher events) {
         this.redis = redis;
         this.emailSender = emailSender;
         this.clock = clock;
+        this.events = events;
     }
 
     /** Antes de conferir a senha: com 5 erros nos últimos 15 minutos, nem confere (429 {@code login_locked}). */
@@ -64,6 +68,7 @@ class LoginGuard {
         Long count = redis.opsForValue().increment(key);
         redis.expire(key, LOCK);
         if (count != null && count == MAX_FAILURES) {
+            events.publishEvent(new SecurityIncident(SecurityIncident.Kind.LOGIN_LOCKED, user == null ? "unknown" : "user"));
             log.warn("Login bloqueado por {} tentativas erradas{}", MAX_FAILURES,
                     user == null ? " (conta inexistente)" : " para userId: " + user.getId());
             if (user != null) {

@@ -7,7 +7,9 @@ import com.booksmith.identity.internal.user.User;
 import com.booksmith.identity.internal.user.UserRepository;
 import com.booksmith.notification.api.EmailSender;
 import lombok.extern.slf4j.Slf4j;
+import com.booksmith.common.alerts.SecurityIncident;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -65,10 +67,11 @@ public class MfaService {
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final boolean required;
+    private final ApplicationEventPublisher events;
 
     MfaService(MfaFactorRepository factors, MfaRecoveryCodeRepository recoveryCodes, UserRepository users,
                StringRedisTemplate redis, SecretBox secretBox, EmailSender emailSender,
-               PasswordEncoder passwordEncoder, Clock clock,
+               PasswordEncoder passwordEncoder, Clock clock, ApplicationEventPublisher events,
                @Value("${booksmith.mfa.required:true}") boolean required) {
         this.factors = factors;
         this.recoveryCodes = recoveryCodes;
@@ -79,6 +82,7 @@ public class MfaService {
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.required = required;
+        this.events = events;
     }
 
     /**
@@ -266,6 +270,7 @@ public class MfaService {
         if (attempts != null && attempts >= MAX_ATTEMPTS) {
             redis.delete(key);
             log.warn("Desafio de MFA encerrado por {} códigos errados para userId: {}", MAX_ATTEMPTS, userId);
+            events.publishEvent(new SecurityIncident(SecurityIncident.Kind.MFA_FAILED, "challenge"));
             throw expired("Muitos códigos errados. Entre de novo.");
         }
         throw invalidCode();
