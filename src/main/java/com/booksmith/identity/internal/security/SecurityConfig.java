@@ -66,6 +66,9 @@ class SecurityConfig {
                 // O contexto vale só durante a requisição
                 .securityContext(context -> context.securityContextRepository(new RequestAttributeSecurityContextRepository()))
                 .requestCache(AbstractHttpConfigurer::disable)
+                // A API só devolve JSON e arquivos: nada nela pode rodar script nem ser aberto dentro de outro site
+                .headers(headers -> headers.contentSecurityPolicy(csp -> csp
+                        .policyDirectives("default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)

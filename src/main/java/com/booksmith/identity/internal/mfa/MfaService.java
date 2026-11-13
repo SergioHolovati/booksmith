@@ -7,6 +7,7 @@ import com.booksmith.identity.internal.user.User;
 import com.booksmith.identity.internal.user.UserRepository;
 import com.booksmith.notification.api.EmailSender;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,7 +27,7 @@ import java.util.OptionalLong;
 import java.util.UUID;
 
 /**
- * Verificação em duas etapas (MFA, opcional): app autenticador (TOTP) e código por e-mail, mais 10 códigos de
+ * Verificação em duas etapas (MFA): app autenticador (TOTP) e código por e-mail, mais 10 códigos de
  * recuperação de uso único.
  *
  * <p><b>Login:</b> com a senha (ou o Google) certa, quem tem MFA recebe um <i>desafio</i> (Redis, 5 minutos, até 5
@@ -34,6 +35,10 @@ import java.util.UUID;
  *
  * <p><b>Configurar:</b> o método só vale depois de confirmado com um código. Ao ligar o primeiro, saem os códigos de
  * recuperação (mostrados uma vez). Desligar pede a senha (se a conta tem) e um código.
+ *
+ * <p><b>Obrigatório</b> ({@code booksmith.mfa.required}, padrão {@code true}): quem ainda não tem um método entra
+ * com o cadastro pendente (só consegue configurar o MFA) e ninguém consegue desligar; dá para trocar adicionando o
+ * outro método.
  */
 @Slf4j
 @Service
@@ -59,10 +64,12 @@ public class MfaService {
     private final EmailSender emailSender;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final boolean required;
 
     MfaService(MfaFactorRepository factors, MfaRecoveryCodeRepository recoveryCodes, UserRepository users,
                StringRedisTemplate redis, SecretBox secretBox, EmailSender emailSender,
-               PasswordEncoder passwordEncoder, Clock clock) {
+               PasswordEncoder passwordEncoder, Clock clock,
+               @Value("${booksmith.mfa.required:true}") boolean required) {
         this.factors = factors;
         this.recoveryCodes = recoveryCodes;
         this.users = users;
@@ -71,10 +78,14 @@ public class MfaService {
         this.emailSender = emailSender;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.required = required;
     }
 
-    /** Métodos confirmados ({@code totp}, {@code email}) e quantos códigos de recuperação restam. */
-    public record Status(boolean enabled, List<String> methods, long recoveryCodesLeft) {
+    /**
+     * Métodos confirmados ({@code totp}, {@code email}), quantos códigos de recuperação restam e se o MFA é
+     * obrigatório (sem a opção de desligar).
+     */
+    public record Status(boolean enabled, List<String> methods, long recoveryCodesLeft, boolean required) {
     }
 
     /** Para o app autenticador: o segredo (para digitar) e o link {@code otpauth://} (para o QR code). */
@@ -88,7 +99,32 @@ public class MfaService {
     @Transactional(readOnly = true)
     public Status status(UUID userId) {
         List<String> methods = confirmedMethods(userId);
-        return new Status(!methods.isEmpty(), methods, methods.isEmpty() ? 0 : recoveryCodes.countByUserIdAndUsedAtIsNull(userId));
+        return new Status(!methods.isEmpty(), methods, methods.isEmpty() ? 0 : recoveryCodes.countByUserIdAndUsedAtIsNull(userId),
+                required);
+    }
+
+    /** Se o MFA é obrigatório para todas as contas. */
+    public boolean required() {
+        return required;
+    }
+
+    /** Com o MFA obrigatório, a conta ainda sem nenhum método confirmado: só pode configurar o MFA. */
+    @Transactional(readOnly = true)
+    public boolean setupPending(UUID userId) {
+        return required && !enabled(userId);
+    }
+
+    /**
+     * Confirma uma ação sensível da conta logada (ligar o Google, por exemplo) com um código do app ou do e-mail.
+     * Sem MFA ativo, não pede nada.
+     *
+     * @throws ApiException 422 {@code mfa_code_invalid}
+     */
+    @Transactional
+    public void requireStepUp(UUID userId, String code) {
+        if (enabled(userId) && !verifyAny(userId, clean(code), CODE_PREFIX + userId, false)) {
+            throw invalidCode();
+        }
     }
 
     @Transactional(readOnly = true)
@@ -166,10 +202,15 @@ public class MfaService {
     /**
      * Desliga o MFA: pede a senha (se a conta tem) e um código. Tira todos os métodos e os códigos de recuperação.
      *
-     * @throws ApiException 422 {@code password_invalid} ou {@code mfa_code_invalid}
+     * @throws ApiException 422 {@code password_invalid} ou {@code mfa_code_invalid}; 409 {@code mfa_required_policy}
+     *                      quando o MFA é obrigatório
      */
     @Transactional
     public void disable(UUID userId, String password, String code) {
+        if (required) {
+            throw ApiException.conflict("mfa_required_policy",
+                    "A verificação em duas etapas é obrigatória. Para trocar de método, adicione o outro.", Map.of());
+        }
         requireEnabled(userId);
         User user = user(userId);
         if (user.getPasswordHash() != null

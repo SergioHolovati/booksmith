@@ -51,6 +51,8 @@ class MfaServiceTest {
     private final User lia = User.builder().id(UUID.randomUUID()).email("lia@example.com")
             .passwordHash(passwords.encode("Senha@123")).build();
     private MfaService mfa;
+    /** A mesma conta, com o MFA obrigatório (a configuração de produção). */
+    private MfaService requiredMfa;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -111,7 +113,9 @@ class MfaServiceTest {
 
         UserRepository users = mock(UserRepository.class);
         when(users.findById(lia.getId())).thenReturn(Optional.of(lia));
-        mfa = new MfaService(factors, codes, users, redis, box, emailSender, passwords, Clock.fixed(NOW, ZoneOffset.UTC));
+        mfa = new MfaService(factors, codes, users, redis, box, emailSender, passwords, Clock.fixed(NOW, ZoneOffset.UTC), false);
+        requiredMfa = new MfaService(factors, codes, users, redis, box, emailSender, passwords,
+                Clock.fixed(NOW, ZoneOffset.UTC), true);
     }
 
     private String totpNow(String secret, long offsetSteps) {
@@ -134,7 +138,7 @@ class MfaServiceTest {
         assertThat(recovery).hasSize(10).allMatch(c -> c.matches("[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}"));
         assertThat(codeRows).extracting(MfaRecoveryCode::getCodeHash)
                 .contains(TokenHasher.sha256(recovery.getFirst().replace("-", "")));
-        assertThat(mfa.status(lia.getId())).isEqualTo(new MfaService.Status(true, List.of("totp"), 10));
+        assertThat(mfa.status(lia.getId())).isEqualTo(new MfaService.Status(true, List.of("totp"), 10, false));
         verify(emailSender).sendSecurityNotice(eq("lia@example.com"), eq("Verificação em duas etapas ativada"), anyString());
     }
 
@@ -208,5 +212,34 @@ class MfaServiceTest {
         assertThat(mfa.enabled(lia.getId())).isFalse();
         assertThat(codeRows).isEmpty();
         verify(emailSender).sendSecurityNotice(eq("lia@example.com"), eq("Verificação em duas etapas desativada"), anyString());
+    }
+
+    @Test
+    void whenRequiredTheAccountIsPendingUntilAMethodIsOnAndCannotTurnItOff() {
+        assertThat(requiredMfa.setupPending(lia.getId())).isTrue();
+        assertThat(mfa.setupPending(lia.getId())).isFalse();
+
+        var setup = requiredMfa.startTotp(lia.getId());
+        requiredMfa.confirm(lia.getId(), "totp", totpNow(setup.secret(), -1));
+
+        assertThat(requiredMfa.setupPending(lia.getId())).isFalse();
+        assertThat(requiredMfa.status(lia.getId()).required()).isTrue();
+        assertThatThrownBy(() -> requiredMfa.disable(lia.getId(), "Senha@123", totpNow(setup.secret(), 0)))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("mfa_required_policy"));
+        assertThat(requiredMfa.enabled(lia.getId())).isTrue();
+    }
+
+    @Test
+    void sensitiveActionsAskForACodeOnlyWithMfaOn() {
+        mfa.requireStepUp(lia.getId(), null); // sem MFA, nada a pedir
+
+        var setup = mfa.startTotp(lia.getId());
+        mfa.confirm(lia.getId(), "totp", totpNow(setup.secret(), -1));
+
+        assertThatThrownBy(() -> mfa.requireStepUp(lia.getId(), null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("mfa_code_invalid"));
+        assertThatThrownBy(() -> mfa.requireStepUp(lia.getId(), "000000"))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("mfa_code_invalid"));
+        mfa.requireStepUp(lia.getId(), totpNow(setup.secret(), 0));
     }
 }

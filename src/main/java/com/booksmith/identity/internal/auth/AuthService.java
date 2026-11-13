@@ -123,7 +123,7 @@ public class AuthService {
         user.setLastLoginAt(Instant.now(clock));
         loginGuard.noteDevice(user, userAgent);
         log.info("Login realizado para userId: {}", user.getId());
-        return new Session(user, tokenProvider.issue(user, userAgent));
+        return session(user, tokenProvider.issue(user, userAgent));
     }
 
     /**
@@ -169,7 +169,7 @@ public class AuthService {
             user.setUsername(username.strip());
         }
         log.info("Cadastro completado para userId: {}", userId);
-        return new Session(user, tokenProvider.reissue(user, sessionId));
+        return session(user, tokenProvider.reissue(user, sessionId));
     }
 
     @Transactional
@@ -226,16 +226,18 @@ public class AuthService {
         user.setEmailVerificationExpiresAt(null);
     }
 
+    /** Renova pelo refresh token do cookie: token de acesso novo e refresh token novo (o antigo deixa de valer). */
     @Transactional(readOnly = true)
-    public Session refresh(String token) {
-        var candidate = tokenProvider.verifyForRefresh(token);
+    public Session refresh(String refreshToken) {
+        var candidate = tokenProvider.verifyForRefresh(refreshToken);
         User user = userRepository.findById(candidate.userId())
                 .orElseThrow(() -> ApiException.unauthorized("Usuário não encontrado."));
-        return new Session(user, tokenProvider.refresh(candidate, user));
+        return session(user, tokenProvider.refresh(candidate, user));
     }
 
-    public void logout(String token) {
-        tokenProvider.logout(token);
+    /** Encerra a sessão pelo refresh token (cookie) e/ou pelo token de acesso; qualquer um basta. */
+    public void logout(String refreshToken, String accessToken) {
+        tokenProvider.logout(refreshToken, accessToken);
     }
 
     /** Sessões abertas do usuário: a atual primeiro, depois da usada mais recentemente para a mais antiga. */
@@ -308,7 +310,12 @@ public class AuthService {
         }
     }
 
-    public record Session(User user, IssuedToken token) {
+    /** A sessão aberta; com o MFA obrigatório e ainda não ativado, o app vai direto para a tela de ativar. */
+    private Session session(User user, IssuedToken token) {
+        return new Session(user, token, user.getBirthDate() != null && mfaService.setupPending(user.getId()));
+    }
+
+    public record Session(User user, IssuedToken token, boolean mfaPending) {
     }
 
     public record DeviceSession(String id, String device, Instant createdAt, Instant lastActiveAt,

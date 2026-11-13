@@ -83,11 +83,15 @@ final class AuthDtos {
                     "Bearer",
                     session.token().expiresIn().toSeconds(),
                     new UserSummary(user.getId(), user.getUsername(), user.displayName(), user.isEmailVerified(),
-                            user.getBirthDate() == null));
+                            user.getBirthDate() == null, session.mfaPending()));
         }
     }
 
-    /** {@code profilePending}: conta nova do Google que ainda precisa completar o cadastro. */
-    record UserSummary(UUID id, String username, String displayName, boolean emailVerified, boolean profilePending) {
+    /**
+     * {@code profilePending}: conta nova do Google que ainda precisa completar o cadastro. {@code mfaPending}: o MFA
+     * é obrigatório e a conta ainda não ativou (só consegue configurar o MFA).
+     */
+    record UserSummary(UUID id, String username, String displayName, boolean emailVerified, boolean profilePending,
+                       boolean mfaPending) {
     }
 }

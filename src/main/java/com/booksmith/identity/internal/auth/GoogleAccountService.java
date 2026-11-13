@@ -1,6 +1,7 @@
 package com.booksmith.identity.internal.auth;
 
 import com.booksmith.common.error.ApiException;
+import com.booksmith.identity.internal.mfa.MfaService;
 import com.booksmith.identity.internal.security.OneTimeLoginCodes;
 import com.booksmith.identity.internal.user.User;
 import com.booksmith.identity.internal.user.UserRepository;
@@ -25,9 +26,17 @@ public class GoogleAccountService {
     private final UserRepository userRepository;
     private final OneTimeLoginCodes loginCodes;
     private final EmailSender emailSender;
+    private final MfaService mfaService;
 
-    /** Tíquete para o app abrir {@code /oauth2/authorization/google?link=}. */
-    public String startLink(UUID userId) {
+    /**
+     * Tíquete para o app abrir {@code /oauth2/authorization/google?link=}. Ligar o Google cria outro jeito de entrar
+     * na conta: com MFA ativo, pede um código do app ou do e-mail.
+     *
+     * @throws ApiException 422 {@code mfa_code_invalid}
+     */
+    @Transactional
+    public String startLink(UUID userId, String mfaCode) {
+        mfaService.requireStepUp(userId, mfaCode);
         return loginCodes.createLinkTicket(userId);
     }
 

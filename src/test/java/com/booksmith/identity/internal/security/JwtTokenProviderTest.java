@@ -1,6 +1,7 @@
 package com.booksmith.identity.internal.security;
 
 import com.booksmith.common.error.ApiException;
+import com.booksmith.identity.internal.mfa.MfaService;
 import com.booksmith.identity.internal.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,9 @@ class JwtTokenProviderTest {
 
     private final Map<String, String> store = new HashMap<>();
     private final Set<String> activeSessions = new HashSet<>();
+    /** Chaves que ganharam validade curta (o refresh token antigo, depois de trocado). */
+    private final Map<String, Duration> shortened = new HashMap<>();
+    private final MfaService mfaService = mock(MfaService.class);
     private JwtTokenProvider provider;
     private User user;
 
@@ -39,6 +43,12 @@ class JwtTokenProviderTest {
         when(redis.opsForValue()).thenReturn(values);
         doAnswer(i -> store.put(i.getArgument(0), i.getArgument(1)))
                 .when(values).set(anyString(), anyString(), any(Duration.class));
+        when(values.get(anyString())).thenAnswer(i -> store.get(i.<String>getArgument(0)));
+        when(redis.getExpire(anyString())).thenReturn(Duration.ofDays(30).toSeconds());
+        when(redis.expire(anyString(), any(Duration.class))).thenAnswer(i -> {
+            shortened.put(i.getArgument(0), i.getArgument(1));
+            return true;
+        });
         when(redis.hasKey(anyString())).thenAnswer(i -> store.containsKey(i.<String>getArgument(0)));
         when(redis.delete(anyString())).thenAnswer(i -> store.remove(i.<String>getArgument(0)) != null);
 
@@ -53,7 +63,7 @@ class JwtTokenProviderTest {
 
         provider = new JwtTokenProvider(redis, sessions, new SecurityProperties(
                 "test-secret-with-at-least-32-characters!!", Duration.ofHours(1), Duration.ofDays(30),
-                "http://localhost:4200", List.of("http://localhost:4200")));
+                "http://localhost:4200", List.of("http://localhost:4200")), mfaService);
         user = User.builder().id(UUID.randomUUID()).username("lia").firstName("Lia").build();
     }
 
@@ -70,23 +80,55 @@ class JwtTokenProviderTest {
     }
 
     @Test
-    void logoutEndsSession() {
+    void logoutByTheCookieEndsSession() {
         var token = provider.issue(user, "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36");
 
-        provider.logout(token.value());
+        provider.logout(token.refreshToken(), null);
 
         assertThat(provider.authenticate(token.value())).isEmpty();
-        assertThatThrownBy(() -> provider.verifyForRefresh(token.value())).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> provider.verifyForRefresh(token.refreshToken())).isInstanceOf(ApiException.class);
     }
 
     @Test
-    void refreshRevokesPreviousTokenAndKeepsSession() {
+    void logoutByTheAccessTokenEndsSessionToo() {
+        var token = provider.issue(user, null);
+
+        provider.logout(null, token.value());
+
+        assertThat(provider.authenticate(token.value())).isEmpty();
+        assertThatThrownBy(() -> provider.verifyForRefresh(token.refreshToken())).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void refreshKeepsSessionAndSwapsTheRefreshToken() {
         var original = provider.issue(user, "Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36");
 
-        var refreshed = provider.refresh(provider.verifyForRefresh(original.value()), user);
+        var refreshed = provider.refresh(provider.verifyForRefresh(original.refreshToken()), user);
 
-        assertThat(provider.authenticate(original.value())).isEmpty();
         assertThat(provider.authenticate(refreshed.value())).isPresent();
+        assertThat(provider.authenticate(refreshed.value()).orElseThrow().sessionId())
+                .isEqualTo(provider.authenticate(original.value()).orElseThrow().sessionId());
+        assertThat(refreshed.refreshToken()).isNotBlank().isNotEqualTo(original.refreshToken());
+        // O antigo só vale mais alguns segundos (duas abas renovando juntas)
+        assertThat(shortened).containsValue(JwtTokenProvider.REFRESH_GRACE);
+        assertThat(provider.verifyForRefresh(refreshed.refreshToken()).userId()).isEqualTo(user.getId());
+    }
+
+    @Test
+    void theAccessTokenDoesNotRenewTheSession() {
+        // Um token de acesso roubado (XSS) não serve para renovar: renovar pede o cookie HttpOnly
+        var token = provider.issue(user, null);
+
+        assertThatThrownBy(() -> provider.verifyForRefresh(token.value())).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> provider.verifyForRefresh(null)).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void reissueKeepsTheCookie() {
+        var token = provider.issue(user, null);
+
+        assertThat(provider.reissue(user, provider.authenticate(token.value()).orElseThrow().sessionId()).refreshToken())
+                .isNull();
     }
 
     @Test
@@ -97,7 +139,29 @@ class JwtTokenProviderTest {
         activeSessions.remove(sessionId); // "Sair de todos os aparelhos" a partir de outra sessão
 
         assertThat(provider.authenticate(token.value())).isEmpty();
-        assertThatThrownBy(() -> provider.verifyForRefresh(token.value())).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> provider.verifyForRefresh(token.refreshToken())).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void accountWithoutMfaIsPendingWhenMfaIsRequired() {
+        user.setBirthDate(java.time.LocalDate.of(1990, 3, 4));
+        when(mfaService.setupPending(user.getId())).thenReturn(true);
+
+        var verified = provider.verify(provider.issue(user, null).value()).orElseThrow();
+
+        assertThat(verified.mfaPending()).isTrue();
+        assertThat(verified.profilePending()).isFalse();
+
+        when(mfaService.setupPending(user.getId())).thenReturn(false);
+        var done = provider.reissue(user, verified.user().sessionId());
+        assertThat(provider.verify(done.value()).orElseThrow().pending()).isNull();
+    }
+
+    @Test
+    void theGoogleProfileComesBeforeTheMfa() {
+        when(mfaService.setupPending(user.getId())).thenReturn(true);
+
+        assertThat(provider.verify(provider.issue(user, null).value()).orElseThrow().profilePending()).isTrue();
     }
 
     @Test

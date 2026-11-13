@@ -2,6 +2,7 @@ package com.booksmith.identity.web;
 
 import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.auth.AuthService;
+import com.booksmith.identity.internal.security.SessionCookie;
 import com.booksmith.identity.web.AuthDtos.ForgotPasswordRequest;
 import com.booksmith.identity.web.AuthDtos.GoogleExchangeRequest;
 import com.booksmith.identity.web.AuthDtos.LoginRequest;
@@ -9,10 +10,12 @@ import com.booksmith.identity.web.AuthDtos.RegisterRequest;
 import com.booksmith.identity.web.AuthDtos.ResetPasswordRequest;
 import com.booksmith.identity.web.AuthDtos.SessionResponse;
 import com.booksmith.identity.web.AuthDtos.VerifyEmailRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -20,7 +23,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Login com Google: o frontend redireciona para {@code /oauth2/authorization/google}. */
+/**
+ * Login com Google: o frontend redireciona para {@code /oauth2/authorization/google}. Toda rota que abre ou renova a
+ * sessão devolve o token de acesso no corpo (o app guarda só na memória) e o refresh token no cookie
+ * {@code HttpOnly} ({@link SessionCookie}).
+ */
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -30,11 +37,13 @@ class AuthController {
 
     private final AuthService authService;
     private final com.booksmith.identity.internal.invite.InviteService inviteService;
+    private final SessionCookie sessionCookie;
 
     @PostMapping("/login")
     SessionResponse login(@RequestBody @Valid LoginRequest request,
-                          @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
-        return SessionResponse.from(authService.login(request.email(), request.password(), userAgent));
+                          @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent,
+                          HttpServletResponse response) {
+        return started(authService.login(request.email(), request.password(), userAgent), response);
     }
 
     @PostMapping("/register")
@@ -80,15 +89,17 @@ class AuthController {
     /** Troca o código de uso único do login com Google pela sessão. */
     @PostMapping("/google/exchange")
     SessionResponse exchangeGoogleCode(@RequestBody @Valid GoogleExchangeRequest request,
-                                       @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
-        return SessionResponse.from(authService.exchangeGoogleCode(request.code(), userAgent));
+                                       @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent,
+                                       HttpServletResponse response) {
+        return started(authService.exchangeGoogleCode(request.code(), userAgent), response);
     }
 
     /** Segunda etapa do login: o código do desafio ({@code mfa_required}) abre a sessão. */
     @PostMapping("/mfa/verify")
     SessionResponse verifyMfa(@RequestBody @Valid AuthDtos.MfaVerifyRequest request,
-                              @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent) {
-        return SessionResponse.from(authService.completeMfa(request.challenge(), request.code(), userAgent));
+                              @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent,
+                              HttpServletResponse response) {
+        return started(authService.completeMfa(request.challenge(), request.code(), userAgent), response);
     }
 
     /** Segunda etapa por e-mail: manda o código (um por minuto). */
@@ -98,15 +109,26 @@ class AuthController {
         authService.sendMfaEmail(request.challenge());
     }
 
+    /** Renova a sessão pelo refresh token do cookie (o token de acesso não serve para renovar). */
     @PostMapping("/refresh")
-    SessionResponse refresh(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
-        return SessionResponse.from(authService.refresh(bearerToken(authorization)));
+    SessionResponse refresh(@CookieValue(name = SessionCookie.NAME, required = false) String refreshToken,
+                            HttpServletResponse response) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw ApiException.unauthorized("Sessão expirada. Entre novamente.");
+        }
+        return started(authService.refresh(refreshToken), response);
     }
 
+    /** Sai pelo cookie e/ou pelo header Authorization; sempre apaga o cookie. */
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
-        authService.logout(bearerToken(authorization));
+    void logout(@CookieValue(name = SessionCookie.NAME, required = false) String refreshToken,
+                @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+                HttpServletResponse response) {
+        String accessToken = authorization != null && authorization.startsWith(BEARER)
+                ? authorization.substring(BEARER.length()) : null;
+        authService.logout(refreshToken, accessToken);
+        sessionCookie.clear(response);
     }
 
     @PostMapping("/forgot-password")
@@ -121,10 +143,8 @@ class AuthController {
         authService.resetPassword(request.token(), request.password());
     }
 
-    private static String bearerToken(String authorization) {
-        if (authorization == null || !authorization.startsWith(BEARER)) {
-            throw ApiException.unauthorized("Envie o header Authorization: Bearer <token>.");
-        }
-        return authorization.substring(BEARER.length());
+    private SessionResponse started(AuthService.Session session, HttpServletResponse response) {
+        sessionCookie.write(response, session.token().refreshToken());
+        return SessionResponse.from(session);
     }
 }
