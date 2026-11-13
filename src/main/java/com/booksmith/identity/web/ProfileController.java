@@ -39,7 +39,14 @@ class ProfileController {
     AuthDtos.SessionResponse complete(@RequestBody @Valid AuthDtos.CompleteProfileRequest request) {
         var user = currentUser.get();
         return AuthDtos.SessionResponse.from(authService.completeProfile(user.id(), user.sessionId(),
-                request.birthDate(), request.username()));
+                request.birthDate(), request.username(), request.acceptTerms()));
+    }
+
+    /** Versão nova dos termos: o aceite devolve o token novo, já liberado. */
+    @PostMapping("/accept-terms")
+    AuthDtos.SessionResponse acceptTerms() {
+        var user = currentUser.get();
+        return AuthDtos.SessionResponse.from(authService.acceptTerms(user.id(), user.sessionId()));
     }
 
     @GetMapping

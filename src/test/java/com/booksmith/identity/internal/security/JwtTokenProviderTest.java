@@ -2,6 +2,7 @@ package com.booksmith.identity.internal.security;
 
 import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.mfa.MfaService;
+import com.booksmith.identity.internal.terms.TermsService;
 import com.booksmith.identity.internal.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ class JwtTokenProviderTest {
     /** Chaves que ganharam validade curta (o refresh token antigo, depois de trocado). */
     private final Map<String, Duration> shortened = new HashMap<>();
     private final MfaService mfaService = mock(MfaService.class);
+    private final TermsService termsService = mock(TermsService.class);
     private JwtTokenProvider provider;
     private User user;
 
@@ -63,7 +65,7 @@ class JwtTokenProviderTest {
 
         provider = new JwtTokenProvider(redis, sessions, new SecurityProperties(
                 "test-secret-with-at-least-32-characters!!", Duration.ofHours(1), Duration.ofDays(30),
-                "http://localhost:4200", List.of("http://localhost:4200")), mfaService);
+                "http://localhost:4200", List.of("http://localhost:4200")), mfaService, termsService);
         user = User.builder().id(UUID.randomUUID()).username("lia").firstName("Lia").build();
     }
 
@@ -155,6 +157,18 @@ class JwtTokenProviderTest {
         when(mfaService.setupPending(user.getId())).thenReturn(false);
         var done = provider.reissue(user, verified.user().sessionId());
         assertThat(provider.verify(done.value()).orElseThrow().pending()).isNull();
+    }
+
+    @Test
+    void newTermsComeBeforeTheMfaAndAfterTheProfile() {
+        user.setBirthDate(java.time.LocalDate.of(1990, 3, 4));
+        when(termsService.pending(user)).thenReturn(true);
+        when(mfaService.setupPending(user.getId())).thenReturn(true);
+
+        var verified = provider.verify(provider.issue(user, null).value()).orElseThrow();
+
+        assertThat(verified.termsPending()).isTrue();
+        assertThat(verified.mfaPending()).isFalse();
     }
 
     @Test

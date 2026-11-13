@@ -7,6 +7,7 @@ import com.booksmith.identity.internal.security.JwtTokenProvider.IssuedToken;
 import com.booksmith.identity.internal.invite.InviteService;
 import com.booksmith.identity.internal.mfa.MfaService;
 import com.booksmith.identity.internal.security.OneTimeLoginCodes;
+import com.booksmith.identity.internal.terms.TermsService;
 import com.booksmith.identity.internal.security.SecurityProperties;
 import com.booksmith.identity.internal.security.SessionRegistry;
 import com.booksmith.identity.internal.user.AuthProvider;
@@ -55,6 +56,7 @@ public class AuthService {
     private final OneTimeLoginCodes loginCodes;
     private final MfaService mfaService;
     private final InviteService inviteService;
+    private final TermsService termsService;
     private final Clock clock;
 
     /**
@@ -152,12 +154,14 @@ public class AuthService {
      * @throws ApiException 409 {@code profile_already_complete}; 422 {@code age_below_minimum} (encerra as sessões)
      */
     @Transactional
-    public Session completeProfile(UUID userId, String sessionId, LocalDate birthDate, String username) {
+    public Session completeProfile(UUID userId, String sessionId, LocalDate birthDate, String username,
+                                   Boolean acceptTerms) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.unauthorized("Usuário não encontrado."));
         if (user.getBirthDate() != null) {
             throw ApiException.conflict("profile_already_complete", "O cadastro já está completo.", java.util.Map.of());
         }
+        termsService.requireAccepted(acceptTerms);
         if (Period.between(birthDate, LocalDate.now(clock)).getYears() < identityProperties.minimumAge()) {
             sessionRegistry.endAll(userId, null);
             log.info("Cadastro pelo Google recusado pela idade mínima para userId: {}", userId);
@@ -168,12 +172,23 @@ public class AuthService {
         if (username != null && !username.isBlank()) {
             user.setUsername(username.strip());
         }
+        termsService.accept(user);
         log.info("Cadastro completado para userId: {}", userId);
+        return session(user, tokenProvider.reissue(user, sessionId));
+    }
+
+    /** Versão nova dos termos: aceita e devolve um token novo na mesma sessão, já sem a pendência. */
+    @Transactional
+    public Session acceptTerms(UUID userId, String sessionId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> ApiException.unauthorized("Usuário não encontrado."));
+        termsService.accept(user);
         return session(user, tokenProvider.reissue(user, sessionId));
     }
 
     @Transactional
     public void register(Registration registration) {
+        termsService.requireAccepted(registration.acceptTerms());
         if (userRepository.existsByEmailIgnoreCase(registration.email())) {
             throw ApiException.conflict("email_in_use", "Já existe uma conta com este e-mail.", java.util.Map.of());
         }
@@ -200,6 +215,7 @@ public class AuthService {
                 .emailVerificationCodeHash(TokenHasher.sha256(code))
                 .emailVerificationExpiresAt(Instant.now(clock).plus(EMAIL_CODE_TTL))
                 .build());
+        termsService.accept(user);
 
         emailSender.sendEmailVerification(user.getEmail(), code);
         log.info("Cadastro realizado para userId: {}", user.getId());
@@ -300,22 +316,33 @@ public class AuthService {
                 "Código de verificação inválido ou expirado.");
     }
 
-    /** {@code inviteCode}: obrigatório no beta fechado. */
+    /** {@code inviteCode}: obrigatório no beta fechado. {@code acceptTerms}: precisa ser {@code true}. */
     public record Registration(String firstName, String lastName, String username, String email,
-                               String password, LocalDate birthDate, String inviteCode) {
+                               String password, LocalDate birthDate, String inviteCode, Boolean acceptTerms) {
 
         public Registration(String firstName, String lastName, String username, String email, String password,
                             LocalDate birthDate) {
-            this(firstName, lastName, username, email, password, birthDate, null);
+            this(firstName, lastName, username, email, password, birthDate, null, true);
+        }
+
+        public Registration(String firstName, String lastName, String username, String email, String password,
+                            LocalDate birthDate, String inviteCode) {
+            this(firstName, lastName, username, email, password, birthDate, inviteCode, true);
         }
     }
 
-    /** A sessão aberta; com o MFA obrigatório e ainda não ativado, o app vai direto para a tela de ativar. */
+    /**
+     * A sessão aberta e o que ainda falta, na ordem em que o app resolve: completar o cadastro (Google), aceitar a
+     * versão nova dos termos e ativar o MFA obrigatório.
+     */
     private Session session(User user, IssuedToken token) {
-        return new Session(user, token, user.getBirthDate() != null && mfaService.setupPending(user.getId()));
+        boolean profileDone = user.getBirthDate() != null;
+        boolean termsPending = profileDone && termsService.pending(user);
+        boolean mfaPending = profileDone && !termsPending && mfaService.setupPending(user.getId());
+        return new Session(user, token, termsPending, mfaPending);
     }
 
-    public record Session(User user, IssuedToken token, boolean mfaPending) {
+    public record Session(User user, IssuedToken token, boolean termsPending, boolean mfaPending) {
     }
 
     public record DeviceSession(String id, String device, Instant createdAt, Instant lastActiveAt,

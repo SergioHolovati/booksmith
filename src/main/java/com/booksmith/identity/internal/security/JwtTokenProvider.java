@@ -8,6 +8,7 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.api.AuthenticatedUser;
 import com.booksmith.identity.internal.mfa.MfaService;
+import com.booksmith.identity.internal.terms.TermsService;
 import com.booksmith.identity.internal.user.TokenHasher;
 import com.booksmith.identity.internal.user.User;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -32,6 +33,8 @@ public class JwtTokenProvider {
     /** Pendência: {@code "profile"} na conta nova do Google (sem data de nascimento); {@code "mfa"} sem MFA. */
     static final String PENDING_CLAIM = "pending";
     static final String PENDING_PROFILE = "profile";
+    /** Versão nova dos termos ainda não aceita: só pode aceitar. */
+    static final String PENDING_TERMS = "terms";
     /** MFA obrigatório e a conta ainda sem método: só pode configurar o MFA. */
     static final String PENDING_MFA = "mfa";
     private static final String REVOKED_PREFIX = "auth:revoked:";
@@ -46,14 +49,16 @@ public class JwtTokenProvider {
     private final SessionRegistry sessions;
     private final SecurityProperties properties;
     private final MfaService mfaService;
+    private final TermsService termsService;
     private final Algorithm algorithm;
 
     public JwtTokenProvider(StringRedisTemplate redis, SessionRegistry sessions, SecurityProperties properties,
-                            MfaService mfaService) {
+                            MfaService mfaService, TermsService termsService) {
         this.redis = redis;
         this.sessions = sessions;
         this.properties = properties;
         this.mfaService = mfaService;
+        this.termsService = termsService;
         this.algorithm = Algorithm.HMAC256(properties.jwtSecret());
     }
 
@@ -168,10 +173,16 @@ public class JwtTokenProvider {
         return REFRESH_PREFIX + TokenHasher.sha256(refreshToken);
     }
 
-    /** O que falta antes de liberar o app: o cadastro (conta nova do Google) e, depois, o MFA obrigatório. */
+    /**
+     * O que falta antes de liberar o app, nesta ordem: o cadastro (conta nova do Google), a versão nova dos termos e
+     * o MFA obrigatório.
+     */
     private String pending(User user) {
         if (user.getBirthDate() == null) {
             return PENDING_PROFILE;
+        }
+        if (termsService.pending(user)) {
+            return PENDING_TERMS;
         }
         return mfaService.setupPending(user.getId()) ? PENDING_MFA : null;
     }
@@ -222,6 +233,10 @@ public class JwtTokenProvider {
 
         public boolean profilePending() {
             return PENDING_PROFILE.equals(pending);
+        }
+
+        public boolean termsPending() {
+            return PENDING_TERMS.equals(pending);
         }
 
         public boolean mfaPending() {

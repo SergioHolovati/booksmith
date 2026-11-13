@@ -37,6 +37,11 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
                 forbid(response, PROFILE_INCOMPLETE);
                 return;
             }
+            if (verified.isPresent() && verified.get().termsPending() && !allowedWhileTermsPending(request)) {
+                // Versão nova dos termos: até aceitar, só a tela de aceite
+                forbid(response, TERMS_OUTDATED);
+                return;
+            }
             if (verified.isPresent() && verified.get().mfaPending() && !allowedWhileMfaPending(request)) {
                 // MFA obrigatório: até ativar um método, só configura o MFA
                 forbid(response, MFA_SETUP_REQUIRED);
@@ -54,6 +59,9 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String MFA_SETUP_REQUIRED = """
             {"status":403,"title":"Forbidden","code":"mfa_setup_required",\
             "detail":"Ative a verificação em duas etapas para continuar."}""";
+    private static final String TERMS_OUTDATED = """
+            {"status":403,"title":"Forbidden","code":"terms_outdated",\
+            "detail":"Os termos de uso mudaram: aceite a nova versão para continuar."}""";
 
     private static void forbid(HttpServletResponse response, String body) throws IOException {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -66,6 +74,14 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
     static boolean allowedWhilePending(HttpServletRequest request) {
         String path = request.getRequestURI();
         return path.startsWith(AUTH_PREFIX) || path.equals("/api/v1/profile/complete");
+    }
+
+    /** Com termos novos: aceitar, ler o próprio perfil e as rotas de sessão. */
+    static boolean allowedWhileTermsPending(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith(AUTH_PREFIX)
+                || path.equals("/api/v1/profile/accept-terms")
+                || "GET".equals(request.getMethod()) && path.equals("/api/v1/profile");
     }
 
     /** Sem MFA (obrigatório): configurar o MFA, ler o próprio perfil (o e-mail da tela) e as rotas de sessão. */

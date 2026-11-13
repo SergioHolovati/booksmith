@@ -38,6 +38,7 @@ class AuthController {
     private final AuthService authService;
     private final com.booksmith.identity.internal.invite.InviteService inviteService;
     private final SessionCookie sessionCookie;
+    private final com.booksmith.identity.internal.terms.TermsService termsService;
 
     @PostMapping("/login")
     SessionResponse login(@RequestBody @Valid LoginRequest request,
@@ -58,10 +59,10 @@ class AuthController {
         authService.verifyEmail(request.email(), request.code());
     }
 
-    /** O que a tela de cadastro precisa saber: se o beta está fechado (convite obrigatório). */
+    /** O que as telas públicas precisam saber: se o beta está fechado (convite obrigatório) e a versão dos termos. */
     @org.springframework.web.bind.annotation.GetMapping("/config")
     AuthConfig config() {
-        return new AuthConfig(inviteService.required());
+        return new AuthConfig(inviteService.required(), termsService.version());
     }
 
     /** Confere um código de convite sem gastar (antes de mandar para o Google). */
@@ -70,7 +71,7 @@ class AuthController {
         return new InviteCheck(inviteService.valid(request.code()));
     }
 
-    record AuthConfig(boolean inviteRequired) {
+    record AuthConfig(boolean inviteRequired, String termsVersion) {
     }
 
     record InviteCheckRequest(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 40) String code) {

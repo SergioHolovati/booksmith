@@ -52,13 +52,15 @@ class AuthServiceTest {
     private final com.booksmith.identity.internal.invite.InviteService inviteService =
             mock(com.booksmith.identity.internal.invite.InviteService.class);
     private final com.booksmith.identity.internal.mfa.MfaService mfaService = mock(com.booksmith.identity.internal.mfa.MfaService.class);
+    private final com.booksmith.identity.internal.terms.TermsService termsService =
+            mock(com.booksmith.identity.internal.terms.TermsService.class);
 
     private final AuthService service = new AuthService(userRepository, resetTokens, passwordEncoder, tokenProvider,
             sessionRegistry, emailSender,
             new SecurityProperties("test-secret-with-at-least-32-characters!!", Duration.ofHours(1),
                     Duration.ofDays(30), "http://app.test", List.of()),
             new IdentityProperties(13),
-            loginGuard, loginCodes, mfaService, inviteService,
+            loginGuard, loginCodes, mfaService, inviteService, termsService,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -200,18 +202,36 @@ class AuthServiceTest {
         User google = User.builder().id(UUID.randomUUID()).email("g@example.com").username("autor.1234").build();
         when(userRepository.findById(google.getId())).thenReturn(Optional.of(google));
 
-        assertThatThrownBy(() -> service.completeProfile(google.getId(), "s1", LocalDate.of(2016, 1, 1), null))
+        assertThatThrownBy(() -> service.completeProfile(google.getId(), "s1", LocalDate.of(2016, 1, 1), null, true))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("age_below_minimum"));
         assertThat(google.getBirthDate()).isNull();
         verify(sessionRegistry).endAll(google.getId(), null);
 
-        service.completeProfile(google.getId(), "s1", LocalDate.of(1990, 3, 4), "lia.moreau");
+        service.completeProfile(google.getId(), "s1", LocalDate.of(1990, 3, 4), "lia.moreau", true);
         assertThat(google.getBirthDate()).isEqualTo(LocalDate.of(1990, 3, 4));
         assertThat(google.getUsername()).isEqualTo("lia.moreau");
+        verify(termsService).accept(google);
         verify(tokenProvider).reissue(google, "s1");
 
-        assertThatThrownBy(() -> service.completeProfile(google.getId(), "s1", LocalDate.of(1990, 3, 4), null))
+        assertThatThrownBy(() -> service.completeProfile(google.getId(), "s1", LocalDate.of(1990, 3, 4), null, true))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("profile_already_complete"));
+    }
+
+    @Test
+    void creatingAnAccountRequiresAcceptingTheTerms() {
+        org.mockito.Mockito.doCallRealMethod().when(termsService).requireAccepted(any());
+        var withoutTerms = new AuthService.Registration("Lia", "Souza", "lia", "lia@example.com", "Senha@123",
+                LocalDate.of(1990, 3, 4), null, false);
+
+        assertThatThrownBy(() -> service.register(withoutTerms))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("terms_required"));
+        verify(userRepository, never()).save(any());
+
+        User google = User.builder().id(UUID.randomUUID()).email("g@example.com").username("autor.1234").build();
+        when(userRepository.findById(google.getId())).thenReturn(Optional.of(google));
+        assertThatThrownBy(() -> service.completeProfile(google.getId(), "s1", LocalDate.of(1990, 3, 4), null, null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("terms_required"));
+        assertThat(google.getBirthDate()).isNull();
     }
 
     @Test

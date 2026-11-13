@@ -81,6 +81,10 @@ booksmith:
   # Beta fechado: criar conta exige código de convite. Desligue (false) quando o Booksmith abrir para todos.
   invites:
     required: ${INVITE_REQUIRED:true}
+  # Versão em vigor dos termos de uso, termo de responsabilidade e política de privacidade (data da versão). Mudou o
+  # texto? Troque a versão: quem já tem conta precisa aceitar de novo antes de seguir usando o app.
+  terms:
+    version: ${TERMS_VERSION:2026-11-13}
   # Verificação em duas etapas obrigatória: sem um método ativo, a conta só consegue configurar o MFA (e ninguém desliga).
   mfa:
     required: ${MFA_REQUIRED:true}

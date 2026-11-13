@@ -71,6 +71,10 @@ public class User {
     /** Administrador do Booksmith: cria convites do beta. */
     private boolean admin;
 
+    /** Versão dos termos aceita (ex.: 2026-11-13); diferente da em vigor = precisa aceitar de novo. */
+    private String termsVersion;
+    private Instant termsAcceptedAt;
+
     @CreationTimestamp
     private Instant createdAt;
 

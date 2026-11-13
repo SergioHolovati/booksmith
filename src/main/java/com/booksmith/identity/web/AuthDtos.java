@@ -33,14 +33,15 @@ final class AuthDtos {
             @NotBlank(message = "Informe o e-mail.") @Email(message = "E-mail inválido.") String email,
             @NotBlank @Pattern(regexp = PASSWORD_PATTERN, message = PASSWORD_MESSAGE) String password,
             @NotNull(message = "Informe a data de nascimento.") @Past LocalDate birthDate,
-            @Size(max = 40) String inviteCode) {
+            @Size(max = 40) String inviteCode,
+            Boolean acceptTerms) {
 
         AuthService.Registration toRegistration() {
             String effectiveUsername = username == null || username.isBlank()
                     ? email.substring(0, email.indexOf('@'))
                     : username;
             return new AuthService.Registration(firstName.trim(), lastName == null ? null : lastName.trim(),
-                    effectiveUsername, email, password, birthDate, inviteCode);
+                    effectiveUsername, email, password, birthDate, inviteCode, acceptTerms);
         }
     }
 
@@ -66,7 +67,8 @@ final class AuthDtos {
             @NotNull(message = "Informe a data de nascimento.") @Past LocalDate birthDate,
             @Size(min = 2, max = 40, message = "O nome de usuário tem de 2 a 40 caracteres.")
             @Pattern(regexp = "^[a-zA-Z0-9._-]*$", message = "Use letras, números, ponto, hífen ou _.")
-            String username) {
+            String username,
+            Boolean acceptTerms) {
     }
 
     record ResetPasswordRequest(
@@ -83,15 +85,16 @@ final class AuthDtos {
                     "Bearer",
                     session.token().expiresIn().toSeconds(),
                     new UserSummary(user.getId(), user.getUsername(), user.displayName(), user.isEmailVerified(),
-                            user.getBirthDate() == null, session.mfaPending()));
+                            user.getBirthDate() == null, session.termsPending(), session.mfaPending()));
         }
     }
 
     /**
-     * {@code profilePending}: conta nova do Google que ainda precisa completar o cadastro. {@code mfaPending}: o MFA
-     * é obrigatório e a conta ainda não ativou (só consegue configurar o MFA).
+     * {@code profilePending}: conta nova do Google que ainda precisa completar o cadastro. {@code termsPending}: há
+     * uma versão nova dos termos para aceitar. {@code mfaPending}: o MFA é obrigatório e a conta ainda não ativou
+     * (só consegue configurar o MFA). Resolvem-se nessa ordem.
      */
     record UserSummary(UUID id, String username, String displayName, boolean emailVerified, boolean profilePending,
-                       boolean mfaPending) {
+                       boolean termsPending, boolean mfaPending) {
     }
 }
