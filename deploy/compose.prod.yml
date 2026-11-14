@@ -115,8 +115,12 @@ services:
       - redis-data:/data
     logging: *logging
 
+  # MinIO: o projeto retirou as imagens públicas do Docker Hub e do quay.io (2025). As do servidor vêm do notebook
+  # (docker save | docker load; as mesmas de desenvolvimento), por isso pull_policy: never. É transitório: as
+  # imagens dos autores vão para o Cloudflare R2 (S3), e o MinIO sai do servidor.
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: minio/minio:latest
+    pull_policy: never
     restart: unless-stopped
     command: ["server", "/data"]
     environment:
@@ -133,7 +137,8 @@ services:
 
   minio-setup:
     # Cria o bucket das imagens com leitura pública (as imagens são servidas pelo Caddy em /media)
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    image: minio/mc:latest
+    pull_policy: never
     restart: "no"
     depends_on:
       minio:
@@ -193,7 +198,8 @@ services:
     logging: *logging
 
   backup-media:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    image: minio/mc:latest
+    pull_policy: never
     restart: unless-stopped
     depends_on:
       minio:
