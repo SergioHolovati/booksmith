@@ -119,7 +119,9 @@ class OAuth2SuccessHandlerTest {
 
     @Test
     void newGoogleAccountWithoutAValidInviteIsNotCreated() throws Exception {
-        when(invites.redeem(any())).thenThrow(com.booksmith.common.error.ApiException.unprocessable("invite_invalid", "x"));
+        // O convite é conferido antes de ser gasto (capturar a exceção do redeem dentro da transação dava 500)
+        when(invites.required()).thenReturn(true);
+        when(invites.valid(any())).thenReturn(false);
 
         assertThat(finish("g-novo", "nova@gmail.com", null)).isEqualTo(APP + "/login?error=google_invite_required");
         verify(users, never()).save(any(User.class));

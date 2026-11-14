@@ -81,14 +81,13 @@ class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             if (byEmail != null) {
                 user = attachSubject(byEmail, subject, email);
             } else {
-                UUID inviteId;
-                try {
-                    // Beta fechado: conta nova pelo Google também gasta um convite
-                    inviteId = invites.redeem(invite);
-                } catch (com.booksmith.common.error.ApiException e) {
+                // Beta fechado: conta nova pelo Google também gasta um convite. Conferido ANTES de gastar: capturar a
+                // exceção do redeem aqui marcaria a transação para rollback e o commit falharia (500) depois do redirect
+                if (invites.required() && (invite == null || !invites.valid(invite))) {
                     response.sendRedirect(properties.frontendUrl() + "/login?error=google_invite_required");
                     return;
                 }
+                UUID inviteId = invites.redeem(invite);
                 user = createGoogleUser(email, oauthUser.getAttribute("name"), subject);
                 user.setInviteCodeId(inviteId);
             }
