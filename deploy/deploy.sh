@@ -49,7 +49,7 @@ ls -1t "$ROOT"/releases/booksmith-*.tar 2>/dev/null | tail -n +6 | xargs -r rm -
 ls -1t "$ROOT"/releases/booksmith-web-*.tar 2>/dev/null | tail -n +6 | xargs -r rm -f
 
 echo "== 4. Build e subida"
-compose build --pull api caddy spellcheck
+compose build --pull api caddy spellcheck backup-offsite
 compose up -d --remove-orphans
 
 echo "== 5. Saúde da API"

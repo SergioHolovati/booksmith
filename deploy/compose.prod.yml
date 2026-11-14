@@ -221,6 +221,23 @@ services:
       "
     logging: *logging
 
+  # Cópia fora do servidor: criptografada (age, chave pública) e enviada ao Cloudflare R2 (rclone). Confere a cada
+  # hora: dump novo do banco vai na hora; as imagens, uma vez por dia. A chave privada nunca está no servidor.
+  backup-offsite:
+    build: ./backup-offsite
+    image: booksmith-backup-offsite:latest
+    restart: unless-stopped
+    environment:
+      AGE_RECIPIENT: ${AGE_RECIPIENT}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_BUCKET: ${R2_BUCKET:-booksmith-backups}
+      HEARTBEAT_URL: ${BACKUP_HEARTBEAT_URL:-}
+    volumes:
+      - /opt/booksmith/backups:/backups
+    logging: *logging
+
 volumes:
   postgres-data:
   redis-data:
