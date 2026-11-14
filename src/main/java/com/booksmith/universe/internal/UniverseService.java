@@ -45,6 +45,7 @@ public class UniverseService implements Universes {
     private final CustomFields customFields;
     private final UniverseBriefs briefs;
     private final CharacterService characterService;
+    private final GalleryService galleryService;
 
     @Override
     @Transactional
@@ -116,6 +117,27 @@ public class UniverseService implements Universes {
         log.info("Universo {} juntado a {}: {} entidades, {} eventos, {} nomes repetidos", from, into, entities, events,
                 duplicates.size());
         return new MergeResult(List.copyOf(duplicates));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<String> portraitReference(UUID universeId, UUID entityId) {
+        return entityRepository.findById(entityId)
+                .filter(e -> e.getDeletedAt() == null && e.getUniverseId().equals(universeId) && e.getPortraitId() != null)
+                .flatMap(e -> imageRepository.findByIdAndDeletedAtIsNull(e.getPortraitId()))
+                .flatMap(image -> image.getUrl().startsWith("https://")
+                        ? java.util.Optional.of(image.getUrl())
+                        : imageStorage.read(image.getUrl())
+                                .map(data -> java.util.Base64.getEncoder().encodeToString(data.bytes())));
+    }
+
+    @Override
+    @Transactional
+    public GeneratedImage addGeneratedImage(UUID ownerId, UUID universeId, byte[] bytes, String contentType,
+                                            String caption, List<UUID> entityIds, UUID portraitFor) {
+        UniverseImage image = galleryService.uploadGenerated(ownerId, universeId, bytes, contentType, caption,
+                entityIds, portraitFor);
+        return new GeneratedImage(image.getId(), image.getUrl(), image.getCaption());
     }
 
     @Override

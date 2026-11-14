@@ -60,4 +60,8 @@ public class UniverseImage {
     private Instant updatedAt;
 
     private Instant deletedAt;
+
+    /** Gerada por IA (Estúdio Visual): a biblioteca e a exportação mostram a marcação. */
+    @Column(name = "ai_generated", nullable = false)
+    private boolean aiGenerated;
 }

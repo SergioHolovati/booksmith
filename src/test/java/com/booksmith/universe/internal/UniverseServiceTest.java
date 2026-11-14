@@ -32,7 +32,7 @@ class UniverseServiceTest {
             new CustomFields(new LoreForm(mapper)),
             new UniverseBriefs(entities, relations, timeline, new UniverseForm(mapper), new AppearanceForm(mapper),
                     new LoreForm(mapper), mapper),
-            mock(CharacterService.class));
+            mock(CharacterService.class), mock(GalleryService.class));
 
     private final UUID owner = UUID.randomUUID();
     private final UUID series = UUID.randomUUID();

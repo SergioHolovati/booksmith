@@ -117,6 +117,19 @@ booksmith:
       api-key: ${ANTHROPIC_API_KEY:}
       # Haiku: o mais barato (~R$ 0,04 por revisão completa); trocar de modelo é só configurar
       model: ${ANTHROPIC_MODEL:claude-haiku-5-5}
+  # Ilustrações com IA (Estúdio Visual): flux (Black Forest Labs), fake (imagem de teste, sem custo) ou off.
+  # Sem BFL_API_KEY, o flux fica desligado. Cerca de US$ 0,03 por retrato e US$ 0,045 por cena com referência.
+  illustrations:
+    provider: ${ILLUSTRATIONS_PROVIDER:flux}
+    weekly-limit: ${ILLUSTRATIONS_WEEKLY_LIMIT:3}
+    concurrency: ${ILLUSTRATIONS_CONCURRENCY:2}
+    timeout: PT120S
+    flux:
+      api-key: ${BFL_API_KEY:}
+      model: ${FLUX_MODEL:flux-2-pro}
+      base-url: ${FLUX_BASE_URL:https://api.bfl.ai}
+      # Filtro de conteúdo do gerador: 0 (mais rígido) a 7; 2 é o padrão do fornecedor (há menores de idade no app)
+      safety-tolerance: ${FLUX_SAFETY_TOLERANCE:2}
   mail:
     enabled: ${MAIL_ENABLED:true}
     resend-api-key: ${RESEND_API_KEY:}
@@ -160,6 +173,9 @@ booksmith:
       auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:600}
   mail:
     enabled: ${MAIL_ENABLED:false}   # e-mails vão para o log
+  # Em desenvolvimento e nos testes, imagem de teste sem custo (para usar o FLUX de verdade: ILLUSTRATIONS_PROVIDER=flux)
+  illustrations:
+    provider: ${ILLUSTRATIONS_PROVIDER:fake}
   media:
     bucket: ${MEDIA_BUCKET:booksmith}
     region: ${AWS_REGION:us-east-1}

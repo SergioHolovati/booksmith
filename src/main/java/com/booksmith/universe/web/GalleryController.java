@@ -80,7 +80,8 @@ class GalleryController {
                 .map(e -> new Linked(e.getId(), e.getName(), e.getKind()))
                 .toList();
         return new ImageResponse(image.getId(), image.getUniverseId(), image.getUrl(), image.getContentType(),
-                image.getBytes(), image.getCaption(), linked, image.getVersion(), image.getCreatedAt());
+                image.getBytes(), image.getCaption(), linked, image.getVersion(), image.getCreatedAt(),
+                image.isAiGenerated());
     }
 
     record UploadRequest(@NotBlank(message = "Escolha uma imagem.") String dataUrl, String caption,
@@ -100,7 +101,8 @@ class GalleryController {
     record Linked(UUID id, String name, String kind) {
     }
 
+    /** {@code aiGenerated}: gerada pelo Estúdio Visual (a galeria mostra a marcação "IA"). */
     record ImageResponse(UUID id, UUID universeId, String url, String contentType, long bytes, String caption,
-                         List<Linked> entities, long version, Instant createdAt) {
+                         List<Linked> entities, long version, Instant createdAt, boolean aiGenerated) {
     }
 }

@@ -70,6 +70,22 @@ public class GalleryService {
                 .build());
     }
 
+    /**
+     * Imagem gerada por IA: entra na biblioteca como um envio normal (mesmos limites e conferências), marcada como
+     * IA; com {@code portraitFor}, vira o retrato desse personagem.
+     */
+    @Transactional
+    public UniverseImage uploadGenerated(UUID ownerId, UUID universeId, byte[] bytes, String contentType,
+                                         String caption, List<UUID> entityIds, UUID portraitFor) {
+        String dataUrl = "data:" + contentType + ";base64," + java.util.Base64.getEncoder().encodeToString(bytes);
+        UniverseImage image = upload(ownerId, universeId, dataUrl, caption, entityIds);
+        image.setAiGenerated(true);
+        if (portraitFor != null) {
+            setPortrait(ownerId, portraitFor, image.getId());
+        }
+        return image;
+    }
+
     /** Legenda e ligações. {@code expectedVersion} desatualizada → 409. */
     @Transactional
     public UniverseImage update(UUID ownerId, UUID imageId, long expectedVersion, String caption, List<UUID> entityIds) {

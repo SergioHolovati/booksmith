@@ -33,6 +33,19 @@ public interface Universes {
     /** URL de uma imagem da biblioteca do universo (fora da lixeira), para a exportação embutir no livro. */
     java.util.Optional<String> imageUrl(UUID universeId, UUID imageId);
 
+    /**
+     * O retrato de um personagem como referência para o gerador de ilustrações: a URL pública (https) quando a
+     * imagem é servida pela internet, ou os bytes em base64 (desenvolvimento). Vazio se não tem retrato.
+     */
+    java.util.Optional<String> portraitReference(UUID universeId, UUID entityId);
+
+    /**
+     * Guarda na biblioteca do universo uma imagem gerada por IA (marcada como IA), ligada aos personagens. Com
+     * {@code portraitFor}, ela vira o retrato desse personagem. Confere o dono e os limites da biblioteca.
+     */
+    GeneratedImage addGeneratedImage(UUID ownerId, UUID universeId, byte[] bytes, String contentType, String caption,
+                                     List<UUID> entityIds, UUID portraitFor);
+
     /** Personagens e lugares do universo, com nomes, outros nomes e (para personagens) a aparência. */
     List<KnownEntity> entities(UUID universeId);
 
@@ -93,5 +106,9 @@ public interface Universes {
     }
 
     record Trait(String value, String label) {
+    }
+
+    /** A imagem gerada já guardada na biblioteca. */
+    record GeneratedImage(UUID id, String url, String caption) {
     }
 }
