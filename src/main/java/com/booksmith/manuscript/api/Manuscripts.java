@@ -74,9 +74,21 @@ public interface Manuscripts {
      * {@code language} é a tag BCP 47 (ex.: "pt-BR"); {@code fandom} só existe em fanfic. {@code layout}: a
      * diagramação do PDF.
      */
+    /** {@code genre}: o gênero do livro (FICTION, CHILDREN…); no CHILDREN, os capítulos são as páginas ilustradas. */
     record BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
                        String coverUrl, UUID universeId, List<ChapterContent> chapters, BookPages pages,
-                       BookLayout layout) {
+                       BookLayout layout, String genre) {
+
+        public BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
+                           String coverUrl, UUID universeId, List<ChapterContent> chapters, BookPages pages,
+                           BookLayout layout) {
+            this(bookId, title, synopsis, language, fanfic, fandom, coverUrl, universeId, chapters, pages, layout,
+                    "FICTION");
+        }
+
+        public boolean pictureBook() {
+            return "CHILDREN".equals(genre);
+        }
 
         public BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
                            String coverUrl, UUID universeId, List<ChapterContent> chapters) {
@@ -141,7 +153,12 @@ public interface Manuscripts {
      * {@code document} é o JSON ProseMirror do capítulo, já validado contra o esquema (§8). {@code partTitle}: o
      * capítulo abre uma parte do livro (null = continua a anterior).
      */
-    record ChapterContent(UUID chapterId, int position, String title, String document, String partTitle) {
+    record ChapterContent(UUID chapterId, int position, String title, String document, String partTitle,
+                          PageDesign page) {
+
+        public ChapterContent(UUID chapterId, int position, String title, String document, String partTitle) {
+            this(chapterId, position, title, document, partTitle, null);
+        }
     }
 
     record ChapterText(UUID chapterId, int position, String title, List<Block> blocks) {

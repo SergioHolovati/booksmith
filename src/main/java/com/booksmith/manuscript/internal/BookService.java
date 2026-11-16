@@ -305,13 +305,17 @@ public class BookService {
         book.setSynopsis(data.synopsis());
         book.setKind(data.kind());
         book.setFandom(data.kind() == BookKind.FANFIC ? data.fandom().trim() : null);
+        if (data.genre() != null) {
+            book.setGenre(data.genre());
+        }
     }
 
     /** {@code language} nulo: pt-BR na criação, sem alteração na edição. */
     /** {@code universeId}: só na criação; nulo cria um universo novo para o livro. */
+    /** {@code genre} nulo: ficção na criação, sem alteração na edição. */
     public record BookData(String title, String synopsis, BookKind kind, String fandom, BookStatus status,
                            BookLanguage language,
-                           String coverDataUrl, UUID universeId) {
+                           String coverDataUrl, UUID universeId, BookGenre genre) {
     }
 
     /**

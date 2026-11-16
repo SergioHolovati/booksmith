@@ -2,6 +2,7 @@ package com.booksmith.manuscript.web;
 
 import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.manuscript.api.PageDesign;
 import com.booksmith.manuscript.internal.Chapter;
 import com.booksmith.manuscript.internal.ChapterService;
 import com.booksmith.manuscript.internal.WritingStatsService;
@@ -81,6 +82,21 @@ class ChapterController {
     ResponseEntity<ChapterSummary> part(@PathVariable UUID chapterId, @RequestBody PartRequest request) {
         Chapter chapter = chapterService.setPart(currentUser.id(), chapterId, request.title());
         return ResponseEntity.ok().eTag(etag(chapter)).body(ChapterSummary.from(chapter));
+    }
+
+    /** O desenho da página no livro ilustrado (infantil). Campos soltos, conferidos no {@link PageDesign} (422). */
+    @PutMapping("/chapters/{chapterId}/page")
+    ResponseEntity<ChapterSummary> page(@PathVariable UUID chapterId, @RequestBody PageRequest request) {
+        Chapter chapter = chapterService.setPage(currentUser.id(), chapterId, request.toPage());
+        return ResponseEntity.ok().eTag(etag(chapter)).body(ChapterSummary.from(chapter));
+    }
+
+    record PageRequest(String imageId, String background, String text, String align, String size, String color,
+                       Boolean band, Boolean spread, String textSide) {
+
+        PageDesign toPage() {
+            return new PageDesign(imageId, background, text, align, size, color, band, spread, textSide);
+        }
     }
 
     record PartRequest(String title) {

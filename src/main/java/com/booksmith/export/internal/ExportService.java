@@ -160,9 +160,14 @@ public class ExportService {
         List<ExportBook.Chapter> chapters = new ArrayList<>();
         for (int i = 0; i < content.chapters().size(); i++) {
             var chapter = content.chapters().get(i);
-            chapters.add(new ExportBook.Chapter(BookHtml.chapterTitle(chapter.title(), i + 1),
-                    jsonMapper.readTree(chapter.document()),
-                    chapter.partTitle() == null || chapter.partTitle().isBlank() ? null : chapter.partTitle().strip()));
+            var document = jsonMapper.readTree(chapter.document());
+            if (content.pictureBook()) {
+                // No livro ilustrado, o fundo da página entra como a primeira ilustração (o ePub e o Word mostram)
+                document = PictureBookHtml.withBackground(document, chapter.page());
+            }
+            chapters.add(new ExportBook.Chapter(BookHtml.chapterTitle(chapter.title(), i + 1), document,
+                    chapter.partTitle() == null || chapter.partTitle().isBlank() ? null : chapter.partTitle().strip(),
+                    content.pictureBook() ? chapter.page() : null));
         }
         String fandom = content.fanfic()
                 ? (content.fandom() == null || content.fandom().isBlank() ? "outra obra" : content.fandom().strip())
@@ -171,7 +176,7 @@ public class ExportService {
         return new ExportBook(content.bookId(), content.title().strip(), author, content.language(),
                 content.synopsis(), fandom, cover, Instant.now(clock), chapters, illustrations(content, chapters),
                 content.pages() == null ? Manuscripts.BookPages.EMPTY : content.pages(),
-                content.layout() == null ? BookLayout.DEFAULT : content.layout());
+                content.layout() == null ? BookLayout.DEFAULT : content.layout(), content.pictureBook());
     }
 
     /** Imagens das ilustrações, lidas uma vez cada; a que saiu da biblioteca (ou do universo) fica de fora. */

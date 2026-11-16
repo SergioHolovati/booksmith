@@ -49,6 +49,12 @@ public class Book {
     @Column(nullable = false)
     private BookKind kind;
 
+    /** Gênero (V35): ficção, cristão, autoajuda, espiritualidade, didático, infantil (livro ilustrado) ou outro. */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private BookGenre genre = BookGenre.FICTION;
+
     private String fandom;
 
     /** Idioma em que o livro é escrito (corretor ortográfico, hifenização, leitores de tela). */

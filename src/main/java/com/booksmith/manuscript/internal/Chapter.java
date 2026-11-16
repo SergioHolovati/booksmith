@@ -43,6 +43,11 @@ public class Chapter {
     @Column(name = "part_title")
     private String partTitle;
 
+    /** Desenho da página no livro ilustrado (V35), JSON de {@link com.booksmith.manuscript.api.PageDesign}; null = padrão. */
+    @Column(columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    private String page;
+
     /** Documento ProseMirror serializado. Gravado como jsonb. */
     @Column(nullable = false, columnDefinition = "jsonb")
     @ColumnTransformer(write = "?::jsonb")

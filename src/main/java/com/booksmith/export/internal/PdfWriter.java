@@ -37,7 +37,7 @@ final class PdfWriter {
             font(builder, "Literata-Italic.ttf", 400, FontStyle.ITALIC);
             font(builder, "Literata-Bold.ttf", 700, FontStyle.NORMAL);
             font(builder, "Literata-BoldItalic.ttf", 700, FontStyle.ITALIC);
-            builder.withHtmlContent(html(book), null);
+            builder.withHtmlContent(book.pictureBook() ? PictureBookHtml.html(book) : html(book), null);
             builder.toStream(bytes);
             builder.run();
         } catch (IOException e) {
@@ -292,8 +292,9 @@ final class PdfWriter {
 
     /** A primeira página do PDF é a capa (JPEG ou PNG); WebP fica de fora. */
     static boolean hasCoverPage(ExportBook book) {
-        // Com sangria é o miolo para a gráfica: a capa vai em arquivo próprio (a capa aberta)
-        return book.cover() != null && COVER_TYPES.contains(book.cover().contentType()) && !book.layout().hasBleed();
+        // Com sangria é o miolo para a gráfica: a capa vai em arquivo próprio (a capa aberta). O livro ilustrado
+        // não põe a capa no PDF do miolo
+        return !book.pictureBook() && book.cover() != null && COVER_TYPES.contains(book.cover().contentType()) && !book.layout().hasBleed();
     }
 
     /** O motor de PDF lê o formato (JPEG e PNG; WebP não). */

@@ -1,6 +1,7 @@
 package com.booksmith.manuscript.internal;
 
 import com.booksmith.common.error.ApiException;
+import com.booksmith.manuscript.api.PageDesign;
 import com.booksmith.manuscript.events.ChapterSaved;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -42,7 +43,9 @@ public class ChapterService {
         Chapter chapter = Chapter.builder()
                 .bookId(bookId)
                 .position(position)
-                .title(title == null || title.isBlank() ? "Capítulo " + position : title.trim())
+                // No livro ilustrado, cada capítulo é uma página
+                .title(title == null || title.isBlank()
+                        ? (book.getGenre() == BookGenre.CHILDREN ? "Página " : "Capítulo ") + position : title.trim())
                 .build();
         chapter.applyDocument(ManuscriptDocument.empty(jsonMapper));
         return new ChapterWithBook(chapterRepository.save(chapter), book);
@@ -104,6 +107,28 @@ public class ChapterService {
         chapter.setPartTitle(clean.isEmpty() ? null : clean);
         return chapterRepository.saveAndFlush(chapter);
     }
+
+    /**
+     * O desenho da página no livro ilustrado (o padrão preenche o que falta). Muda a versão do capítulo, como
+     * renomear: o editor manda pela mesma fila do salvamento automático.
+     */
+    @Transactional
+    public Chapter setPage(UUID ownerId, UUID chapterId, PageDesign page) {
+        Chapter chapter = require(ownerId, chapterId);
+        PageDesign clean = page == null ? PageDesign.DEFAULT : page;
+        chapter.setPage(jsonMapper.writeValueAsString(clean));
+        return chapterRepository.saveAndFlush(chapter);
+    }
+
+    /** O desenho guardado, ou o padrão. */
+    public static PageDesign pageOf(Chapter chapter) {
+        if (chapter.getPage() == null || chapter.getPage().isBlank()) {
+            return PageDesign.DEFAULT;
+        }
+        return PAGE_READER.readValue(chapter.getPage(), PageDesign.class);
+    }
+
+    private static final JsonMapper PAGE_READER = JsonMapper.builder().build();
 
     /**
      * Vai para a lixeira por 30 dias (TrashService). Se o capítulo abria uma parte, ela passa para o capítulo

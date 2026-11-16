@@ -17,10 +17,20 @@ import java.util.UUID;
  * @param illustrations ilustrações do texto (id da imagem da biblioteca → arquivo); imagem que sumiu fica de fora
  * @param pages         créditos, dedicatória, epígrafe, agradecimentos e "sobre o autor" (vazias = não saem)
  * @param layout        diagramação do PDF (tamanho, letra, margens, abertura, quebra de cena)
+ * @param pictureBook   livro ilustrado (infantil): cada capítulo é uma página com o fundo e o texto por cima
  */
 record ExportBook(UUID id, String title, String author, String language, String synopsis, String fandom,
                   ImageData cover, Instant generatedAt, List<Chapter> chapters,
-                  java.util.Map<String, ImageData> illustrations, BookPages pages, BookLayout layout) {
+                  java.util.Map<String, ImageData> illustrations, BookPages pages, BookLayout layout,
+                  boolean pictureBook) {
+
+    /** Livro de texto (não ilustrado). */
+    ExportBook(UUID id, String title, String author, String language, String synopsis, String fandom,
+               ImageData cover, Instant generatedAt, List<Chapter> chapters,
+               java.util.Map<String, ImageData> illustrations, BookPages pages, BookLayout layout) {
+        this(id, title, author, language, synopsis, fandom, cover, generatedAt, chapters, illustrations, pages, layout,
+                false);
+    }
 
     /** Livro com a diagramação padrão. */
     ExportBook(UUID id, String title, String author, String language, String synopsis, String fandom,
@@ -33,7 +43,7 @@ record ExportBook(UUID id, String title, String author, String language, String 
     /** O mesmo livro com outra diagramação (prévia de escolhas ainda não salvas). */
     ExportBook withLayout(BookLayout other) {
         return new ExportBook(id, title, author, language, synopsis, fandom, cover, generatedAt, chapters, illustrations,
-                pages, other);
+                pages, other, pictureBook);
     }
 
     /** Livro sem páginas extras. */
@@ -56,8 +66,13 @@ record ExportBook(UUID id, String title, String author, String language, String 
     /**
      * @param document  o documento ProseMirror do capítulo (§8), já validado
      * @param partTitle o capítulo abre uma parte do livro ("Parte I — A partida"); null = continua a anterior
+     * @param page      no livro ilustrado, o desenho da página (fundo, texto); null nos outros
      */
-    record Chapter(String title, JsonNode document, String partTitle) {
+    record Chapter(String title, JsonNode document, String partTitle, com.booksmith.manuscript.api.PageDesign page) {
+
+        Chapter(String title, JsonNode document, String partTitle) {
+            this(title, document, partTitle, null);
+        }
 
         Chapter(String title, JsonNode document) {
             this(title, document, null);

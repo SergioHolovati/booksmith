@@ -3,6 +3,8 @@ package com.booksmith.manuscript.web;
 import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.CoverPdf;
 import com.booksmith.manuscript.api.Manuscripts;
+import com.booksmith.manuscript.api.PageDesign;
+import com.booksmith.manuscript.internal.BookGenre;
 import com.booksmith.manuscript.internal.Book;
 import com.booksmith.manuscript.internal.CoverDesign;
 import com.booksmith.manuscript.internal.BookKind;
@@ -39,24 +41,26 @@ final class ManuscriptDtos {
             BookStatus status,
             @Size(max = 10) String language,
             String cover,
-            UUID universeId) {
+            UUID universeId,
+            BookGenre genre) {
 
         BookService.BookData toData() {
             String coverDataUrl = cover != null && cover.startsWith("data:image") ? cover : null;
             BookLanguage bookLanguage = language == null || language.isBlank() ? null : BookLanguage.fromTag(language);
-            return new BookService.BookData(title, synopsis, kind, fandom, status, bookLanguage, coverDataUrl, universeId);
+            return new BookService.BookData(title, synopsis, kind, fandom, status, bookLanguage, coverDataUrl, universeId,
+                    genre);
         }
     }
 
     record BookSummary(UUID id, String title, String synopsis, BookKind kind, String fandom, String language,
                        String coverUrl, BookStatus status, UUID universeId, long chapterCount, long wordCount,
-                       Instant updatedAt) {
+                       Instant updatedAt, BookGenre genre) {
 
         static BookSummary from(Book book, BookStats stats) {
             return new BookSummary(book.getId(), book.getTitle(), book.getSynopsis(), book.getKind(),
                     book.getFandom(), book.getLanguage().tag(), book.getCoverUrl(), book.getStatus(), book.getUniverseId(),
                     stats.chapterCount(),
-                    stats.wordCount(), book.getUpdatedAt());
+                    stats.wordCount(), book.getUpdatedAt(), book.getGenre());
         }
     }
 
@@ -64,7 +68,7 @@ final class ManuscriptDtos {
                               String language, String coverUrl, BookStatus status, UUID universeId, Instant createdAt,
                               Instant updatedAt, List<ChapterSummary> chapters, Manuscripts.BookPages pages,
                               BookLayout layout, CoverDesign coverDesign, CoverPdf coverPdf,
-                              com.booksmith.manuscript.api.Publishing publishing) {
+                              com.booksmith.manuscript.api.Publishing publishing, BookGenre genre) {
 
         static BookDetailResponse from(BookService.BookDetail detail) {
             Book book = detail.book();
@@ -72,7 +76,7 @@ final class ManuscriptDtos {
                     book.getFandom(), book.getLanguage().tag(), book.getCoverUrl(), book.getStatus(),
                     book.getUniverseId(), book.getCreatedAt(),
                     book.getUpdatedAt(), detail.chapters().stream().map(ChapterSummary::from).toList(), book.pages(),
-                    detail.layout(), detail.coverDesign(), detail.coverPdf(), detail.publishing());
+                    detail.layout(), detail.coverDesign(), detail.coverPdf(), detail.publishing(), book.getGenre());
         }
     }
 
@@ -94,23 +98,27 @@ final class ManuscriptDtos {
 
     /** {@code partTitle}: este capítulo abre uma parte do livro (null = continua a anterior). */
     record ChapterSummary(UUID id, String title, int position, int wordCount, long version, Instant updatedAt,
-                          String partTitle) {
+                          String partTitle, PageDesign page) {
 
         static ChapterSummary from(Chapter chapter) {
             return new ChapterSummary(chapter.getId(), chapter.getTitle(), chapter.getPosition(),
-                    chapter.getWordCount(), chapter.getVersion(), chapter.getUpdatedAt(), chapter.getPartTitle());
+                    chapter.getWordCount(), chapter.getVersion(), chapter.getUpdatedAt(), chapter.getPartTitle(),
+                    ChapterService.pageOf(chapter));
         }
     }
 
     /** {@code language}: idioma do livro, para o editor ajustar o corretor ortográfico. */
+    /** {@code genre} e {@code page}: no livro infantil, o editor mostra o desenho da página. */
     record ChapterResponse(UUID id, UUID bookId, String title, int position, String language, JsonNode content,
-                           int wordCount, String contentHash, long version, Instant updatedAt) {
+                           int wordCount, String contentHash, long version, Instant updatedAt, BookGenre genre,
+                           PageDesign page) {
 
         static ChapterResponse from(ChapterService.ChapterWithBook view, JsonMapper mapper) {
             Chapter chapter = view.chapter();
             return new ChapterResponse(chapter.getId(), chapter.getBookId(), chapter.getTitle(),
                     chapter.getPosition(), view.book().getLanguage().tag(), mapper.readTree(chapter.getContent()),
-                    chapter.getWordCount(), chapter.getContentHash(), chapter.getVersion(), chapter.getUpdatedAt());
+                    chapter.getWordCount(), chapter.getContentHash(), chapter.getVersion(), chapter.getUpdatedAt(),
+                    view.book().getGenre(), ChapterService.pageOf(chapter));
         }
     }
 

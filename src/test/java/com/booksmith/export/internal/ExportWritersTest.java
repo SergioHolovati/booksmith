@@ -295,6 +295,110 @@ class ExportWritersTest {
         assertThat(PdfWriter.html(book)).contains("width: 203.2mm; height: 205.4mm");
     }
 
+    private static ExportBook pictureBook() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null, true);
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"%s\"}]}]}";
+        var bottom = new com.booksmith.manuscript.api.PageDesign(IMAGE_ID, null, "bottom", "center", "l", "dark", true, false, null);
+        var spread = new com.booksmith.manuscript.api.PageDesign(IMAGE_ID, null, "top", "left", "m", "light", false, true, "right");
+        var middle = new com.booksmith.manuscript.api.PageDesign(null, "#ffd23f", "middle", "center", "xl", "dark", false, false, null);
+        List<ExportBook.Chapter> chapters = new ArrayList<>();
+        int n = 0;
+        for (var page : List.of(bottom, spread, middle)) {
+            n++;
+            var doc = PictureBookHtml.withBackground(JSON.readTree(text.formatted("Página " + n + " da história.")), page);
+            chapters.add(new ExportBook.Chapter("Página " + n, doc, null, page));
+        }
+        return new ExportBook(UUID.randomUUID(), "O dia colorido", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-16T12:00:00Z"), chapters,
+                java.util.Map.of(IMAGE_ID, new ImageData(twoColors(2400, 2400), "image/png", "png")),
+                com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY, layout, true);
+    }
+
+    @Test
+    void pictureBookPagesHaveTheArtToTheEdgeAndTheTextOnTop() throws Exception {
+        ExportBook book = pictureBook();
+        byte[] pdf = PdfWriter.write(book);
+
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            // Folha de rosto, página 1, dupla (esquerda par + direita), página 3
+            var renderer = new org.apache.pdfbox.rendering.PDFRenderer(document);
+            List<String> texts = new ArrayList<>();
+            for (int i = 0; i < document.getNumberOfPages(); i++) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                stripper.setStartPage(i + 1);
+                stripper.setEndPage(i + 1);
+                texts.add(stripper.getText(document).strip());
+            }
+            int first = texts.indexOf("Página 1 da história.");
+            int third = texts.indexOf("Página 3 da história.");
+            assertThat(texts.getFirst()).contains("O dia colorido");
+            assertThat(first).isEqualTo(1);
+            // A dupla: duas páginas seguidas, a primeira par (índice ímpar = página par), texto só na da direita
+            int spreadLeft = third - 2;
+            assertThat((spreadLeft + 1) % 2).isZero();
+            assertThat(texts.get(spreadLeft)).isEmpty();
+            assertThat(texts.get(spreadLeft + 1)).isEqualTo("Página 2 da história.");
+
+            // Fundo até a borda: os cantos da página 1 têm a arte (vermelho à esquerda, azul à direita)
+            var page1 = renderer.renderImageWithDPI(first, 36);
+            assertThat(new java.awt.Color(page1.getRGB(1, 1)).getRed()).isGreaterThan(200);
+            assertThat(new java.awt.Color(page1.getRGB(page1.getWidth() - 2, 1)).getBlue()).isGreaterThan(200);
+            // Dupla: a esquerda é toda vermelha, a direita toda azul
+            var left = renderer.renderImageWithDPI(spreadLeft, 36);
+            var right = renderer.renderImageWithDPI(spreadLeft + 1, 36);
+            assertThat(new java.awt.Color(left.getRGB(left.getWidth() - 2, left.getHeight() - 2)).getRed()).isGreaterThan(200);
+            assertThat(new java.awt.Color(right.getRGB(1, 1)).getBlue()).isGreaterThan(200);
+            // Página 3: só a cor de fundo (amarelo) e o texto no meio
+            var page3 = renderer.renderImageWithDPI(third, 36);
+            var corner = new java.awt.Color(page3.getRGB(2, 2));
+            assertThat(corner.getRed()).isGreaterThan(240);
+            assertThat(corner.getGreen()).isGreaterThan(190);
+            assertThat(corner.getBlue()).isLessThan(100);
+
+            // Posição do texto: embaixo na página 1, no meio da página 3 (em pontos, de cima)
+            float[] firstY = textY(document, first + 1);
+            float[] thirdY = textY(document, third + 1);
+            float height = document.getPage(first).getMediaBox().getHeight();
+            assertThat(firstY[0] / height).isGreaterThan(0.75f);
+            assertThat(thirdY[0] / height).isBetween(0.35f, 0.65f);
+        }
+        // Sem sumário nem número de página; o texto da página não repete a ilustração de fundo
+        String html = PictureBookHtml.html(book);
+        assertThat(html).doesNotContain("Sumário").doesNotContain("<figure");
+        assertThat(html).contains("pb-text dark band-light align-center").contains("pb-page spread-left");
+        // A área segura conta do corte: na página da esquerda (a 2) a sangria fica à esquerda (12 + 3,2 mm); na da
+        // direita (a 5, metade direita da dupla), à direita. A caixa tem 200 − 24 = 176 mm nas duas
+        assertThat(html).contains("left: 15.2mm; width: 176.0mm").contains("left: 12.0mm; width: 176.0mm");
+    }
+
+    @Test
+    void pictureBookBackgroundsShowInTheEpubAndAreCheckedForPrint() throws Exception {
+        ExportBook book = pictureBook();
+        String page1 = book.chapters().getFirst().html(id -> "images/x.png");
+        assertThat(page1).contains("<figure class=\"illustration size-bleed\">");
+        var check = PrintCheck.check(book);
+        // Duas páginas com imagem: até a borda e dupla, medidas no tamanho da página com sangria
+        assertThat(check.illustrations()).extracting(PrintCheck.Illustration::size).containsExactly("bleed", "spread");
+        assertThat(check.needsBleed()).isFalse();
+    }
+
+    /** A altura (de cima) do primeiro caractere da página, em pontos. */
+    private static float[] textY(PDDocument document, int page) throws Exception {
+        float[] y = {-1};
+        PDFTextStripper stripper = new PDFTextStripper() {
+            @Override
+            protected void writeString(String text, List<org.apache.pdfbox.text.TextPosition> positions) {
+                if (y[0] < 0 && !positions.isEmpty()) {
+                    y[0] = positions.getFirst().getYDirAdj();
+                }
+            }
+        };
+        stripper.setStartPage(page);
+        stripper.setEndPage(page);
+        stripper.getText(document);
+        return y;
+    }
+
     @Test
     void textKeepsItsPlaceRelativeToTheCutOnLeftAndRightPages() throws Exception {
         var layout = new com.booksmith.manuscript.api.BookLayout("a5", null, null, null, null, null, null, null, true);
