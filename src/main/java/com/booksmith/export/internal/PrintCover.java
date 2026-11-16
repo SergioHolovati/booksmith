@@ -33,7 +33,7 @@ public final class PrintCover {
     private static final double MM_PER_INCH = 25.4;
 
     /** Tamanhos de livro que o KDP aceita entre os da diagramação (A5 e 6×9). */
-    private static final Set<String> KDP_TRIMS = Set.of("a5", "6x9");
+    private static final Set<String> KDP_TRIMS = Set.of("a5", "6x9", "8.5x8.5", "8.25x8.25", "8.25x6");
 
     /** No KDP, o livro impresso tem de 24 páginas para cima e só ganha texto na lombada com mais de 79. */
     static final int KDP_MIN_PAGES = 24;
@@ -214,7 +214,8 @@ public final class PrintCover {
             spine = pages * profile.pageMm;
             bleed = 3.2;
             if (!KDP_TRIMS.contains(layout.trim())) {
-                warnings.add("O KDP não aceita o tamanho " + layout.trim() + ". Na diagramação, escolha A5 ou 6×9.");
+                warnings.add("O KDP não aceita este tamanho. Na diagramação, escolha A5, 6×9, um dos quadrados do KDP "
+                        + "(8,5×8,5\" ou 8,25×8,25\") ou o deitado 8,25×6\".");
             }
             if (pages < KDP_MIN_PAGES) {
                 warnings.add("O KDP imprime livros a partir de " + KDP_MIN_PAGES + " páginas; este tem " + pages + ".");

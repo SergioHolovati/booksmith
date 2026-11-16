@@ -55,8 +55,11 @@ public final class PrintCheck {
         }
     }
 
-    /** {@code textWidthMm}: largura da área de texto na diagramação, o máximo de uma ilustração. */
-    public record Result(int minDpi, double textWidthMm, List<Illustration> illustrations) {
+    /**
+     * {@code textWidthMm}: largura da área de texto na diagramação, o máximo de uma ilustração. {@code needsBleed}:
+     * há ilustração até a borda (ou dupla) e a diagramação está sem sangria: na gráfica, ela sairia com filete branco.
+     */
+    public record Result(int minDpi, double textWidthMm, List<Illustration> illustrations, boolean needsBleed) {
     }
 
     static Result check(ExportBook book) {
@@ -80,7 +83,8 @@ public final class PrintCheck {
                 }
             }
         }
-        return new Result(MIN_DPI, round(maxWidth), List.copyOf(found));
+        boolean edge = found.stream().anyMatch(i -> "bleed".equals(i.size()) || "spread".equals(i.size()));
+        return new Result(MIN_DPI, round(maxWidth), List.copyOf(found), edge && !layout.hasBleed());
     }
 
     /**

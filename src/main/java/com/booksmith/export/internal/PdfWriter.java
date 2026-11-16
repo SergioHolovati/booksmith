@@ -43,7 +43,32 @@ final class PdfWriter {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return bytes.toByteArray();
+        return book.layout().hasBleed() ? withPrintBoxes(bytes.toByteArray(), book.layout()) : bytes.toByteArray();
+    }
+
+    private static final float POINTS_PER_MM = 72f / 25.4f;
+
+    /**
+     * Miolo com sangria: cada página ganha o TrimBox (onde a gráfica corta) e o BleedBox (a página inteira). A
+     * sangria fica na borda de fora: à direita nas páginas ímpares (direita do livro aberto), à esquerda nas pares.
+     */
+    static byte[] withPrintBoxes(byte[] pdf, BookLayout layout) {
+        try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(pdf)) {
+            float bleed = (float) BookLayout.BLEED_MM * POINTS_PER_MM;
+            float width = (float) layout.widthMm() * POINTS_PER_MM;
+            float height = (float) layout.heightMm() * POINTS_PER_MM;
+            for (int i = 0; i < document.getNumberOfPages(); i++) {
+                var page = document.getPage(i);
+                boolean right = i % 2 == 0;
+                page.setBleedBox(page.getMediaBox());
+                page.setTrimBox(new org.apache.pdfbox.pdmodel.common.PDRectangle(right ? 0 : bleed, bleed, width, height));
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     static String html(ExportBook book) {
@@ -157,18 +182,25 @@ final class PdfWriter {
             case "simple" -> ".chapter > h1 { font-size: 15pt; margin: 0 0 8mm; }";
             default -> "";
         };
-        String width = number(layout.widthMm());
+        double[] page = pageBoxMm(layout);
+        String width = number(page[0]);
+        // Com sangria, a página cresce na borda de fora e em cima e embaixo; o texto fica no mesmo lugar do corte
+        double bleed = layout.hasBleed() ? BookLayout.BLEED_MM : 0;
+        String sides = bleed == 0 ? "" : """
+                @page :right { margin-left: %1$smm; margin-right: %2$smm; }
+                @page :left { margin-left: %2$smm; margin-right: %1$smm; }
+                """.formatted(number(margins[1]), number(margins[1] + bleed));
         // A capa tem a sua página com nome, sem margem. Com "@page :first { margin: 0 }", o OpenHTMLtoPDF calculava
         // a largura do texto pela primeira página (a da capa) e o texto do livro inteiro saía pela margem direita.
         return """
-                @page { size: %1$smm %2$smm; margin: %3$dmm %4$dmm %5$dmm %4$dmm; }
-                body { font-size: %6$spt; line-height: %7$s; }
+                @page { size: %1$smm %2$smm; margin: %3$smm %4$smm %5$smm %4$smm; }
+                %10$sbody { font-size: %6$spt; line-height: %7$s; }
                 @page cover { margin: 0; }
                 .cover { page: cover; }
                 .cover img { width: %1$smm; height: %8$smm; }
                 .chapter > h1 + p.indent { text-indent: 0; }
-                %9$s""".formatted(width, number(layout.heightMm()), margins[0], margins[1], margins[2],
-                number(layout.fontSize()), number(leading), number(layout.heightMm() - 1), chapter);
+                %9$s""".formatted(width, number(page[1]), number(margins[0] + bleed), number(margins[1]),
+                number(margins[2] + bleed), number(layout.fontSize()), number(leading), number(page[1] - 1), chapter, sides);
     }
 
     /** Margens da página em mm: em cima, dos lados, embaixo. */
@@ -194,9 +226,13 @@ final class PdfWriter {
         return layout.heightMm() - margins[0] - margins[2];
     }
 
-    /** A página inteira (largura, altura) em mm: onde a ilustração até a borda se espalha. */
+    /**
+     * A página inteira (largura, altura) em mm: onde a ilustração até a borda se espalha. Com sangria, o corte mais
+     * {@link BookLayout#BLEED_MM} na borda de fora e em cima e embaixo.
+     */
     static double[] pageBoxMm(BookLayout layout) {
-        return new double[] {layout.widthMm(), layout.heightMm()};
+        double bleed = layout.hasBleed() ? BookLayout.BLEED_MM : 0;
+        return new double[] {layout.widthMm() + bleed, layout.heightMm() + 2 * bleed};
     }
 
     /**
@@ -249,12 +285,15 @@ final class PdfWriter {
 
     /** 148 → "148"; 152.4 → "152.4" (CSS não aceita vírgula). */
     private static String number(double value) {
-        return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
+        // Em centésimos inteiros: 20 + 3,2 dá 23,200000000000003 em double
+        long hundredths = Math.round(value * 100);
+        return java.math.BigDecimal.valueOf(hundredths, 2).stripTrailingZeros().toPlainString();
     }
 
     /** A primeira página do PDF é a capa (JPEG ou PNG); WebP fica de fora. */
     static boolean hasCoverPage(ExportBook book) {
-        return book.cover() != null && COVER_TYPES.contains(book.cover().contentType());
+        // Com sangria é o miolo para a gráfica: a capa vai em arquivo próprio (a capa aberta)
+        return book.cover() != null && COVER_TYPES.contains(book.cover().contentType()) && !book.layout().hasBleed();
     }
 
     /** O motor de PDF lê o formato (JPEG e PNG; WebP não). */

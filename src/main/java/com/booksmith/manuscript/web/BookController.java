@@ -147,10 +147,11 @@ class BookController {
 
     /** Recebido solto e conferido no {@link BookLayout} (422 {@code layout_invalid}), fora do Jackson. */
     record LayoutRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
-                         String sceneBreak) {
+                         String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed) {
 
         BookLayout toLayout() {
-            return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak);
+            return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm,
+                    customHeightMm, bleed);
         }
     }
 

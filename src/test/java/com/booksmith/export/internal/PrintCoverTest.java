@@ -41,7 +41,7 @@ class PrintCoverTest {
                 20, null, null);
         assertThat(spec.spineText()).isFalse();
         assertThat(spec.warnings()).hasSize(2);
-        assertThat(spec.warnings().getFirst()).contains("A5 ou 6×9");
+        assertThat(spec.warnings().getFirst()).contains("A5, 6×9").contains("8,25×6");
     }
 
     @Test

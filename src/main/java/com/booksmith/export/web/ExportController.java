@@ -41,8 +41,7 @@ class ExportController {
     @PostMapping("/books/{bookId}/export/preview")
     PdfPreview.Preview preview(@PathVariable UUID bookId, @RequestBody PreviewRequest request) {
         AuthenticatedUser user = currentUser.get();
-        BookLayout layout = new BookLayout(request.trim(), request.fontSize(), request.leading(), request.margins(),
-                request.chapterStyle(), request.sceneBreak());
+        BookLayout layout = request.layout();
         return exportService.preview(user.id(), authorName(user), bookId, layout,
                 request.from() == null ? 1 : request.from(), request.count() == null ? 2 : request.count());
     }
@@ -54,14 +53,19 @@ class ExportController {
     @PostMapping("/books/{bookId}/export/print-check")
     PrintCheck.Result printCheck(@PathVariable UUID bookId, @RequestBody PreviewRequest request) {
         AuthenticatedUser user = currentUser.get();
-        BookLayout layout = new BookLayout(request.trim(), request.fontSize(), request.leading(), request.margins(),
-                request.chapterStyle(), request.sceneBreak());
+        BookLayout layout = request.layout();
         return exportService.printCheck(user.id(), authorName(user), bookId, layout);
     }
 
     /** A diagramação (campos soltos, conferidos no {@link BookLayout}) e as páginas pedidas, a partir de 1. */
     record PreviewRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
-                          String sceneBreak, Integer from, Integer count) {
+                          String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
+                          Integer from, Integer count) {
+
+        BookLayout layout() {
+            return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm,
+                    customHeightMm, bleed);
+        }
     }
 
     private static String authorName(AuthenticatedUser user) {

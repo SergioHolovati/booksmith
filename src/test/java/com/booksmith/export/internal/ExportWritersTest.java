@@ -256,6 +256,67 @@ class ExportWritersTest {
     }
 
     @Test
+    void squareBookWithBleedIsThePrintInterior() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null, true);
+        ExportBook book = placed(twoColors(2400, 2400), "bleed").withLayout(layout);
+        byte[] pdf = PdfWriter.write(book);
+
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            float mm = 72f / 25.4f;
+            var first = document.getPage(0);
+            // 200 × 200 mm + 3,2 na borda de fora + 3,2 em cima e embaixo
+            assertThat(first.getMediaBox().getWidth()).isCloseTo(203.2f * mm, org.assertj.core.data.Offset.offset(0.5f));
+            assertThat(first.getMediaBox().getHeight()).isCloseTo(206.4f * mm, org.assertj.core.data.Offset.offset(0.5f));
+            // Corte: na página da direita a sangria fica à direita; na da esquerda, à esquerda
+            assertThat(first.getTrimBox().getLowerLeftX()).isZero();
+            assertThat(document.getPage(1).getTrimBox().getLowerLeftX()).isCloseTo(3.2f * mm, org.assertj.core.data.Offset.offset(0.1f));
+            assertThat(first.getTrimBox().getWidth()).isCloseTo(200f * mm, org.assertj.core.data.Offset.offset(0.5f));
+            assertThat(first.getBleedBox().toString()).isEqualTo(first.getMediaBox().toString());
+
+            // O texto fica no mesmo lugar em relação ao corte: na página par, 3,2 mm mais para a direita
+            float[] left = new float[document.getNumberOfPages()];
+            PDFTextStripper stripper = new PDFTextStripper() {
+                @Override
+                protected void writeString(String text, List<org.apache.pdfbox.text.TextPosition> positions) {
+                    int page = getCurrentPageNo() - 1;
+                    for (var p : positions) {
+                        left[page] = left[page] == 0 ? p.getXDirAdj() : Math.min(left[page], p.getXDirAdj());
+                    }
+                }
+            };
+            stripper.getText(document);
+            // Página 2 (esquerda): o sumário começa a 17 + 3,2 mm da borda; página 3 (direita): o capítulo, a 17 mm
+            assertThat(left[1]).isCloseTo(20.2f * mm, org.assertj.core.data.Offset.offset(1f));
+            assertThat(left[2]).isCloseTo(17f * mm, org.assertj.core.data.Offset.offset(1f));
+        }
+        // Sem capa no miolo para gráfica
+        assertThat(PdfWriter.hasCoverPage(book)).isFalse();
+        // A ilustração até a borda cobre a página com a sangria (203,2 × 206,4)
+        assertThat(PdfWriter.html(book)).contains("width: 203.2mm; height: 205.4mm");
+    }
+
+    @Test
+    void textKeepsItsPlaceRelativeToTheCutOnLeftAndRightPages() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("a5", null, null, null, null, null, null, null, true);
+        String css = PdfWriter.layoutCss(layout);
+        // Margens normais (17 mm dos lados): a de fora ganha a sangria
+        assertThat(css).contains("@page :right { margin-left: 17mm; margin-right: 20.2mm; }")
+                .contains("@page :left { margin-left: 20.2mm; margin-right: 17mm; }")
+                .contains("size: 151.2mm 216.4mm; margin: 23.2mm 17mm 25.2mm 17mm;");
+        // Sem sangria, igual a antes
+        assertThat(PdfWriter.layoutCss(com.booksmith.manuscript.api.BookLayout.DEFAULT))
+                .contains("size: 148mm 210mm; margin: 20mm 17mm 22mm 17mm;").doesNotContain("@page :left");
+    }
+
+    @Test
+    void printCheckSaysWhenEdgeIllustrationsNeedBleed() throws Exception {
+        assertThat(PrintCheck.check(placed(twoColors(2000, 1500), "spread")).needsBleed()).isTrue();
+        assertThat(PrintCheck.check(placed(twoColors(2000, 1500), "wide")).needsBleed()).isFalse();
+        var withBleed = new com.booksmith.manuscript.api.BookLayout("a5", null, null, null, null, null, null, null, true);
+        assertThat(PrintCheck.check(placed(twoColors(2000, 1500), "spread").withLayout(withBleed)).needsBleed()).isFalse();
+    }
+
+    @Test
     void printCheckMeasuresEachPlacement() throws Exception {
         var result = PrintCheck.check(placed(twoColors(2000, 1500), "small", "wide", "bleed", "spread"));
         // A5, margens normais: texto com 114 mm
