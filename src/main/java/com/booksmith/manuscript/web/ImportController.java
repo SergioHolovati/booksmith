@@ -51,6 +51,20 @@ class ImportController {
                 .body(importService.importFile(currentUser.id(), bookId, bytes, name, single));
     }
 
+    /** A estrutura que o arquivo parece ter, para o escritor revisar e aprovar. Não grava nada. */
+    @PostMapping(path = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ImportService.StructureView analyze(@PathVariable UUID bookId, @RequestPart("file") MultipartFile file) {
+        return importService.analyze(currentUser.id(), bookId, read(file), file.getOriginalFilename());
+    }
+
+    /** Importa com a estrutura aprovada ({@code structure}: JSON com as divisões e, se quiser, o sumário). */
+    @PostMapping(path = "/structured", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
+    ImportPlan importStructured(@PathVariable UUID bookId, @RequestPart("file") MultipartFile file,
+                                @RequestPart("structure") ImportService.StructureRequest structure) {
+        return importService.importStructured(currentUser.id(), bookId, read(file), file.getOriginalFilename(), structure);
+    }
+
     private static byte[] read(MultipartFile file) {
         try {
             return file.getBytes();

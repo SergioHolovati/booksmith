@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -69,7 +70,8 @@ final class EpubWriter {
                         <section epub:type="chapter" id="chapter-%d">
                         <h1>%s</h1>
                         %s</section>
-                        """.formatted(i + 1, escape(chapter.title()), chapter.html(id -> illustrationHref(book, id)))));
+                        """.formatted(i + 1, escape(chapter.title()),
+                        chapter.html(id -> illustrationHref(book, id), "chapter-" + (i + 1)))));
             }
             for (BookPagesHtml.Page extra : back(book)) {
                 text(zip, "EPUB/" + extra.id() + ".xhtml", page(book, extra.title(), "backmatter", extra.html()));
@@ -158,11 +160,11 @@ final class EpubWriter {
                 MODIFIED.format(book.generatedAt().truncatedTo(ChronoUnit.SECONDS)), coverMeta, manifest, spine);
     }
 
-    private static java.util.List<BookPagesHtml.Page> back(ExportBook book) {
+    private static List<BookPagesHtml.Page> back(ExportBook book) {
         return BookPagesHtml.back(book.pages(), book.author());
     }
 
-    private static void extras(java.util.List<BookPagesHtml.Page> pages, StringBuilder manifest, StringBuilder spine) {
+    private static void extras(List<BookPagesHtml.Page> pages, StringBuilder manifest, StringBuilder spine) {
         for (BookPagesHtml.Page extra : pages) {
             manifest.append("    <item id=\"%1$s\" href=\"%1$s.xhtml\" media-type=\"application/xhtml+xml\"/>\n"
                     .formatted(extra.id()));
@@ -183,8 +185,19 @@ final class EpubWriter {
                 items.append("      <li><a href=\"%s\">%s</a>\n        <ol>\n".formatted(partFile(i), escape(chapter.partTitle())));
                 inPart = true;
             }
-            items.append("      %s<li><a href=\"%s\">%s</a></li>\n"
-                    .formatted(inPart ? "    " : "", chapterFile(i), escape(chapter.title())));
+            String indent = inPart ? "    " : "";
+            items.append("      %s<li><a href=\"%s\">%s</a>".formatted(indent, chapterFile(i), escape(chapter.title())));
+            List<BookHtml.Section> sections = chapter.sections();
+            if (!sections.isEmpty()) {
+                // Os subcapítulos, aninhados no capítulo
+                items.append("\n      ").append(indent).append("  <ol class=\"sections\">\n");
+                for (BookHtml.Section section : sections) {
+                    items.append("      %s    <li><a href=\"%s#%s\">%s</a></li>\n".formatted(indent, chapterFile(i),
+                            BookHtml.sectionId("chapter-" + (i + 1), section.number()), escape(section.title())));
+                }
+                items.append("      ").append(indent).append("  </ol>\n      ").append(indent);
+            }
+            items.append("</li>\n");
         }
         if (inPart) {
             items.append("        </ol>\n      </li>\n");
@@ -341,6 +354,13 @@ final class EpubWriter {
             figure.illustration { margin: 1.5em 0; text-align: center; page-break-inside: avoid; }
             figure.illustration img { max-width: 100%; max-height: 80vh; }
             figure.illustration figcaption { font-size: .85em; font-style: italic; margin-top: .5em; text-align: center; }
+            figure.size-small { width: 40%; margin-left: auto; margin-right: auto; }
+            figure.size-medium { width: 65%; margin-left: auto; margin-right: auto; }
+            figure.size-small img, figure.size-medium img, figure.size-wide img { width: 100%; }
+            figure.align-left { float: left; margin: .2em 1.2em .6em 0; }
+            figure.align-right { float: right; margin: .2em 0 .6em 1.2em; }
+            figure.size-page, figure.size-bleed, figure.size-spread { page-break-before: always; page-break-after: always; margin: 0; }
+            figure.size-page img, figure.size-bleed img, figure.size-spread img { width: 100%; max-height: 95vh; object-fit: contain; }
             .part-page { text-align: center; padding-top: 35%; }
             .part-title { font-size: 1.8em; margin: 0; font-weight: normal; letter-spacing: .03em; }
             .cover { text-align: center; margin: 0; padding: 0; }
@@ -359,6 +379,7 @@ final class EpubWriter {
             p.epigraph-source { text-align: right; font-size: .9em; }
             .back-page p { text-indent: 1.5em; }
             nav ol { list-style: none; padding: 0; }
+            nav ol.sections { padding-left: 1.2em; font-size: .92em; }
             nav li { margin: .4em 0; }
             """;
 }

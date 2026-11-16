@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Base64;
+import java.util.List;
 import java.util.Set;
 
 import static com.booksmith.export.internal.BookHtml.escape;
@@ -49,6 +50,7 @@ final class PdfWriter {
         StringBuilder bookmarks = new StringBuilder();
         StringBuilder toc = new StringBuilder();
         StringBuilder chapters = new StringBuilder();
+        BookHtml.PageIllustration pages = pageIllustrations(book);
         for (int i = 0; i < book.chapters().size(); i++) {
             ExportBook.Chapter chapter = book.chapters().get(i);
             String id = "chapter-" + (i + 1);
@@ -61,13 +63,28 @@ final class PdfWriter {
                 chapters.append("<section class=\"part-page\" id=\"%s\"><h1 class=\"part-title\">%s</h1></section>\n"
                         .formatted(partId, part));
             }
-            bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(title, id));
+            List<BookHtml.Section> sections = chapter.sections();
+            if (sections.isEmpty()) {
+                bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(title, id));
+            } else {
+                bookmarks.append("<bookmark name=\"%s\" href=\"#%s\">\n".formatted(title, id));
+            }
             toc.append("<li><a href=\"#%s\">%s</a></li>\n".formatted(id, title));
+            // Os subcapítulos: no sumário, recuados embaixo do capítulo, e nos marcadores do PDF
+            for (BookHtml.Section section : sections) {
+                String sectionId = BookHtml.sectionId(id, section.number());
+                String sectionTitle = escape(section.title());
+                bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(sectionTitle, sectionId));
+                toc.append("<li class=\"toc-section\"><a href=\"#%s\">%s</a></li>\n".formatted(sectionId, sectionTitle));
+            }
+            if (!sections.isEmpty()) {
+                bookmarks.append("</bookmark>\n");
+            }
             chapters.append("""
                     <section class="chapter" id="%s">
                     <h1>%s</h1>
                     %s</section>
-                    """.formatted(id, title, sceneBreaks(chapter.html(imageId -> dataUri(book, imageId)), book.layout())));
+                    """.formatted(id, title, sceneBreaks(chapter.html(imageId -> dataUri(book, imageId), id, pages), book.layout())));
         }
         String cover = "";
         if (hasCoverPage(book)) {
@@ -171,6 +188,65 @@ final class PdfWriter {
     /** Altura máxima de uma ilustração no PDF, em mm (a mesma do CSS de {@code figure.illustration img}). */
     static final int ILLUSTRATION_MAX_HEIGHT_MM = 140;
 
+    /** Altura da área de texto em mm: a página menos as margens de cima e de baixo. */
+    static double textHeightMm(BookLayout layout) {
+        int[] margins = marginsMm(layout);
+        return layout.heightMm() - margins[0] - margins[2];
+    }
+
+    /** A página inteira (largura, altura) em mm: onde a ilustração até a borda se espalha. */
+    static double[] pageBoxMm(BookLayout layout) {
+        return new double[] {layout.widthMm(), layout.heightMm()};
+    }
+
+    /**
+     * As ilustrações com página própria, desenhadas no tamanho exato da página: só ela dentro das margens (inteira,
+     * centralizada), até a borda (cobrindo a página, sem número) e dupla (começa numa página da esquerda e continua
+     * na da direita). Medidas em mm, calculadas aqui ({@link Placement#fit}) porque o motor de PDF não tem
+     * {@code object-fit}. Formato que o PDF não lê (WebP): o desenho comum, só com a legenda.
+     */
+    static BookHtml.PageIllustration pageIllustrations(ExportBook book) {
+        java.util.Map<String, int[]> sizes = new java.util.HashMap<>();
+        return (imageId, placement, caption) -> {
+            String url = dataUri(book, imageId);
+            if (url == null) {
+                return null;
+            }
+            int[] px = sizes.computeIfAbsent(imageId, id -> PrintCheck.pixels(book.illustrations().get(id).bytes()));
+            if (px[0] == 0 || px[1] == 0) {
+                return null;
+            }
+            Placement.Fit fit = placement.fit(px[0], px[1], book.layout(), !caption.isEmpty());
+            String alt = escape(caption.isEmpty() ? "Ilustração" : caption);
+            if (placement == Placement.PAGE) {
+                double top = (fit.boxHeightMm() - fit.heightMm()) / 2;
+                return "<div class=\"illustration-page\" style=\"padding-top: %smm\"><img src=\"%s\" alt=\"%s\" style=\"width: %smm; height: %smm\"/>%s</div>\n"
+                        .formatted(mm(top), url, alt, mm(fit.widthMm()), mm(fit.heightMm()),
+                                caption.isEmpty() ? "" : "<p class=\"illustration-caption\">" + escape(caption) + "</p>");
+            }
+            double[] page = pageBoxMm(book.layout());
+            if (placement == Placement.BLEED) {
+                return bleedPage("bleed-page", page, url, alt, fit, fit.offsetXMm());
+            }
+            // Dupla: a metade esquerda numa página par (esquerda do livro aberto), a direita na seguinte
+            return bleedPage("bleed-page spread-left", page, url, alt, fit, fit.offsetXMm())
+                    + bleedPage("bleed-page", page, url, alt, fit, fit.offsetXMm() + page[0]);
+        };
+    }
+
+    /** Uma página sem margem com a imagem cobrindo tudo; {@code offsetX}: quanto da imagem fica para fora à esquerda. */
+    private static String bleedPage(String css, double[] page, String url, String alt, Placement.Fit fit, double offsetX) {
+        // 1 mm a menos de altura: na altura exata, o arredondamento do motor empurra uma página em branco
+        return "<div class=\"%s\"><div class=\"bleed-box\" style=\"width: %smm; height: %smm\"><img src=\"%s\" alt=\"%s\" style=\"width: %smm; height: %smm; margin-left: -%smm; margin-top: -%smm\"/></div></div>\n"
+                .formatted(css, mm(page[0]), mm(page[1] - 1), url, alt, mm(fit.widthMm()), mm(fit.heightMm()), mm(offsetX),
+                        mm(fit.offsetYMm()));
+    }
+
+    /** Milímetros com uma casa, com ponto (CSS). */
+    private static String mm(double value) {
+        return String.valueOf(Math.round(value * 10) / 10.0);
+    }
+
     /** 148 → "148"; 152.4 → "152.4" (CSS não aceita vírgula). */
     private static String number(double value) {
         return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
@@ -243,9 +319,23 @@ final class PdfWriter {
             .part-page { page-break-before: always; page-break-after: always; text-align: center; padding-top: 60mm; }
             h1.part-title { font-size: 20pt; margin: 0; }
             .toc li.toc-part { margin-top: 5mm; font-weight: bold; }
+            .toc li.toc-section { margin: -1mm 0 2mm 6mm; font-size: .92em; }
             figure.illustration { margin: 6mm 0; text-align: center; page-break-inside: avoid; }
             figure.illustration img { max-width: 100%; max-height: 140mm; }
             figure.illustration figcaption { font-size: 9.5pt; font-style: italic; margin-top: 2mm; text-align: center; }
+            figure.size-small { width: 40%; margin: 5mm auto; }
+            figure.size-medium { width: 65%; margin: 5mm auto; }
+            figure.size-small img, figure.size-medium img, figure.size-wide img { width: 100%; max-width: 100%; }
+            figure.align-left { float: left; margin: 1mm 5mm 3mm 0; }
+            figure.align-right { float: right; margin: 1mm 0 3mm 5mm; }
+            .illustration-page { page-break-before: always; page-break-after: always; text-align: center; }
+            .illustration-page img { display: block; margin: 0 auto; }
+            p.illustration-caption { font-size: 9.5pt; font-style: italic; margin-top: 3mm; text-align: center; }
+            @page bleed { margin: 0; }
+            .bleed-page { page: bleed; page-break-before: always; page-break-after: always; }
+            .bleed-page.spread-left { page-break-before: left; }
+            .bleed-box { overflow: hidden; }
+            .bleed-box img { display: block; }
             p.scene-break { text-align: center; margin: 4mm 0; letter-spacing: 2mm; }
             blockquote { margin: 3mm 8mm; font-style: italic; }
             blockquote em { font-style: normal; }

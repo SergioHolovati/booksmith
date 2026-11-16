@@ -72,5 +72,24 @@ record ExportBook(UUID id, String title, String author, String language, String 
         String html(java.util.function.Function<String, String> src) {
             return BookHtml.body(document, src);
         }
+
+        /** Idem, com o id {@code <idPrefix>-s<n>} em cada título interno (para o sumário). */
+        String html(java.util.function.Function<String, String> src, String idPrefix) {
+            return BookHtml.body(document, src, idPrefix);
+        }
+
+        /** Idem, com quem desenha as ilustrações de página própria (o PDF). */
+        String html(java.util.function.Function<String, String> src, String idPrefix, BookHtml.PageIllustration pages) {
+            return BookHtml.body(document, src, idPrefix, pages);
+        }
+
+        /**
+         * Os subcapítulos que entram no sumário: os títulos internos de nível 1 e 2 (os do Word "Título 2" e os
+         * subcapítulos da importação). Os de nível 3 ficam só no texto.
+         */
+        List<BookHtml.Section> sections() {
+            return document == null ? List.of() : BookHtml.sections(document).stream()
+                    .filter(s -> s.level() <= 2 && !s.title().isEmpty()).toList();
+        }
     }
 }

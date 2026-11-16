@@ -57,7 +57,7 @@ public final class ManuscriptDocument {
             "heading", Set.of("id", "level"),
             "blockquote", Set.of("id"),
             "sceneBreak", Set.of("id"),
-            "illustration", Set.of("id", "imageId", "caption"),
+            "illustration", Set.of("id", "imageId", "caption", "size", "align"),
             "bulletList", Set.of("id"),
             "orderedList", Set.of("id", "start", "type"),
             "listItem", Set.of("id"));
@@ -65,6 +65,9 @@ public final class ManuscriptDocument {
     private static final Set<String> TOP_LEVEL_BLOCKS =
             Set.of("paragraph", "heading", "blockquote", "sceneBreak", "illustration", "bulletList", "orderedList");
     static final int MAX_CAPTION = 300;
+    /** Onde a ilustração fica: pequena, média, largura do texto, página só dela, até a borda, página dupla. */
+    static final Set<String> ILLUSTRATION_SIZES = Set.of("small", "medium", "wide", "page", "bleed", "spread");
+    static final Set<String> ILLUSTRATION_ALIGNS = Set.of("center", "left", "right");
     private static final Set<String> LIST_ITEM_BLOCKS =
             Set.of("paragraph", "bulletList", "orderedList", "blockquote");
 
@@ -253,11 +256,20 @@ public final class ManuscriptDocument {
                             && (!caption.isString() || caption.stringValue().length() > MAX_CAPTION)) {
                         throw invalid("legenda da ilustração inválida (até %d caracteres)".formatted(MAX_CAPTION));
                     }
+                    option(attrs.get("size"), ILLUSTRATION_SIZES, "tamanho da ilustração inválido");
+                    option(attrs.get("align"), ILLUSTRATION_ALIGNS, "alinhamento da ilustração inválido");
                 }
                 case "blockquote" -> blocks(requireNonEmpty(content, type), TOP_LEVEL_BLOCKS, depth + 1);
                 case "bulletList", "orderedList" -> blocks(requireNonEmpty(content, type), Set.of("listItem"), depth + 1);
                 case "listItem" -> blocks(requireNonEmpty(content, type), LIST_ITEM_BLOCKS, depth + 1);
                 default -> throw invalid("bloco desconhecido \"%s\"".formatted(type));
+            }
+        }
+
+        /** Atributo opcional com valores fixos: ausente ou null passa. */
+        private void option(JsonNode value, Set<String> allowed, String message) {
+            if (value != null && !value.isNull() && (!value.isString() || !allowed.contains(value.stringValue()))) {
+                throw invalid(message);
             }
         }
 

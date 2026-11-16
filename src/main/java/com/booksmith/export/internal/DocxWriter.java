@@ -38,19 +38,132 @@ final class DocxWriter {
 
     static byte[] write(ExportBook book) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        Images images = new Images(book);
+        IMAGES.set(images);
         try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
+            String document = document(book);
             entry(zip, "[Content_Types].xml", CONTENT_TYPES);
             entry(zip, "_rels/.rels", ROOT_RELS);
             entry(zip, "docProps/core.xml", core(book));
-            entry(zip, "word/_rels/document.xml.rels", DOCUMENT_RELS);
+            entry(zip, "word/_rels/document.xml.rels", DOCUMENT_RELS.replace("</Relationships>", images.relationships() + "</Relationships>"));
             entry(zip, "word/styles.xml", styles(book.language()));
             entry(zip, "word/settings.xml", SETTINGS);
             entry(zip, "word/footer1.xml", FOOTER);
-            entry(zip, "word/document.xml", document(book));
+            entry(zip, "word/document.xml", document);
+            for (Images.Media media : images.media()) {
+                zip.putNextEntry(new ZipEntry("word/media/" + media.file()));
+                zip.write(media.bytes());
+                zip.closeEntry();
+            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        } finally {
+            IMAGES.remove();
         }
         return bytes.toByteArray();
+    }
+
+    /** As imagens das ilustrações que vão dentro do .docx (word/media), uma vez cada. */
+    private static final ThreadLocal<Images> IMAGES = new ThreadLocal<>();
+
+    /** Largura da área de texto (A4, margens de 2,5 cm) em EMU: 9.070 twips × 635. */
+    private static final long TEXT_WIDTH_EMU = 9_070L * 635;
+    /** Altura máxima de uma ilustração no Word: 22 cm. */
+    private static final long MAX_HEIGHT_EMU = 22L * 360_000;
+
+    private static final class Images {
+        record Media(String id, String file, byte[] bytes, int widthPx, int heightPx) {
+        }
+
+        private final ExportBook book;
+        private final java.util.Map<String, Media> byImage = new java.util.LinkedHashMap<>();
+        private int drawings;
+
+        Images(ExportBook book) {
+            this.book = book;
+        }
+
+        /** A imagem pronta para o Word (PNG ou JPEG que dá para medir), ou null: aí vai o marcador de texto. */
+        Media media(String imageId) {
+            if (byImage.containsKey(imageId)) {
+                return byImage.get(imageId);
+            }
+            var image = book.illustrations().get(imageId);
+            Media media = null;
+            if (image != null && PdfWriter.embeds(image.contentType())) {
+                int[] px = PrintCheck.pixels(image.bytes());
+                if (px[0] > 0 && px[1] > 0) {
+                    String ext = "image/png".equals(image.contentType()) ? "png" : "jpeg";
+                    int n = byImage.size() + 1;
+                    media = new Media("rIdImg" + n, "imagem-" + n + "." + ext, image.bytes(), px[0], px[1]);
+                }
+            }
+            byImage.put(imageId, media);
+            return media;
+        }
+
+        int nextDrawing() {
+            return ++drawings;
+        }
+
+        List<Media> media() {
+            return byImage.values().stream().filter(java.util.Objects::nonNull).toList();
+        }
+
+        String relationships() {
+            StringBuilder rels = new StringBuilder();
+            for (Media media : media()) {
+                rels.append("<Relationship Id=\"%s\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/%s\"/>\n"
+                        .formatted(media.id(), media.file()));
+            }
+            return rels.toString();
+        }
+    }
+
+    /**
+     * A ilustração como imagem do Word (desenho em linha, no tamanho escolhido: pequena 40%, média 65%, as outras
+     * na largura do texto; página própria começa página nova), com a legenda embaixo, em itálico. Sem imagem que o
+     * Word leia (WebP, ou fora do livro), o marcador "[Ilustração: legenda]" de antes.
+     */
+    private static void illustration(JsonNode node, String style, StringBuilder body) {
+        JsonNode attrs = node.get("attrs");
+        JsonNode captionNode = attrs == null ? null : attrs.get("caption");
+        String caption = captionNode == null || captionNode.isNull() ? "" : captionNode.stringValue().strip();
+        Images images = IMAGES.get();
+        JsonNode imageId = attrs == null ? null : attrs.get("imageId");
+        Images.Media media = images == null || imageId == null || imageId.isNull() ? null : images.media(imageId.stringValue());
+        if (media == null) {
+            String text = caption.isEmpty() ? "[Ilustração]" : "[Ilustração: " + caption + "]";
+            body.append(paragraph(style, "<w:jc w:val=\"center\"/>", escapedRun(text)));
+            return;
+        }
+        Placement placement = Placement.of(attrs);
+        double fraction = placement == Placement.SMALL || placement == Placement.MEDIUM ? placement.fraction : 1;
+        long width = Math.round(TEXT_WIDTH_EMU * fraction);
+        long height = Math.round(width * (double) media.heightPx() / media.widthPx());
+        if (height > MAX_HEIGHT_EMU) {
+            width = Math.round(width * (double) MAX_HEIGHT_EMU / height);
+            height = MAX_HEIGHT_EMU;
+        }
+        String align = Placement.align(attrs, placement);
+        String jc = "<w:jc w:val=\"%s\"/>".formatted("center".equals(align) ? "center" : align);
+        String props = "<w:keepNext/>" + (placement.ownPage() ? "<w:pageBreakBefore/>" : "") + jc;
+        int id = images.nextDrawing();
+        String descr = escape(caption.isEmpty() ? "Ilustração" : caption);
+        String drawing = ("<w:r><w:drawing><wp:inline distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\">"
+                + "<wp:extent cx=\"%1$d\" cy=\"%2$d\"/><wp:docPr id=\"%3$d\" name=\"Ilustração %3$d\" descr=\"%4$s\"/>"
+                + "<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect=\"1\"/></wp:cNvGraphicFramePr>"
+                + "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\"><pic:pic>"
+                + "<pic:nvPicPr><pic:cNvPr id=\"%3$d\" name=\"%5$s\"/><pic:cNvPicPr/></pic:nvPicPr>"
+                + "<pic:blipFill><a:blip r:embed=\"%6$s\"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>"
+                + "<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"%1$d\" cy=\"%2$d\"/></a:xfrm>"
+                + "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic>"
+                + "</wp:inline></w:drawing></w:r>").formatted(width, height, id, descr, media.file(), media.id());
+        body.append(paragraph(style, props, drawing));
+        if (!caption.isEmpty()) {
+            body.append(paragraph(style, jc, "<w:r><w:rPr><w:i/><w:sz w:val=\"20\"/></w:rPr><w:t xml:space=\"preserve\">"
+                    + escape(caption) + "</w:t></w:r>"));
+        }
     }
 
     static String document(ExportBook book) {
@@ -82,7 +195,7 @@ final class DocxWriter {
         }
         return """
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-                <w:document xmlns:w="%s" xmlns:r="%s">
+                <w:document xmlns:w="%s" xmlns:r="%s" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
                 <w:body>
                 %s<w:sectPr>
                 <w:footerReference w:type="default" r:id="rIdFooter"/>
@@ -141,12 +254,7 @@ final class DocxWriter {
                 }
                 case "blockquote" -> blocks(child, "Quote", body);
                 case "sceneBreak" -> body.append(paragraph(style, "<w:jc w:val=\"center\"/>", escapedRun("* * *")));
-                case "illustration" -> {
-                    JsonNode caption = child.get("attrs") == null ? null : child.get("attrs").get("caption");
-                    String text = caption == null || caption.isNull() || caption.stringValue().isBlank()
-                            ? "[Ilustração]" : "[Ilustração: " + caption.stringValue().strip() + "]";
-                    body.append(paragraph(style, "<w:jc w:val=\"center\"/>", escapedRun(text)));
-                }
+                case "illustration" -> illustration(child, style, body);
                 case "bulletList", "orderedList" -> blocks(child, style, body);
                 case "listItem" -> {
                     // Sem numeração automática do Word: o marcador vai como texto, simples e fiel
@@ -325,6 +433,8 @@ final class DocxWriter {
             <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
             <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
             <Default Extension="xml" ContentType="application/xml"/>
+            <Default Extension="png" ContentType="image/png"/>
+            <Default Extension="jpeg" ContentType="image/jpeg"/>
             <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
             <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
             <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>

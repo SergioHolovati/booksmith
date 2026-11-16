@@ -28,7 +28,6 @@ public final class PrintCheck {
     /** O que as gráficas pedem para imagem impressa. */
     static final int MIN_DPI = 300;
 
-    private static final double CSS_PX_PER_INCH = 96;
     private static final double MM_PER_INCH = 25.4;
 
     private PrintCheck() {
@@ -47,12 +46,12 @@ public final class PrintCheck {
      * @param ok         sai nítida na impressão: entra no PDF e tem 300 DPI ou mais
      */
     public record Illustration(String imageId, String chapter, String caption, int widthPx, int heightPx, double widthMm,
-                        double heightMm, int dpi, boolean printable, int minWidthPx, boolean ok) {
+                        double heightMm, int dpi, boolean printable, int minWidthPx, boolean ok, String size) {
 
         Illustration(String imageId, String chapter, String caption, int widthPx, int heightPx, double widthMm,
-                     double heightMm, int dpi, boolean printable, int minWidthPx) {
+                     double heightMm, int dpi, boolean printable, int minWidthPx, String size) {
             this(imageId, chapter, caption, widthPx, heightPx, widthMm, heightMm, dpi, printable, minWidthPx,
-                    printable && dpi >= MIN_DPI);
+                    printable && dpi >= MIN_DPI, size);
         }
     }
 
@@ -70,37 +69,41 @@ public final class PrintCheck {
             collect(chapter.document(), nodes);
             for (JsonNode attrs : nodes) {
                 String imageId = attrs.get("imageId").stringValue();
-                if (!seen.add(chapter.title() + "|" + imageId)) {
+                if (!seen.add(chapter.title() + "|" + imageId + "|" + Placement.of(attrs))) {
                     continue;
                 }
                 JsonNode captionNode = attrs.get("caption");
                 String caption = captionNode == null || captionNode.isNull() ? "" : captionNode.stringValue().strip();
                 ImageData image = book.illustrations().get(imageId);
                 if (image != null) {
-                    found.add(measure(imageId, chapter.title(), caption, image, maxWidth));
+                    found.add(measure(imageId, chapter.title(), caption, image, Placement.of(attrs), layout));
                 }
             }
         }
         return new Result(MIN_DPI, round(maxWidth), List.copyOf(found));
     }
 
-    /** Tamanho na página: o natural (96 px por polegada), reduzido para caber na largura do texto e na altura máxima. */
-    static Illustration measure(String imageId, String chapter, String caption, ImageData image, double maxWidthMm) {
+    /**
+     * Tamanho na página conforme o lugar escolhido ({@link Placement#fit}): sem lugar, o natural (96 px por
+     * polegada) limitado à largura do texto e à altura máxima; até a borda e dupla, o que cobre a página (o DPI conta
+     * a imagem inteira, mesmo a parte cortada).
+     */
+    static Illustration measure(String imageId, String chapter, String caption, ImageData image, Placement placement,
+                                BookLayout layout) {
         int[] size = pixels(image.bytes());
         boolean printable = PdfWriter.embeds(image.contentType());
+        String where = placement.css();
         if (size[0] == 0 || size[1] == 0) {
-            return new Illustration(imageId, chapter, caption, 0, 0, 0, 0, 0, printable, 0);
+            return new Illustration(imageId, chapter, caption, 0, 0, 0, 0, 0, printable, 0, where);
         }
-        double naturalW = size[0] * MM_PER_INCH / CSS_PX_PER_INCH;
-        double naturalH = size[1] * MM_PER_INCH / CSS_PX_PER_INCH;
-        double scale = Math.min(1, Math.min(maxWidthMm / naturalW, PdfWriter.ILLUSTRATION_MAX_HEIGHT_MM / naturalH));
-        double widthMm = naturalW * scale;
-        double heightMm = naturalH * scale;
+        Placement.Fit fit = placement.fit(size[0], size[1], layout, !caption.isEmpty());
+        double widthMm = fit.widthMm();
+        double heightMm = fit.heightMm();
         // + 0,001: a imagem no tamanho natural dá 96 exatos, não 95,9999
         int dpi = (int) Math.floor(size[0] / (widthMm / MM_PER_INCH) + 0.001);
         int minWidthPx = (int) Math.ceil(widthMm / MM_PER_INCH * MIN_DPI);
         return new Illustration(imageId, chapter, caption, size[0], size[1], round(widthMm), round(heightMm), dpi,
-                printable, minWidthPx);
+                printable, minWidthPx, where);
     }
 
     /** Largura e altura em pixels, lendo só o cabeçalho; {0, 0} se o formato não é lido (ex.: WebP). */

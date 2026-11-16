@@ -165,9 +165,108 @@ class ExportWritersTest {
     }
 
     @Test
-    void wordManuscriptGetsAPlaceholder() throws Exception {
-        String document = entry(DocxWriter.write(illustrated("image/png")), "word/document.xml");
-        assertThat(document).contains("[Ilustração: O mapa de Vel]").contains("[Ilustração]");
+    void wordManuscriptGetsTheRealImageAndAPlaceholderWhenThereIsNone() throws Exception {
+        byte[] docx = DocxWriter.write(illustrated("image/png"));
+        String document = entry(docx, "word/document.xml");
+        // A imagem vai de verdade, com a legenda embaixo; a que não está no livro vira o marcador
+        assertThat(document).contains("<a:blip r:embed=\"rIdImg1\"/>").contains("descr=\"O mapa de Vel\"")
+                .contains(">O mapa de Vel</w:t>").contains("[Ilustração]").doesNotContain("[Ilustração: O mapa de Vel]");
+        assertThat(entries(docx)).contains("word/media/imagem-1.png");
+        assertThat(entry(docx, "word/_rels/document.xml.rels")).contains("Id=\"rIdImg1\"").contains("Target=\"media/imagem-1.png\"");
+        assertThat(entry(docx, "[Content_Types].xml")).contains("Extension=\"png\"");
+        // O arquivo continua voltando pela importação (XML bem formado, o texto e a legenda vêm junto)
+        assertThat(com.booksmith.manuscript.internal.ImportRoundTrip.plan(docx)).containsExactly("O mapa|");
+    }
+
+    /** PNG de {@code w}×{@code h}: metade esquerda vermelha, direita azul. */
+    private static byte[] twoColors(int w, int h) throws Exception {
+        var image = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var g = image.createGraphics();
+        g.setColor(java.awt.Color.RED);
+        g.fillRect(0, 0, w / 2, h);
+        g.setColor(java.awt.Color.BLUE);
+        g.fillRect(w / 2, 0, w - w / 2, h);
+        g.dispose();
+        var png = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", png);
+        return png.toByteArray();
+    }
+
+    private static ExportBook placed(byte[] png, String... sizes) {
+        StringBuilder content = new StringBuilder();
+        for (int i = 0; i < sizes.length; i++) {
+            content.append("{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Texto antes %d.\"}]},".formatted(i));
+            content.append("{\"type\":\"illustration\",\"attrs\":{\"imageId\":\"%s\",\"caption\":\"Arte %d\",\"size\":\"%s\"%s}},"
+                    .formatted(IMAGE_ID, i, sizes[i], sizes[i].equals("small") ? ",\"align\":\"left\"" : ""));
+        }
+        content.append("{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Fim.\"}]}");
+        return new ExportBook(UUID.randomUUID(), "Ilustrado", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-16T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Um", JSON.readTree("{\"type\":\"doc\",\"content\":[" + content + "]}"))),
+                java.util.Map.of(IMAGE_ID, new ImageData(png, "image/png", "png")));
+    }
+
+    @Test
+    void illustrationPlacementsInTheHtml() throws Exception {
+        String html = PdfWriter.html(placed(twoColors(2000, 1500), "small", "page", "bleed", "spread"));
+        assertThat(html).contains("<figure class=\"illustration size-small align-left\">")
+                .contains("<div class=\"illustration-page\"").contains("<p class=\"illustration-caption\">Arte 1</p>")
+                .contains("<div class=\"bleed-page spread-left\">");
+        // A5 (148 × 210): a imagem 4:3 cobrindo a página tem 210 mm de altura e 280 de largura; corta 66 de cada lado
+        assertThat(html).contains("width: 148.0mm; height: 209.0mm").contains("width: 280.0mm; height: 210.0mm; margin-left: -66.0mm");
+        // Dupla: 296 × 210 coberto por 296 × 222; a página da direita começa onde a da esquerda acabou
+        assertThat(html).contains("width: 296.0mm; height: 222.0mm; margin-left: -0.0mm; margin-top: -6.0mm")
+                .contains("width: 296.0mm; height: 222.0mm; margin-left: -148.0mm; margin-top: -6.0mm");
+
+        // No ePub (sem quem desenhe a página), a figura comum com a classe do tamanho
+        String epub = placed(twoColors(2000, 1500), "bleed").chapters().getFirst().html(id -> "images/x.png");
+        assertThat(epub).contains("<figure class=\"illustration size-bleed\">");
+    }
+
+    @Test
+    void bleedAndSpreadFillThePagesInThePdf() throws Exception {
+        byte[] pdf = PdfWriter.write(placed(twoColors(2000, 1500), "bleed", "spread"));
+
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            var renderer = new org.apache.pdfbox.rendering.PDFRenderer(document);
+            List<Integer> imagePages = new ArrayList<>();
+            for (int i = 0; i < document.getNumberOfPages(); i++) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                stripper.setStartPage(i + 1);
+                stripper.setEndPage(i + 1);
+                var page = renderer.renderImageWithDPI(i, 36);
+                var corner = new java.awt.Color(page.getRGB(1, page.getHeight() - 2));
+                if (stripper.getText(document).isBlank() && (corner.getRed() > 200 || corner.getBlue() > 200)) {
+                    imagePages.add(i + 1);
+                }
+            }
+            // Até a borda: uma página; dupla: duas seguidas, a primeira par (esquerda do livro aberto)
+            assertThat(imagePages).hasSize(3);
+            int left = imagePages.get(1);
+            assertThat(left % 2).isZero();
+            assertThat(imagePages.get(2)).isEqualTo(left + 1);
+            // A esquerda da dupla mostra a metade vermelha; a direita, a azul, até as bordas
+            var leftPage = renderer.renderImageWithDPI(left - 1, 36);
+            var rightPage = renderer.renderImageWithDPI(left, 36);
+            for (int[] at : new int[][] {{1, 1}, {leftPage.getWidth() - 2, leftPage.getHeight() / 2}}) {
+                assertThat(new java.awt.Color(leftPage.getRGB(at[0], at[1])).getRed()).isGreaterThan(200);
+                assertThat(new java.awt.Color(rightPage.getRGB(at[0], at[1])).getBlue()).isGreaterThan(200);
+            }
+        }
+    }
+
+    @Test
+    void printCheckMeasuresEachPlacement() throws Exception {
+        var result = PrintCheck.check(placed(twoColors(2000, 1500), "small", "wide", "bleed", "spread"));
+        // A5, margens normais: texto com 114 mm
+        assertThat(result.illustrations()).extracting(PrintCheck.Illustration::size)
+                .containsExactly("small", "wide", "bleed", "spread");
+        assertThat(result.illustrations().get(0).widthMm()).isEqualTo(45.6);
+        assertThat(result.illustrations().get(1).widthMm()).isEqualTo(114.0);
+        // Cobrindo a página, 2000 px em 280 mm: 181 DPI; na dupla, 2000 px em 296 mm: 171 DPI
+        assertThat(result.illustrations().get(2).dpi()).isEqualTo(181);
+        assertThat(result.illustrations().get(3).dpi()).isEqualTo(171);
+        assertThat(result.illustrations().get(3).ok()).isFalse();
     }
 
     private static ExportBook withParts() {
@@ -195,6 +294,44 @@ class ExportWritersTest {
         // O prólogo fica solto; "A Estrada" fica dentro da Parte I
         assertThat(nav.indexOf("Prólogo")).isLessThan(nav.indexOf("Parte I"));
         assertThat(nav.substring(nav.indexOf("Parte I"), nav.indexOf("Parte II"))).contains("A Estrada").contains("<ol>");
+    }
+
+    private static ExportBook withSubchapters() {
+        String sections = "{\"type\":\"doc\",\"content\":["
+                + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Abertura.\"}]},"
+                + "{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"1.1 - Natureza divina\"}]},"
+                + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Texto.\"}]},"
+                + "{\"type\":\"heading\",\"attrs\":{\"level\":3},\"content\":[{\"type\":\"text\",\"text\":\"Detalhe pequeno\"}]},"
+                + "{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"1.2 - O \"},"
+                + "{\"type\":\"text\",\"marks\":[{\"type\":\"italic\"}],\"text\":\"poder\"}]}]}";
+        String plain = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Texto.\"}]}]}";
+        return new ExportBook(UUID.randomUUID(), "Legado", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-16T12:00:00Z"), List.of(
+                new ExportBook.Chapter("Introdução", JSON.readTree(plain)),
+                new ExportBook.Chapter("Capítulo 1 - Seja cheio", JSON.readTree(sections), "Parte 1"),
+                new ExportBook.Chapter("Capítulo 2 - O legado", JSON.readTree(plain))));
+    }
+
+    @Test
+    void subchaptersGoIntoTheTocOfTheEpubAndThePdf(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(withSubchapters());
+        Path file = dir.resolve("subcapitulos.epub");
+        Files.write(file, epub);
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+
+        String nav = entry(epub, "EPUB/nav.xhtml");
+        assertThat(nav).contains("chapter-002.xhtml#chapter-2-s1\">1.1 - Natureza divina")
+                .contains("chapter-002.xhtml#chapter-2-s3\">1.2 - O poder")
+                .doesNotContain("Detalhe pequeno");
+        assertThat(entry(epub, "EPUB/chapter-002.xhtml")).contains("<h3 id=\"chapter-2-s1\">1.1 - Natureza divina</h3>")
+                .contains("<h4 id=\"chapter-2-s2\">");
+
+        String html = PdfWriter.html(withSubchapters());
+        assertThat(html).contains("<li class=\"toc-section\"><a href=\"#chapter-2-s1\">1.1 - Natureza divina</a></li>")
+                .contains("<h3 id=\"chapter-2-s3\">");
+        assertThat(PdfWriter.write(withSubchapters())).isNotEmpty();
     }
 
     @Test

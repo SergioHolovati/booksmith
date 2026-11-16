@@ -24,17 +24,93 @@ final class BookHtml {
 
     /** Idem, com o endereço de cada ilustração: {@code src(imageId)}, ou null quando a imagem não pode ir. */
     static String body(JsonNode document, java.util.function.Function<String, String> src) {
+        return body(document, src, null);
+    }
+
+    /**
+     * Idem, e cada título interno ganha o id {@code <idPrefix>-s<n>} ({@link #sectionId}), para o sumário apontar
+     * para os subcapítulos. Sem prefixo, os títulos saem sem id.
+     */
+    static String body(JsonNode document, java.util.function.Function<String, String> src, String idPrefix) {
         StringBuilder html = new StringBuilder();
         IMAGE_SRC.set(src);
+        SECTION_PREFIX.set(idPrefix);
+        SECTION_COUNT.set(new int[1]);
         try {
             children(document, html);
         } finally {
             IMAGE_SRC.remove();
+            SECTION_PREFIX.remove();
+            SECTION_COUNT.remove();
         }
         return html.toString();
     }
 
     private static final ThreadLocal<java.util.function.Function<String, String>> IMAGE_SRC = new ThreadLocal<>();
+
+    /**
+     * Quem desenha a ilustração que tem página própria (página só dela, até a borda, página dupla): o PDF, que sabe
+     * o tamanho da página. Devolve null para usar o desenho comum (o do ePub).
+     */
+    @FunctionalInterface
+    interface PageIllustration {
+        String render(String imageId, Placement placement, String caption);
+    }
+
+    private static final ThreadLocal<PageIllustration> PAGE_ILLUSTRATION = new ThreadLocal<>();
+
+    /** Idem, com quem desenha as ilustrações de página própria. */
+    static String body(JsonNode document, java.util.function.Function<String, String> src, String idPrefix,
+                       PageIllustration pages) {
+        PAGE_ILLUSTRATION.set(pages);
+        try {
+            return body(document, src, idPrefix);
+        } finally {
+            PAGE_ILLUSTRATION.remove();
+        }
+    }
+    private static final ThreadLocal<String> SECTION_PREFIX = new ThreadLocal<>();
+    private static final ThreadLocal<int[]> SECTION_COUNT = new ThreadLocal<>();
+
+    /** Um título interno do capítulo (o subcapítulo): {@code number} conta os títulos na ordem, a partir de 1. */
+    record Section(int number, int level, String title) {
+    }
+
+    /** O id do título interno: único no livro inteiro (o PDF é um documento só). */
+    static String sectionId(String prefix, int number) {
+        return prefix + "-s" + number;
+    }
+
+    /** Os títulos internos do capítulo, na mesma ordem e com a mesma numeração dos ids do corpo. */
+    static List<Section> sections(JsonNode document) {
+        List<Section> sections = new java.util.ArrayList<>();
+        collectSections(document, sections);
+        return sections;
+    }
+
+    private static void collectSections(JsonNode node, List<Section> sections) {
+        JsonNode content = node.get("content");
+        if (content == null) {
+            return;
+        }
+        for (JsonNode child : content) {
+            String type = type(child);
+            if ("heading".equals(type)) {
+                StringBuilder text = new StringBuilder();
+                JsonNode inline = child.get("content");
+                if (inline != null) {
+                    for (JsonNode part : inline) {
+                        JsonNode value = textOf(part);
+                        text.append(value == null ? " " : value.stringValue());
+                    }
+                }
+                sections.add(new Section(sections.size() + 1, Math.min(Math.max(attr(child, "level", 1), 1), 3),
+                        text.toString().replaceAll("\\s+", " ").strip()));
+            } else if (!"paragraph".equals(type) && !"illustration".equals(type)) {
+                collectSections(child, sections);
+            }
+        }
+    }
 
     /** Ids das imagens das ilustrações do documento, na ordem. */
     static List<String> illustrationIds(JsonNode node) {
@@ -74,7 +150,16 @@ final class BookHtml {
             case "heading" -> {
                 // h1 é o título do capítulo; os títulos internos começam em h2
                 int level = Math.min(Math.max(attr(node, "level", 1), 1), 3) + 1;
-                html.append("<h").append(level).append('>');
+                int[] count = SECTION_COUNT.get();
+                String prefix = SECTION_PREFIX.get();
+                html.append("<h").append(level);
+                if (count != null) {
+                    count[0]++;
+                    if (prefix != null) {
+                        html.append(" id=\"").append(escape(sectionId(prefix, count[0]))).append('"');
+                    }
+                }
+                html.append('>');
                 inline(node, html);
                 html.append("</h").append(level).append(">\n");
             }
@@ -100,12 +185,21 @@ final class BookHtml {
         JsonNode attrs = node.get("attrs");
         String imageId = attrs.get("imageId").stringValue();
         String caption = attrs.get("caption") == null || attrs.get("caption").isNull() ? "" : attrs.get("caption").stringValue().strip();
+        Placement placement = Placement.of(attrs);
+        PageIllustration pages = PAGE_ILLUSTRATION.get();
+        if (placement.ownPage() && pages != null) {
+            String page = pages.render(imageId, placement, caption);
+            if (page != null) {
+                html.append(page);
+                return;
+            }
+        }
         var src = IMAGE_SRC.get();
         String url = src == null ? null : src.apply(imageId);
         if (url == null && caption.isEmpty()) {
             return; // sem imagem e sem legenda, não sobra nada para mostrar
         }
-        html.append("<figure class=\"illustration\">");
+        html.append("<figure class=\"").append(figureClass(attrs, placement)).append("\">");
         if (url != null) {
             html.append("<img src=\"").append(escape(url)).append("\" alt=\"")
                     .append(escape(caption.isEmpty() ? "Ilustração" : caption)).append("\"/>");
@@ -114,6 +208,15 @@ final class BookHtml {
             html.append("<figcaption>").append(escape(caption)).append("</figcaption>");
         }
         html.append("</figure>\n");
+    }
+
+    /** "illustration", mais o tamanho e o lado ("size-small align-left"); sem tamanho, como antes. */
+    static String figureClass(JsonNode attrs, Placement placement) {
+        if (placement == Placement.AUTO) {
+            return "illustration";
+        }
+        String align = Placement.align(attrs, placement);
+        return "illustration size-" + placement.css() + ("center".equals(align) ? "" : " align-" + align);
     }
 
     private static void paragraph(JsonNode node, StringBuilder html) {

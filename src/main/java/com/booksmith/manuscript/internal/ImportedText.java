@@ -29,11 +29,39 @@ final class ImportedText {
      * título de página depois da história (agradecimentos, "sobre o autor", estilo "Pós-textual"); dali em diante
      * não é texto de capítulo.
      */
+    /**
+     * {@code size}: tamanho da letra em meios-pontos, como o Word guarda (24 = 12 pt); 0 = desconhecido (o
+     * tamanho padrão do documento).
+     */
     record Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments,
-                     boolean part, boolean backMatter) {
-
+                     boolean part, boolean backMatter, int size) {
         Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments) {
-            this(headingLevel, title, subtitle, indent, segments, false, false);
+            this(headingLevel, title, subtitle, indent, segments, false, false, 0);
+        }
+
+        Paragraph(int headingLevel, boolean title, boolean subtitle, boolean indent, List<Segment> segments,
+                  boolean part, boolean backMatter) {
+            this(headingLevel, title, subtitle, indent, segments, part, backMatter, 0);
+        }
+
+        /** O mesmo parágrafo como título de nível {@code level} (0 = texto comum), sem os papéis especiais. */
+        Paragraph asHeading(int level) {
+            return new Paragraph(level, false, false, level == 0 && indent, segments, false, false, size);
+        }
+
+        /** Todo o texto em negrito (um título feito "à mão", sem estilo de título). */
+        boolean allBold() {
+            boolean any = false;
+            for (Segment segment : segments) {
+                if (segment.isLineBreak() || segment.text().isBlank()) {
+                    continue;
+                }
+                if (!segment.marks().contains("bold")) {
+                    return false;
+                }
+                any = true;
+            }
+            return any;
         }
 
         static Paragraph plain(boolean indent, String text) {

@@ -76,21 +76,28 @@ final class DocxReader {
 
     /** O que importa de cada estilo: nível de título e formatação de estilos de caractere. */
     private record Style(int headingLevel, boolean title, boolean subtitle, Set<String> marks, String basedOn,
-                         boolean part, boolean backMatter) {
+                         boolean part, boolean backMatter, int size) {
     }
 
-    private record Styles(Map<String, Style> byId) {
+    /**
+     * {@code defaultStyleId}: o estilo de parágrafo padrão (normalmente "Normal"); {@code defaultSize}: o tamanho de
+     * letra padrão do documento (meios-pontos), usado quando nem o trecho nem o estilo dizem.
+     */
+    private record Styles(Map<String, Style> byId, String defaultStyleId, int defaultSize) {
 
-        static final Styles EMPTY = new Styles(Map.of());
+        static final Styles EMPTY = new Styles(Map.of(), null, 0);
 
         static Styles parse(byte[] bytes) {
             Map<String, Style> styles = new HashMap<>();
+            String defaultStyleId = null;
+            int defaultSize = 0;
             try {
                 XMLStreamReader reader = ImportFiles.xml(bytes);
                 String id = null;
                 String name = null;
                 String basedOn = null;
                 Integer outline = null;
+                Integer size = null;
                 Set<String> marks = new LinkedHashSet<>();
                 boolean inRunProps = false;
                 while (reader.hasNext()) {
@@ -102,7 +109,21 @@ final class DocxReader {
                                 name = null;
                                 basedOn = null;
                                 outline = null;
+                                size = null;
                                 marks = new LinkedHashSet<>();
+                                if ("paragraph".equals(attr(reader, "type")) && on("default", reader)) {
+                                    defaultStyleId = id;
+                                }
+                            }
+                            case "sz" -> {
+                                if (inRunProps) {
+                                    Integer value = parseInt(attr(reader, "val"));
+                                    if (id == null && value != null) {
+                                        defaultSize = value; // docDefaults: o padrão do documento
+                                    } else {
+                                        size = value;
+                                    }
+                                }
                             }
                             case "name" -> name = attr(reader, "val");
                             case "basedOn" -> basedOn = attr(reader, "val");
@@ -118,7 +139,7 @@ final class DocxReader {
                         if (reader.getLocalName().equals("rPr")) {
                             inRunProps = false;
                         } else if (reader.getLocalName().equals("style") && id != null) {
-                            styles.put(id, toStyle(name, outline, marks, basedOn));
+                            styles.put(id, toStyle(name, outline, marks, basedOn, size == null ? 0 : size));
                             id = null;
                         }
                     }
@@ -126,10 +147,16 @@ final class DocxReader {
             } catch (XMLStreamException e) {
                 return EMPTY; // estilos ilegíveis: importa o texto mesmo assim, sem reconhecer títulos
             }
-            return new Styles(styles);
+            return new Styles(styles, defaultStyleId, defaultSize);
         }
 
-        private static Style toStyle(String name, Integer outline, Set<String> marks, String basedOn) {
+        /** {@code w:default="1"} (ou "true"). */
+        private static boolean on(String attribute, XMLStreamReader reader) {
+            String value = attr(reader, attribute);
+            return "1".equals(value) || "true".equals(value);
+        }
+
+        private static Style toStyle(String name, Integer outline, Set<String> marks, String basedOn, int size) {
             String normalized = name == null ? "" : name.toLowerCase(Locale.ROOT).trim();
             int level = 0;
             Matcher heading = HEADING_NAME.matcher(normalized);
@@ -139,7 +166,23 @@ final class DocxReader {
                 level = outline + 1;
             }
             return new Style(level, normalized.equals("title"), normalized.equals("subtitle"), Set.copyOf(marks), basedOn,
-                    normalized.equals("parte") || normalized.equals("part"), normalized.equals("pós-textual"));
+                    normalized.equals("parte") || normalized.equals("part"), normalized.equals("pós-textual"), size);
+        }
+
+        /** Tamanho da letra do estilo (herdado do estilo base), senão o padrão do documento; 0 se ninguém diz. */
+        int size(String styleId) {
+            String current = styleId == null ? defaultStyleId : styleId;
+            for (int hops = 0; current != null && hops < 10; hops++) {
+                Style style = byId.get(current);
+                if (style == null) {
+                    break;
+                }
+                if (style.size() > 0) {
+                    return style.size();
+                }
+                current = style.basedOn();
+            }
+            return defaultSize;
         }
 
         /** Nível de título do estilo, herdado do estilo base quando o próprio não define. */
@@ -238,6 +281,9 @@ final class DocxReader {
         // Trecho atual
         private Set<String> runMarks;
         private String runStyle;
+        private int runSize;
+        /** Maior letra com texto no parágrafo (meios-pontos). */
+        private int paragraphSize;
         private boolean inRunProps;
         private boolean inParagraphProps;
 
@@ -306,8 +352,15 @@ final class DocxReader {
                 case "r" -> {
                     runMarks = new LinkedHashSet<>();
                     runStyle = null;
+                    runSize = 0;
                 }
                 case "rPr" -> inRunProps = true;
+                case "sz" -> {
+                    if (inRunProps && !inParagraphProps) {
+                        Integer value = parseInt(attr(reader, "val"));
+                        runSize = value == null ? 0 : value;
+                    }
+                }
                 case "rStyle" -> runStyle = attr(reader, "val");
                 case "t" -> text(reader.getElementText());
                 case "tab" -> {
@@ -361,6 +414,7 @@ final class DocxReader {
             paragraphStyle = null;
             outlineLevel = null;
             firstLineIndent = false;
+            paragraphSize = 0;
             segments = new ArrayList<>();
         }
 
@@ -377,8 +431,9 @@ final class DocxReader {
             // Recuo feito com Tab no começo do parágrafo: vira o recuo do editor, não um caractere
             boolean indent = firstLineIndent || ImportedText.startsWithTab(cleaned);
             cleaned = ImportedText.trim(cleaned);
+            int size = paragraphSize > 0 ? paragraphSize : styles.size(paragraphStyle);
             paragraphs.add(new Paragraph(level, styles.isTitle(paragraphStyle), styles.isSubtitle(paragraphStyle), indent,
-                    cleaned, styles.isPart(paragraphStyle), styles.isBackMatter(paragraphStyle)));
+                    cleaned, styles.isPart(paragraphStyle), styles.isBackMatter(paragraphStyle), size));
             segments = null;
         }
 
@@ -389,6 +444,10 @@ final class DocxReader {
             Set<String> marks = new LinkedHashSet<>(styles.marks(runStyle));
             if (runMarks != null) {
                 marks.addAll(runMarks);
+            }
+            if (!value.isBlank()) {
+                int size = runSize > 0 ? runSize : runStyle != null ? styles.size(runStyle) : styles.size(paragraphStyle);
+                paragraphSize = Math.max(paragraphSize, size);
             }
             segments.add(new Segment(value, Set.copyOf(marks)));
         }

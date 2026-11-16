@@ -40,6 +40,9 @@ if (Listening 8090) {
     $env:JAVA_HOME = if (Test-Path (Join-Path $portable "bin\java.exe")) { $portable } else { "C:\Program Files\Java\latest\jdk-25" }
     if (-not $env:GOOGLE_CLIENT_ID) { $env:GOOGLE_CLIENT_ID = "dev-local" }
     if (-not $env:GOOGLE_CLIENT_SECRET) { $env:GOOGLE_CLIENT_SECRET = "dev-local" }
+    # No local, a verificação em duas etapas é opcional (produção continua exigindo). Para testar como em
+    # produção (e para os testes Robot do MFA obrigatório): $env:MFA_REQUIRED = "true" antes de rodar este script.
+    if (-not $env:MFA_REQUIRED) { $env:MFA_REQUIRED = "false" }
     Start-Process -FilePath (Join-Path $root "mvnw.cmd") -ArgumentList "-q", "-DskipTests", "spring-boot:run" `
         -WorkingDirectory $root -RedirectStandardOutput (Join-Path $logs "api.log") -WindowStyle Hidden
     Write-Host -NoNewline "Iniciando a API"

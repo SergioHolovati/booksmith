@@ -162,6 +162,17 @@ final class ChapterSplitter {
 
     // ===== Documento ProseMirror =====
 
+    /**
+     * Um capítulo a partir de parágrafos já com o nível certo (0 = texto, 2 = subcapítulo…): usado pela importação
+     * com a estrutura aprovada pelo escritor e pela criação pelo sumário.
+     */
+    static Draft draft(String title, List<Paragraph> paragraphs, String partTitle, JsonMapper mapper) {
+        Section section = new Section(limit(title.strip()), false);
+        section.partTitle = partTitle;
+        section.paragraphs.addAll(paragraphs);
+        return toDraft(section, 0, mapper);
+    }
+
     private static Draft toDraft(Section section, int chapterLevel, JsonMapper mapper) {
         ObjectNode root = mapper.createObjectNode();
         root.put("type", "doc");
@@ -250,7 +261,7 @@ final class ChapterSplitter {
 
     // ===== Textos =====
 
-    private static List<String> warnings(ImportedText.Result docx) {
+    static List<String> warnings(ImportedText.Result docx) {
         List<String> warnings = new ArrayList<>();
         if (docx.images() > 0) {
             warnings.add(docx.images() == 1

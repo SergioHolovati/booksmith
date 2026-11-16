@@ -73,6 +73,20 @@ class ManuscriptDocumentTest {
     }
 
     @Test
+    void illustrationSizeAndAlignAreFixedOptions() {
+        String ok = """
+                {"type":"doc","content":[
+                  {"type":"illustration","attrs":{"id":"b_il","imageId":"0196f000-0000-7000-8000-00003f9a2c71","size":"small","align":"left"}},
+                  {"type":"illustration","attrs":{"id":"b_i2","imageId":"0196f000-0000-7000-8000-00003f9a2c71","size":"spread","align":null}}]}""";
+        assertThat(ManuscriptDocument.parse(json(ok), mapper).wordCount()).isZero();
+
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("\"small\"", "\"enorme\"")), mapper))
+                .isInstanceOf(ApiException.class).hasMessageContaining("tamanho da ilustração");
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("\"left\"", "\"diagonal\"")), mapper))
+                .isInstanceOf(ApiException.class).hasMessageContaining("alinhamento da ilustração");
+    }
+
+    @Test
     void proofreadOffIsAcceptedAndKeepsTheText() {
         String doc = """
                 {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
