@@ -1,0 +1,3 @@
+# Falso positivo (16/11/2026): "BFL_API_KEY=" vazio no modelo; a regra genérica leu a linha seguinte
+# (ILLUSTRATIONS_WEEKLY_LIMIT=3) como valor. Nenhuma chave foi commitada.
+207c10488d642e7c674e168507a4016e661d0d29:deploy/env.prod.example:generic-api-key:33

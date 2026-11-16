@@ -75,6 +75,8 @@ class FluxClient implements ImageModel {
         body.put("height", height);
         body.put("output_format", "jpeg");
         body.put("safety_tolerance", flux.safetyTolerance());
+        // O pedido já vem completo e na ordem certa: sem o "melhoramento" automático, que inventa detalhes
+        body.put("disable_pup", true);
         for (int i = 0; i < Math.min(references.size(), MAX_REFERENCES); i++) {
             body.put(i == 0 ? "input_image" : "input_image_" + (i + 1), references.get(i));
         }

@@ -142,6 +142,23 @@ public class UniverseService implements Universes {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.Optional<PlaceBrief> placeBrief(UUID universeId, UUID placeId) {
+        return entityRepository.findById(placeId)
+                .filter(e -> e.getDeletedAt() == null && e.getUniverseId().equals(universeId)
+                        && UniverseEntity.PLACE.equals(e.getKind()))
+                .map(e -> {
+                    var sheet = jsonMapper.readTree(e.getAttributes());
+                    String description = sheet.path("description").stringValue("");
+                    if (description.isBlank()) {
+                        description = sheet.path("atmosphere").stringValue("");
+                    }
+                    return new PlaceBrief(e.getId(), e.getName(), sheet.path("type").stringValue(null),
+                            description.isBlank() ? null : description);
+                });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public java.util.Optional<String> imageUrl(UUID universeId, UUID imageId) {
         return imageRepository.findByIdAndDeletedAtIsNull(imageId)
                 .filter(image -> image.getUniverseId().equals(universeId))

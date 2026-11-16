@@ -74,6 +74,14 @@ class ManuscriptReader implements Manuscripts {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.Optional<BookBrief> bookBrief(UUID ownerId, UUID bookId) {
+        return bookRepository.findByIdAndOwnerIdAndDeletedAtIsNull(bookId, ownerId)
+                .map(book -> new BookBrief(book.getId(), book.getTitle(), book.getSynopsis(), book.getUniverseId(),
+                        book.getKind() == BookKind.FANFIC, book.getStatus() == BookStatus.COMPLETE));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<UUID> bookIds(UUID ownerId) {
         return bookRepository.findAllByOwnerIdAndDeletedAtIsNull(ownerId,
                         org.springframework.data.domain.Pageable.unpaged()).stream()

@@ -30,6 +30,12 @@ public interface Manuscripts {
     /** Confere que o livro existe e é do usuário, sem carregar o texto. 404 caso contrário. */
     void requireOwned(UUID ownerId, UUID bookId);
 
+    /** Dados do livro para a capa com IA (título, sinopse, universo, se é fanfic e se está concluído). Vazio se não é do usuário. */
+    java.util.Optional<BookBrief> bookBrief(UUID ownerId, UUID bookId);
+
+    record BookBrief(UUID bookId, String title, String synopsis, UUID universeId, boolean fanfic, boolean complete) {
+    }
+
     /** Livros da pessoa que se passam no universo (fora da lixeira), do mais antigo ao mais novo. */
     List<BookSummary> booksInUniverse(UUID ownerId, UUID universeId);
 

@@ -46,6 +46,13 @@ public interface Universes {
     GeneratedImage addGeneratedImage(UUID ownerId, UUID universeId, byte[] bytes, String contentType, String caption,
                                      List<UUID> entityIds, UUID portraitFor);
 
+    /** A ficha de um lugar do universo, resumida para o gerador de ilustrações. Vazio se não existe. */
+    java.util.Optional<PlaceBrief> placeBrief(UUID universeId, UUID placeId);
+
+    /** @param type tipo da ficha ("city", "building"…) ou null; {@code description}: descrição ou atmosfera */
+    record PlaceBrief(UUID id, String name, String type, String description) {
+    }
+
     /** Personagens e lugares do universo, com nomes, outros nomes e (para personagens) a aparência. */
     List<KnownEntity> entities(UUID universeId);
 
