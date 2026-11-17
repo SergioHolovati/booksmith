@@ -1,5 +1,6 @@
 package com.booksmith.export.internal;
 
+import com.booksmith.manuscript.api.BookFont;
 import com.booksmith.manuscript.api.BookLayout;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
@@ -24,8 +25,6 @@ final class PdfWriter {
     /** Formatos de capa que o PDF embute. WebP fica de fora: o livro sai sem a página de capa. */
     private static final Set<String> COVER_TYPES = Set.of("image/jpeg", "image/png");
 
-    private static final String FONT = "Literata";
-
     private PdfWriter() {
     }
 
@@ -33,10 +32,7 @@ final class PdfWriter {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try {
             PdfRendererBuilder builder = new PdfRendererBuilder();
-            font(builder, "Literata-Regular.ttf", 400, FontStyle.NORMAL);
-            font(builder, "Literata-Italic.ttf", 400, FontStyle.ITALIC);
-            font(builder, "Literata-Bold.ttf", 700, FontStyle.NORMAL);
-            font(builder, "Literata-BoldItalic.ttf", 700, FontStyle.ITALIC);
+            fontsOf(book).forEach(font -> useFont(builder, font));
             builder.withHtmlContent(book.pictureBook() ? PictureBookHtml.html(book) : html(book), null);
             builder.toStream(bytes);
             builder.run();
@@ -194,13 +190,14 @@ final class PdfWriter {
         // a largura do texto pela primeira página (a da capa) e o texto do livro inteiro saía pela margem direita.
         return """
                 @page { size: %1$smm %2$smm; margin: %3$smm %4$smm %5$smm %4$smm; }
-                %10$sbody { font-size: %6$spt; line-height: %7$s; }
+                %10$sbody { font-family: '%11$s'; font-size: %6$spt; line-height: %7$s; }
                 @page cover { margin: 0; }
                 .cover { page: cover; }
                 .cover img { width: %1$smm; height: %8$smm; }
                 .chapter > h1 + p.indent { text-indent: 0; }
                 %9$s""".formatted(width, number(page[1]), number(margins[0] + bleed), number(margins[1]),
-                number(margins[2] + bleed), number(layout.fontSize()), number(leading), number(page[1] - 1), chapter, sides);
+                number(margins[2] + bleed), number(layout.fontSize()), number(leading), number(page[1] - 1), chapter, sides,
+                layout.bookFont().family());
     }
 
     /** Margens da página em mm: em cima, dos lados, embaixo. */
@@ -317,15 +314,38 @@ final class PdfWriter {
         return "data:%s;base64,%s".formatted(image.contentType(), Base64.getEncoder().encodeToString(image.bytes()));
     }
 
-    private static void font(PdfRendererBuilder builder, String file, int weight, FontStyle style) {
-        ClassPathResource resource = new ClassPathResource("export/fonts/" + file);
+    /** As fontes que o livro usa: a do livro, a de cada página ilustrada e a Literata (folha de rosto, números). */
+    static Set<BookFont> fontsOf(ExportBook book) {
+        Set<BookFont> fonts = java.util.EnumSet.of(BookFont.DEFAULT, book.layout().bookFont());
+        for (ExportBook.Chapter chapter : book.chapters()) {
+            if (chapter.page() != null) {
+                fonts.add(chapter.page().fontOr(book.layout().bookFont()));
+            }
+        }
+        return fonts;
+    }
+
+    /** Embute a família com os arquivos que ela tem (a que não tem negrito ou itálico usa o regular). */
+    private static void useFont(PdfRendererBuilder builder, BookFont font) {
+        font(builder, font, "Regular", 400, FontStyle.NORMAL);
+        if (font.hasBold()) {
+            font(builder, font, "Bold", 700, FontStyle.NORMAL);
+        }
+        if (font.hasItalic()) {
+            font(builder, font, "Italic", 400, FontStyle.ITALIC);
+            font(builder, font, "BoldItalic", 700, FontStyle.ITALIC);
+        }
+    }
+
+    private static void font(PdfRendererBuilder builder, BookFont font, String style, int weight, FontStyle fontStyle) {
+        ClassPathResource resource = new ClassPathResource("export/fonts/" + font.fileName(style));
         builder.useFont(() -> {
             try {
                 return resource.getInputStream();
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-        }, FONT, weight, style, true);
+        }, font.family(), weight, fontStyle, true);
     }
 
     /** Página A5, margem generosa, número no pé só nos capítulos. A capa (se houver) ocupa a primeira página inteira. */

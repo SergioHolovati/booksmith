@@ -41,7 +41,13 @@ final class EpubWriter {
             text(zip, "EPUB/package.opf", packageDocument(book));
             text(zip, "EPUB/nav.xhtml", nav(book));
             text(zip, "EPUB/toc.ncx", ncx(book));
-            text(zip, "EPUB/css/book.css", CSS);
+            text(zip, "EPUB/css/book.css", CSS + fontCss(book));
+            if (embedsFont(book)) {
+                for (String style : fontStyles(book.layout().bookFont())) {
+                    entry(zip, "EPUB/fonts/" + book.layout().bookFont().fileName(style),
+                            fontBytes(book.layout().bookFont(), style));
+                }
+            }
             if (book.cover() != null) {
                 entry(zip, "EPUB/images/cover." + book.cover().extension(), book.cover().bytes());
                 text(zip, "EPUB/cover.xhtml", page(book, "Capa", "cover", """
@@ -108,6 +114,12 @@ final class EpubWriter {
                     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
                     <item id="css" href="css/book.css" media-type="text/css"/>
                 """);
+        if (embedsFont(book)) {
+            for (String style : fontStyles(book.layout().bookFont())) {
+                manifest.append("    <item id=\"font-%s\" href=\"fonts/%s\" media-type=\"font/ttf\"/>\n"
+                        .formatted(style.toLowerCase(java.util.Locale.ROOT), book.layout().bookFont().fileName(style)));
+            }
+        }
         if (book.cover() != null) {
             manifest.append("""
                         <item id="cover-image" href="images/cover.%s" media-type="%s" properties="cover-image"/>
@@ -338,6 +350,42 @@ final class EpubWriter {
         zip.putNextEntry(entry);
         zip.write(content);
         zip.closeEntry();
+    }
+
+    /**
+     * A fonte escolhida pelo autor vai embutida (o leitor ainda pode trocar); a padrão (Literata) não: o leitor usa a
+     * dele, como antes.
+     */
+    static boolean embedsFont(ExportBook book) {
+        return book.layout().bookFont() != com.booksmith.manuscript.api.BookFont.DEFAULT;
+    }
+
+    private static List<String> fontStyles(com.booksmith.manuscript.api.BookFont font) {
+        if (font.hasItalic()) {
+            return List.of("Regular", "Bold", "Italic", "BoldItalic");
+        }
+        return font.hasBold() ? List.of("Regular", "Bold") : List.of("Regular");
+    }
+
+    private static String fontCss(ExportBook book) {
+        if (!embedsFont(book)) {
+            return "";
+        }
+        com.booksmith.manuscript.api.BookFont font = book.layout().bookFont();
+        StringBuilder css = new StringBuilder();
+        for (String style : fontStyles(font)) {
+            css.append("@font-face { font-family: '%s'; src: url(../fonts/%s); font-weight: %s; font-style: %s; }\n"
+                    .formatted(font.family(), font.fileName(style), style.startsWith("Bold") ? "bold" : "normal",
+                            style.endsWith("Italic") ? "italic" : "normal"));
+        }
+        return css.append("body { font-family: '%s', serif; }\n".formatted(font.family())).toString();
+    }
+
+    private static byte[] fontBytes(com.booksmith.manuscript.api.BookFont font, String style) throws IOException {
+        try (var in = new org.springframework.core.io.ClassPathResource("export/fonts/" + font.fileName(style))
+                .getInputStream()) {
+            return in.readAllBytes();
+        }
     }
 
     /** CSS discreto: o leitor de ePub decide fonte e tamanho; aqui só a tipografia de livro. */

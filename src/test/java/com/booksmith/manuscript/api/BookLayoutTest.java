@@ -61,4 +61,44 @@ class BookLayoutTest {
         var layout = new BookLayout(trim, null, null, null, null, null);
         return new double[] {layout.widthMm(), layout.heightMm()};
     }
+
+    @Test
+    void fontIsLiterataByDefaultAndMustBeFromTheCatalog() {
+        assertThat(BookLayout.DEFAULT.font()).isEqualTo("literata");
+        assertThat(new BookLayout(null, null, null, null, null, null, null, null, null, null, null, null, "andika")
+                .bookFont()).isEqualTo(BookFont.ANDIKA);
+        assertThatThrownBy(() -> new BookLayout(null, null, null, null, null, null, null, null, null, null, null, null,
+                "Arial; color: red"))
+                .isInstanceOfSatisfying(ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("layout_invalid"));
+    }
+
+    @Test
+    void pageFontIsOptionalAndFromTheCatalog() {
+        var inherits = new PageDesign(null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, " ");
+        assertThat(inherits.font()).isNull();
+        assertThat(inherits.fontOr(BookFont.NUNITO)).isEqualTo(BookFont.NUNITO);
+        var own = new PageDesign(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, "fredoka");
+        assertThat(own.fontOr(BookFont.NUNITO)).isEqualTo(BookFont.FREDOKA);
+        assertThatThrownBy(() -> new PageDesign(null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, "'Comic Sans'"))
+                .isInstanceOfSatisfying(ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("page_invalid"));
+    }
+
+    @Test
+    void everyFontInTheCatalogHasItsFiles() {
+        for (BookFont font : BookFont.values()) {
+            assertThat(BookFont.class.getResource("/export/fonts/" + font.fileName("Regular"))).as(font.id()).isNotNull();
+            if (font.hasBold()) {
+                assertThat(BookFont.class.getResource("/export/fonts/" + font.fileName("Bold"))).as(font.id()).isNotNull();
+            }
+            if (font.hasItalic()) {
+                assertThat(BookFont.class.getResource("/export/fonts/" + font.fileName("BoldItalic"))).as(font.id())
+                        .isNotNull();
+            }
+        }
+    }
 }

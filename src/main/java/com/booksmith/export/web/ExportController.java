@@ -60,11 +60,12 @@ class ExportController {
     /** A diagramação (campos soltos, conferidos no {@link BookLayout}) e as páginas pedidas, a partir de 1. */
     record PreviewRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                           String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
-                          Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, Integer from, Integer count) {
+                          Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font, Integer from,
+                          Integer count) {
 
         BookLayout layout() {
             return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm,
-                    customHeightMm, bleed, autoPages, pageNumbers, fixedLayout);
+                    customHeightMm, bleed, autoPages, pageNumbers, fixedLayout, font);
         }
     }
 

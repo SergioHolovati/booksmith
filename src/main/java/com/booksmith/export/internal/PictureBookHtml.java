@@ -1,5 +1,6 @@
 package com.booksmith.export.internal;
 
+import com.booksmith.manuscript.api.BookFont;
 import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.PageDesign;
 import tools.jackson.databind.JsonNode;
@@ -109,7 +110,7 @@ final class PictureBookHtml {
                 <body>
                 %10$s%8$s%9$s</body>
                 </html>
-                """.formatted(book.language(), escape(book.title()), css(page), bookmarks, escape(book.author()),
+                """.formatted(book.language(), escape(book.title()), css(page, book.layout().bookFont()), bookmarks, escape(book.author()),
                 mm(page[0]), mm(page[1] - 1), auto ? front(book, page) : "", pages,
                 auto ? titlePage(book, page) : "");
     }
@@ -205,9 +206,9 @@ final class PictureBookHtml {
         };
         String band = design.hasBand()
                 ? ("light".equals(design.color()) ? " band-dark" : " band-light") : "";
-        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; %s; font-size: %spt\">%s</div>"
+        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; %s; font-size: %spt;%s\">%s</div>"
                 .formatted(design.color(), band, design.align(), mm(left), mm(width), vertical,
-                        mm(design.fontSizePt()), text);
+                        mm(design.fontSizePt()), fontStyle(layout, design), text);
     }
 
     /**
@@ -225,14 +226,21 @@ final class PictureBookHtml {
         double left = boxX + (right ? 0 : bleed);
         double top = bleed + design.y() / 100 * trimH;
         String band = design.hasBand() ? ("light".equals(design.color()) ? " band-dark" : " band-light") : "";
-        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; top: %smm; font-size: %spt\">%s</div>"
-                .formatted(design.color(), band, design.align(), mm(left), mm(boxW), mm(top), mm(design.fontSizePt()), text);
+        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; top: %smm; font-size: %spt;%s\">%s</div>"
+                .formatted(design.color(), band, design.align(), mm(left), mm(boxW), mm(top), mm(design.fontSizePt()),
+                        fontStyle(layout, design), text);
     }
 
-    private static String css(double[] page) {
+    /** A fonte da página, quando ela tem uma diferente da do livro (o nome vem do catálogo, nunca do usuário). */
+    private static String fontStyle(BookLayout layout, PageDesign design) {
+        BookFont font = design.fontOr(layout.bookFont());
+        return font == layout.bookFont() ? "" : " font-family: '%s';".formatted(font.family());
+    }
+
+    private static String css(double[] page, BookFont font) {
         return """
                 @page { size: %1$smm %2$smm; margin: 0; }
-                body { margin: 0; font-family: Literata; color: #1a1a1a; }
+                body { margin: 0; font-family: '%3$s'; color: #1a1a1a; }
                 .title-page, .front-page { page-break-after: always; text-align: center; padding-left: 20mm;
                   padding-right: 20mm; box-sizing: border-box; }
                 .book-title { font-size: 30pt; font-weight: bold; line-height: 1.15; margin: 0 0 10mm; }
@@ -254,7 +262,7 @@ final class PictureBookHtml {
                 .align-left { text-align: left; }
                 .align-center { text-align: center; }
                 .align-right { text-align: right; }
-                """.formatted(mm(page[0]), mm(page[1]));
+                """.formatted(mm(page[0]), mm(page[1]), font.family());
     }
 
     private static String mm(double value) {

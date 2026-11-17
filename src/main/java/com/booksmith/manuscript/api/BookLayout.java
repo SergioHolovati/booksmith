@@ -29,10 +29,11 @@ import java.util.List;
  * @param pageNumbers    livro ilustrado: número de página pequeno no canto de fora (padrão: sem)
  * @param fixedLayout    modo páginas: cada capítulo é uma página com fundo e texto por cima, em qualquer gênero (o
  *                       livro pronto importado em PDF); no infantil, é sempre assim
+ * @param font           a fonte do texto ({@link BookFont}, pelo id); padrão Literata
  */
 public record BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                          String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
-                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout) {
+                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font) {
 
     public static final List<String> TRIMS = List.of("a5", "14x21", "16x23", "17x24", "6x9",
             "15x15", "20x20", "21x21", "25x25", "8.5x8.5", "8.25x8.25",
@@ -61,6 +62,14 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
                       String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed) {
         this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm, customHeightMm, bleed, null,
                 null, null);
+    }
+
+    /** Com a fonte padrão. */
+    public BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
+                      String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed, Boolean autoPages,
+                      Boolean pageNumbers, Boolean fixedLayout) {
+        this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm, customHeightMm, bleed, autoPages,
+                pageNumbers, fixedLayout, null);
     }
 
     /** Sem o modo páginas. */
@@ -101,6 +110,16 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
         autoPages = !Boolean.FALSE.equals(autoPages);
         pageNumbers = Boolean.TRUE.equals(pageNumbers);
         fixedLayout = Boolean.TRUE.equals(fixedLayout);
+        if (font == null) {
+            font = BookFont.DEFAULT.id();
+        } else if (BookFont.of(font).isEmpty()) {
+            throw invalid("Fonte desconhecida.");
+        }
+    }
+
+    /** A fonte do texto. */
+    public BookFont bookFont() {
+        return BookFont.orDefault(font);
     }
 
     public boolean isFixedLayout() {

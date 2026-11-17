@@ -72,6 +72,30 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(problem);
     }
 
+    /**
+     * O envio chegou sem a parte do arquivo (corpo vazio ou cortado no caminho: rede do celular, arquivo da nuvem que
+     * o aparelho não conseguiu ler). Fica no log com o que ajuda a achar a causa (sem o conteúdo nem o usuário).
+     */
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestPart(
+            org.springframework.web.multipart.support.MissingServletRequestPartException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        if (request instanceof org.springframework.web.context.request.ServletWebRequest web) {
+            var http = web.getRequest();
+            log.warn("Envio sem a parte '{}': {} {} ({}, {} bytes, {}, agente {})", ex.getRequestPartName(),
+                    http.getMethod(), http.getRequestURI(), http.getContentType(), http.getContentLengthLong(),
+                    http.getProtocol(), String.valueOf(http.getHeader("User-Agent")).replaceAll("[\\r\\n]", " "));
+        }
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                "O arquivo não chegou inteiro ao servidor. Tente de novo; se o arquivo estiver na nuvem (Drive, "
+                        + "WhatsApp), baixe-o para o aparelho antes de enviar.");
+        problem.setProperty("code", "upload_incomplete");
+        return ResponseEntity.badRequest().body(problem);
+    }
+
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex,

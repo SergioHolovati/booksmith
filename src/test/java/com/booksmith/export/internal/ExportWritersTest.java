@@ -1035,4 +1035,72 @@ class ExportWritersTest {
         }
         return names;
     }
+
+    private static com.booksmith.manuscript.api.BookLayout withFont(String trim, String font) {
+        return new com.booksmith.manuscript.api.BookLayout(trim, null, null, null, null, null, null, null, null, null,
+                null, null, font);
+    }
+
+    private static java.util.Set<String> pdfFonts(byte[] pdf) throws Exception {
+        java.util.Set<String> names = new java.util.TreeSet<>();
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            for (var page : document.getPages()) {
+                for (var name : page.getResources().getFontNames()) {
+                    names.add(page.getResources().getFont(name).getName());
+                }
+            }
+        }
+        return names;
+    }
+
+    @Test
+    void theBookFontAndAPageFontGoIntoThePictureBookPdf() throws Exception {
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Era uma vez.\"}]}]}";
+        var bookFont = new com.booksmith.manuscript.api.PageDesign(null, null, "bottom", null, null, null, null, null,
+                null);
+        var ownFont = new com.booksmith.manuscript.api.PageDesign(null, null, "top", null, null, null, null, null,
+                null, null, null, null, null, null, null, "patrick-hand");
+        var book = new ExportBook(UUID.randomUUID(), "Fontes", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Página 1", JSON.readTree(text), null, bookFont),
+                        new ExportBook.Chapter("Página 2", JSON.readTree(text), null, ownFont)),
+                java.util.Map.of(), com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY,
+                withFont("20x20", "nunito"), true);
+
+        String html = PictureBookHtml.html(book);
+        assertThat(html).contains("body { margin: 0; font-family: 'Nunito';").contains("font-family: 'Patrick Hand';");
+        assertThat(pdfFonts(PdfWriter.write(book))).anyMatch(name -> name.contains("Nunito"))
+                .anyMatch(name -> name.contains("PatrickHand"));
+    }
+
+    @Test
+    void theChosenFontIsTheTextOfTheNovelPdf() throws Exception {
+        ExportBook book = book(null, null).withLayout(withFont("a5", "eb-garamond"));
+        assertThat(pdfFonts(PdfWriter.write(book))).anyMatch(name -> name.contains("EBGaramond"));
+        // Sem escolha, a Literata de sempre
+        assertThat(pdfFonts(PdfWriter.write(book(null, null)))).allMatch(name -> name.contains("Literata"));
+    }
+
+    @Test
+    void theChosenFontIsEmbeddedInTheEpubAndPassesEpubcheck(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(book(null, null).withLayout(withFont("a5", "andika")));
+        Path file = dir.resolve("fonte.epub");
+        Files.write(file, epub);
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        assertThat(entries(epub)).contains("EPUB/fonts/Andika-Regular.ttf", "EPUB/fonts/Andika-BoldItalic.ttf");
+        assertThat(entry(epub, "EPUB/css/book.css")).contains("@font-face { font-family: 'Andika'")
+                .contains("body { font-family: 'Andika', serif; }");
+        // A padrão não vai embutida: o leitor de ePub usa a dele
+        assertThat(entries(EpubWriter.write(book(null, null)))).noneMatch(name -> name.startsWith("EPUB/fonts/"));
+    }
+
+    @Test
+    void wordUsesTheChosenFontOrTimesNewRoman() throws Exception {
+        assertThat(entry(DocxWriter.write(book(null, null).withLayout(withFont("a5", "lora"))), "word/styles.xml"))
+                .contains("<w:rFonts w:ascii=\"Lora\"");
+        assertThat(entry(DocxWriter.write(book(null, null)), "word/styles.xml"))
+                .contains("<w:rFonts w:ascii=\"Times New Roman\"");
+    }
 }

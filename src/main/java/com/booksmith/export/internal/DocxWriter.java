@@ -48,7 +48,7 @@ final class DocxWriter {
             entry(zip, "_rels/.rels", ROOT_RELS);
             entry(zip, "docProps/core.xml", core(book));
             entry(zip, "word/_rels/document.xml.rels", DOCUMENT_RELS.replace("</Relationships>", images.relationships() + "</Relationships>"));
-            entry(zip, "word/styles.xml", styles(book.language()));
+            entry(zip, "word/styles.xml", styles(book.language(), wordFont(book)));
             entry(zip, "word/settings.xml", SETTINGS);
             entry(zip, "word/footer1.xml", FOOTER);
             entry(zip, "word/document.xml", document);
@@ -447,13 +447,19 @@ final class DocxWriter {
     }
 
     /** Estilos nativos (ids e nomes em inglês, como o Word grava); o Word mostra os nomes no idioma dele. */
-    private static String styles(String language) {
+    /** A fonte escolhida no livro; a padrão vira Times New Roman (o padrão de original para editora). */
+    static String wordFont(ExportBook book) {
+        com.booksmith.manuscript.api.BookFont font = book.layout().bookFont();
+        return font == com.booksmith.manuscript.api.BookFont.DEFAULT ? "Times New Roman" : font.family();
+    }
+
+    private static String styles(String language, String font) {
         return """
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <w:styles xmlns:w="%s">
                 <w:docDefaults>
                 <w:rPrDefault><w:rPr>
-                <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/>
+                <w:rFonts w:ascii="%3$s" w:hAnsi="%3$s" w:eastAsia="%3$s" w:cs="%3$s"/>
                 <w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="%s"/>
                 </w:rPr></w:rPrDefault>
                 <w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="360" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr></w:pPrDefault>
@@ -486,7 +492,7 @@ final class DocxWriter {
                 <w:style w:type="paragraph" w:styleId="Footer"><w:name w:val="footer"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/></w:pPr>
                 <w:rPr><w:sz w:val="20"/></w:rPr></w:style>
                 </w:styles>
-                """.formatted(W, language);
+                """.formatted(W, language, font);
     }
 
     private static void entry(ZipOutputStream zip, String name, String content) throws IOException {

@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
  */
 public record PageDesign(String imageId, String background, String text, String align, String size, String color,
                          Boolean band, Boolean spread, String textSide, Double x, Double y, Double w,
-                         Double zoom, Double imageX, Double imageY) {
+                         Double zoom, Double imageX, Double imageY, String font) {
 
     public static final List<String> TEXTS = List.of("top", "middle", "bottom", "free", "none");
     public static final List<String> ALIGNS = List.of("left", "center", "right");
@@ -50,6 +50,14 @@ public record PageDesign(String imageId, String background, String text, String 
     public PageDesign(String imageId, String background, String text, String align, String size, String color,
                       Boolean band, Boolean spread, String textSide, Double x, Double y, Double w) {
         this(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, null, null, null);
+    }
+
+    /** Sem fonte própria (usa a do livro). */
+    public PageDesign(String imageId, String background, String text, String align, String size, String color,
+                      Boolean band, Boolean spread, String textSide, Double x, Double y, Double w, Double zoom,
+                      Double imageX, Double imageY) {
+        this(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, zoom, imageX, imageY,
+                null);
     }
 
     private static final Pattern UUID_TEXT = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -81,6 +89,18 @@ public record PageDesign(String imageId, String background, String text, String 
         zoom = zoom == null ? Double.valueOf(1) : Double.valueOf(Math.round(Math.max(0.3, Math.min(4, zoom)) * 100) / 100.0);
         imageX = imageX == null ? Double.valueOf(50) : Double.valueOf(clamp(imageX, -50, 150));
         imageY = imageY == null ? Double.valueOf(50) : Double.valueOf(clamp(imageY, -50, 150));
+        // Fonte só desta página; nula = a do livro
+        if (font != null && font.isBlank()) {
+            font = null;
+        }
+        if (font != null && BookFont.of(font).isEmpty()) {
+            throw invalid("Fonte desconhecida.");
+        }
+    }
+
+    /** A fonte desta página: a dela, se escolhida, senão a do livro. */
+    public BookFont fontOr(BookFont bookFont) {
+        return font == null ? bookFont : BookFont.orDefault(font);
     }
 
     private static double clamp(double value, double min, double max) {
