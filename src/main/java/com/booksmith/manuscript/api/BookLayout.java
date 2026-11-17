@@ -27,10 +27,12 @@ import java.util.List;
  * @param autoPages      livro ilustrado: o Booksmith gera a folha de rosto, os créditos e a dedicatória (padrão); sem
  *                       isso, o autor monta todas as páginas (capa ilustrada, créditos com ficha, dedicatória…)
  * @param pageNumbers    livro ilustrado: número de página pequeno no canto de fora (padrão: sem)
+ * @param fixedLayout    modo páginas: cada capítulo é uma página com fundo e texto por cima, em qualquer gênero (o
+ *                       livro pronto importado em PDF); no infantil, é sempre assim
  */
 public record BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                          String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
-                         Boolean autoPages, Boolean pageNumbers) {
+                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout) {
 
     public static final List<String> TRIMS = List.of("a5", "14x21", "16x23", "17x24", "6x9",
             "15x15", "20x20", "21x21", "25x25", "8.5x8.5", "8.25x8.25",
@@ -58,7 +60,15 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
     public BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                       String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed) {
         this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm, customHeightMm, bleed, null,
-                null);
+                null, null);
+    }
+
+    /** Sem o modo páginas. */
+    public BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
+                      String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed, Boolean autoPages,
+                      Boolean pageNumbers) {
+        this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm, customHeightMm, bleed, autoPages,
+                pageNumbers, null);
     }
 
     /**
@@ -90,6 +100,11 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
         bleed = Boolean.TRUE.equals(bleed);
         autoPages = !Boolean.FALSE.equals(autoPages);
         pageNumbers = Boolean.TRUE.equals(pageNumbers);
+        fixedLayout = Boolean.TRUE.equals(fixedLayout);
+    }
+
+    public boolean isFixedLayout() {
+        return Boolean.TRUE.equals(fixedLayout);
     }
 
     /** Livro ilustrado: o Booksmith gera a folha de rosto e as páginas da frente. */

@@ -122,16 +122,18 @@ final class PictureBookHtml {
 
     private static int frontPages(ExportBook book) {
         int count = 0;
-        for (String text : new String[] {book.pages().credits(), book.pages().dedication()}) {
-            count += text == null || text.isBlank() ? 0 : 1;
-        }
+        boolean credits = book.pages().credits() != null || book.pages().catalogCard() != null;
+        count += credits ? 1 : 0;
+        count += book.pages().dedication() == null ? 0 : 1;
         return count;
     }
 
     /** Créditos e dedicatória, cada um na sua página, como nos livros ilustrados. */
     private static String front(ExportBook book, double[] page) {
         StringBuilder html = new StringBuilder();
-        for (String text : new String[] {book.pages().credits(), book.pages().dedication()}) {
+        String credits = book.pages().catalogCard() == null ? book.pages().credits()
+                : (book.pages().credits() == null ? "" : book.pages().credits() + "\n\n") + book.pages().catalogCard();
+        for (String text : new String[] {credits, book.pages().dedication()}) {
             if (text == null || text.isBlank()) {
                 continue;
             }

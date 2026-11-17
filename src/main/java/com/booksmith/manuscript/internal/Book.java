@@ -85,6 +85,17 @@ public class Book {
 
     private String aboutAuthorTitle;
 
+    /** Estrutura completa do livro (V36): falsa folha de rosto, ficha catalográfica, colofão e foto do autor. */
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean halfTitle = false;
+
+    private String catalogCard;
+
+    private String colophon;
+
+    private UUID authorPhotoId;
+
     /** Diagramação do PDF (V22), JSON de {@link com.booksmith.manuscript.api.BookLayout}; "{}" = o padrão. */
     @Builder.Default
     @Column(nullable = false, columnDefinition = "jsonb")
@@ -109,7 +120,7 @@ public class Book {
 
     public Manuscripts.BookPages pages() {
         return new Manuscripts.BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
-                aboutAuthorTitle);
+                aboutAuthorTitle, halfTitle, catalogCard, colophon, authorPhotoId);
     }
 
     void setPages(Manuscripts.BookPages pages) {
@@ -120,6 +131,10 @@ public class Book {
         acknowledgments = pages.acknowledgments();
         aboutAuthor = pages.aboutAuthor();
         aboutAuthorTitle = pages.aboutAuthorTitle();
+        halfTitle = pages.hasHalfTitle();
+        catalogCard = pages.catalogCard();
+        colophon = pages.colophon();
+        authorPhotoId = pages.authorPhotoId();
     }
 
     @CreationTimestamp

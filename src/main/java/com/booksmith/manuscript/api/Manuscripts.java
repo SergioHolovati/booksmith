@@ -86,8 +86,9 @@ public interface Manuscripts {
                     "FICTION");
         }
 
+        /** Livro de páginas: o infantil, ou outro gênero no modo páginas (o livro pronto importado em PDF). */
         public boolean pictureBook() {
-            return "CHILDREN".equals(genre);
+            return "CHILDREN".equals(genre) || (layout != null && layout.isFixedLayout());
         }
 
         public BookContent(UUID bookId, String title, String synopsis, String language, boolean fanfic, String fandom,
@@ -104,12 +105,18 @@ public interface Manuscripts {
      * @param credits        verso da folha de rosto: direitos, capa, ilustrações, revisão
      * @param epigraphSource   de quem é a epígrafe ("Clarice Lispector, A hora da estrela")
      * @param aboutAuthorTitle título da página "sobre": "Sobre a autora", "Sobre mim"; null = o nome do autor
+     * @param halfTitle        falsa folha de rosto: uma página só com o título, antes da folha de rosto
+     * @param catalogCard      ficha catalográfica (dados de catalogação na publicação), no verso da folha de rosto
+     * @param colophon         colofão: a última página (tipografia, papel, gráfica, data)
+     * @param authorPhotoId    foto de quem escreveu (da biblioteca do universo do livro), na página "sobre" e na
+     *                         contracapa
      * @param isbnPrint        ISBN do impresso (guia de publicação), nos créditos do PDF; só na exportação
      * @param isbnEbook        ISBN do e-book, nos créditos e no identificador do ePub; só na exportação (os dois ficam
      *                         fora do JSON: na API, o ISBN é do guia de publicação)
      */
     record BookPages(String credits, String dedication, String epigraph, String epigraphSource,
-                     String acknowledgments, String aboutAuthor, String aboutAuthorTitle,
+                     String acknowledgments, String aboutAuthor, String aboutAuthorTitle, Boolean halfTitle,
+                     String catalogCard, String colophon, UUID authorPhotoId,
                      @com.fasterxml.jackson.annotation.JsonIgnore String isbnPrint,
                      @com.fasterxml.jackson.annotation.JsonIgnore String isbnEbook) {
 
@@ -119,13 +126,25 @@ public interface Manuscripts {
         public BookPages(String credits, String dedication, String epigraph, String epigraphSource,
                          String acknowledgments, String aboutAuthor, String aboutAuthorTitle) {
             this(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor, aboutAuthorTitle, null,
-                    null);
+                    null, null, null);
+        }
+
+        /** Com a estrutura completa (falsa folha de rosto, ficha, colofão, foto), sem ISBN. */
+        public BookPages(String credits, String dedication, String epigraph, String epigraphSource,
+                         String acknowledgments, String aboutAuthor, String aboutAuthorTitle, Boolean halfTitle,
+                         String catalogCard, String colophon, UUID authorPhotoId) {
+            this(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor, aboutAuthorTitle,
+                    halfTitle, catalogCard, colophon, authorPhotoId, null, null);
         }
 
         /** As mesmas páginas com os ISBNs do guia de publicação, que saem nos créditos. */
         public BookPages withIsbn(String print, String ebook) {
             return new BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
-                    aboutAuthorTitle, print, ebook);
+                    aboutAuthorTitle, halfTitle, catalogCard, colophon, authorPhotoId, print, ebook);
+        }
+
+        public boolean hasHalfTitle() {
+            return Boolean.TRUE.equals(halfTitle);
         }
 
         /** Texto limpo: sem espaços nas pontas, quebras de linha unificadas, vazio vira null. */
@@ -138,6 +157,9 @@ public interface Manuscripts {
             aboutAuthor = clean(aboutAuthor);
             aboutAuthorTitle = aboutAuthor == null || aboutAuthorTitle == null
                     ? null : clean(aboutAuthorTitle.replace('\n', ' ').replace('\r', ' '));
+            halfTitle = Boolean.TRUE.equals(halfTitle);
+            catalogCard = clean(catalogCard);
+            colophon = clean(colophon);
         }
 
         private static String clean(String text) {

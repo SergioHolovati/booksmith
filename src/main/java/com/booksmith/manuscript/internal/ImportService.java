@@ -28,6 +28,7 @@ public class ImportService {
 
     private final BookService bookService;
     private final ChapterRepository chapterRepository;
+    private final com.booksmith.universe.api.Universes universes;
     private final JsonMapper jsonMapper;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -98,6 +99,55 @@ public class ImportService {
         Book book = bookService.require(ownerId, bookId);
         StructureBuilder.Result result = StructureBuilder.fromOutline(outline, jsonMapper);
         return save(book, ownerId, result.chapters(), "OUTLINE", null, List.of());
+    }
+
+    /** O resultado da importação do livro pronto em PDF. */
+    public record PdfImport(int pages, int spreads, double widthMm, double heightMm, boolean bleed, List<UUID> chapters) {
+    }
+
+    /**
+     * O livro pronto em PDF: cada página (ou dupla) vira uma página do livro, com a página do PDF como ilustração de
+     * fundo (300 DPI, na biblioteca do universo) e sem texto por cima. O livro passa para o modo páginas, sem a folha
+     * de rosto automática, no tamanho das páginas do PDF (com a sangria, se o PDF tiver). As páginas entram no fim.
+     */
+    @Transactional
+    public PdfImport importPdf(UUID ownerId, UUID bookId, java.io.File pdf) {
+        Book book = bookService.require(ownerId, bookId);
+        if (book.getUniverseId() == null) {
+            throw ApiException.unprocessable("book_without_universe", "Este livro não tem universo para guardar as páginas.");
+        }
+        List<com.booksmith.manuscript.api.PageDesign> designs = new ArrayList<>();
+        int[] spreads = {0};
+        PdfBookReader.Size size = PdfBookReader.read(pdf, page -> {
+            var image = universes.addImportedImage(ownerId, book.getUniverseId(), page.jpeg(), "image/jpeg",
+                    "Página %d do PDF".formatted(page.number()));
+            spreads[0] += page.spread() ? 1 : 0;
+            designs.add(new com.booksmith.manuscript.api.PageDesign(image.id().toString(), null, "none", null, null,
+                    null, null, page.spread(), null));
+        });
+        int first = chapterRepository.maxPosition(bookId) + 1;
+        List<ChapterSplitter.Draft> drafts = new ArrayList<>();
+        for (int i = 0; i < designs.size(); i++) {
+            drafts.add(ChapterSplitter.draft("Página " + (first + i), List.of(), null, jsonMapper));
+        }
+        List<Chapter> created = createChapters(book, ownerId, drafts);
+        for (int i = 0; i < created.size(); i++) {
+            created.get(i).setPage(jsonMapper.writeValueAsString(designs.get(i)));
+        }
+        chapterRepository.saveAllAndFlush(created);
+        // O tamanho do livro passa a ser o das páginas do PDF (no limite do tamanho personalizado)
+        var current = bookService.layoutOf(book);
+        double width = Math.clamp(size.widthMm(), com.booksmith.manuscript.api.BookLayout.MIN_CUSTOM_MM,
+                com.booksmith.manuscript.api.BookLayout.MAX_CUSTOM_MM);
+        double height = Math.clamp(size.heightMm(), com.booksmith.manuscript.api.BookLayout.MIN_CUSTOM_MM,
+                com.booksmith.manuscript.api.BookLayout.MAX_CUSTOM_MM);
+        bookService.updateLayout(ownerId, bookId, new com.booksmith.manuscript.api.BookLayout("custom",
+                current.fontSize(), current.leading(), current.margins(), current.chapterStyle(), current.sceneBreak(),
+                width, height, size.bleed(), false, false, true));
+        log.info("Livro pronto em PDF: {} páginas ({} duplas), {} × {} mm, no livro {}", created.size(), spreads[0],
+                width, height, bookId);
+        return new PdfImport(created.size(), spreads[0], width, height, size.bleed(),
+                created.stream().map(Chapter::getId).toList());
     }
 
     /** Cria os capítulos no fim do livro, na ordem, e avisa como o autosave (o agente de continuidade lê). */

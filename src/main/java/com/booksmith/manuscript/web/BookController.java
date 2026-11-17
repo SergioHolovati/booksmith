@@ -85,11 +85,12 @@ class BookController {
     /** Campos soltos, conferidos no {@link CoverDesign} (422 {@code cover_design_invalid}), fora do Jackson. */
     record CoverRequest(String template, String backgroundColor, UUID imageId, Integer shade, String title,
                         String subtitle, String author, String font, String titleSize, String textColor,
-                        String accentColor, String backText, String image) {
+                        String accentColor, String backText, UUID backImageId, Integer backShade, Boolean backPhoto,
+                        String backBio, Boolean barcode, String image) {
 
         CoverDesign toDesign() {
             return new CoverDesign(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize,
-                    textColor, accentColor, backText);
+                    textColor, accentColor, backText, backImageId, backShade, backPhoto, backBio, barcode);
         }
     }
 
@@ -103,6 +104,11 @@ class BookController {
                                     @RequestParam(required = false) Double spineMm,
                                     @RequestParam(required = false) Double bleedMm)
             throws java.io.IOException {
+        // O limite geral de envio é maior (livro pronto em PDF); a capa continua até 15 MB, conferida antes de ler
+        if (file.getSize() > 15L * 1024 * 1024) {
+            throw new com.booksmith.common.error.ApiException(HttpStatus.CONTENT_TOO_LARGE, "file_too_large",
+                    "O PDF da capa passa de 15 MB.");
+        }
         var cover = bookService.importCoverPdf(currentUser.id(), bookId, file.getOriginalFilename(), file.getBytes(),
                 trim, spineMm, bleedMm);
         return new CoverPdfResponse(bookService.get(currentUser.id(), bookId).book().getCoverUrl(), cover);
@@ -148,11 +154,11 @@ class BookController {
     /** Recebido solto e conferido no {@link BookLayout} (422 {@code layout_invalid}), fora do Jackson. */
     record LayoutRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                          String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
-                         Boolean autoPages, Boolean pageNumbers) {
+                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout) {
 
         BookLayout toLayout() {
             return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm,
-                    customHeightMm, bleed, autoPages, pageNumbers);
+                    customHeightMm, bleed, autoPages, pageNumbers, fixedLayout);
         }
     }
 

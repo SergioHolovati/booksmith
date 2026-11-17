@@ -106,13 +106,19 @@ public class BookService {
         Book book = require(ownerId, bookId);
         Manuscripts.BookPages p = book.pages();
         book.setPages(new Manuscripts.BookPages(p.credits(), p.dedication(), p.epigraph(), p.epigraphSource(),
-                p.acknowledgments(), aboutAuthor, p.aboutAuthorTitle()));
+                p.acknowledgments(), aboutAuthor, p.aboutAuthorTitle(), p.halfTitle(), p.catalogCard(), p.colophon(),
+                p.authorPhotoId()));
     }
 
     /** Troca as páginas antes e depois da história (créditos, dedicatória...); vazio tira a página do livro. */
     @Transactional
     public Manuscripts.BookPages updatePages(UUID ownerId, UUID bookId, Manuscripts.BookPages pages) {
         Book book = require(ownerId, bookId);
+        if (pages.authorPhotoId() != null && (book.getUniverseId() == null
+                || universes.imageUrl(book.getUniverseId(), pages.authorPhotoId()).isEmpty())) {
+            throw ApiException.unprocessable("author_photo_not_found",
+                    "A foto não está na biblioteca do universo do livro.");
+        }
         book.setPages(pages);
         return book.pages();
     }
@@ -132,11 +138,7 @@ public class BookService {
                 || !(imageDataUrl.startsWith("data:image/jpeg;") || imageDataUrl.startsWith("data:image/png;"))) {
             throw ApiException.unprocessable("cover_image_invalid", "A capa precisa ser uma imagem JPEG ou PNG.");
         }
-        if (design.imageId() != null && (book.getUniverseId() == null
-                || universes.imageUrl(book.getUniverseId(), design.imageId()).isEmpty())) {
-            throw ApiException.unprocessable("cover_image_not_found",
-                    "A imagem de fundo não está mais na biblioteca do universo.");
-        }
+        requireLibraryImages(book, design);
         String previous = book.getCoverUrl();
         book.setCoverUrl(imageStorage.store(ImageCategory.BOOK_COVER, ownerId, imageDataUrl).url());
         imageStorage.delete(previous);
@@ -214,8 +216,25 @@ public class BookService {
     @Transactional
     public CoverDesign saveCoverDesign(UUID ownerId, UUID bookId, CoverDesign design) {
         Book book = require(ownerId, bookId);
+        requireLibraryImages(book, design);
         book.setCoverDesign(jsonMapper.writeValueAsString(design));
         return design;
+    }
+
+    /** As imagens da capa (frente e contracapa) são da biblioteca do universo do livro. */
+    private void requireLibraryImages(Book book, CoverDesign design) {
+        for (UUID image : new UUID[] {design.imageId(), design.backImageId()}) {
+            if (image != null && (book.getUniverseId() == null
+                    || universes.imageUrl(book.getUniverseId(), image).isEmpty())) {
+                throw ApiException.unprocessable("cover_image_not_found",
+                        "A imagem de fundo não está mais na biblioteca do universo.");
+            }
+        }
+    }
+
+    /** Livro de páginas (o editor mostra o desenho da página): o infantil, ou no modo páginas. */
+    public boolean isPictureBook(Book book) {
+        return book.getGenre() == BookGenre.CHILDREN || layoutOf(book).isFixedLayout();
     }
 
     /** O desenho da capa guardado, ou null se a capa não foi feita no editor. */

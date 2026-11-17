@@ -116,14 +116,14 @@ final class PdfWriter {
             cover = "<div class=\"cover\"><img src=\"data:%s;base64,%s\" alt=\"Capa\"/></div>\n"
                     .formatted(book.cover().contentType(), Base64.getEncoder().encodeToString(book.cover().bytes()));
         }
-        for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author())) {
+        for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author(), authorPhoto(book))) {
             String title = escape(extra.title());
             bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(title, extra.id()));
             toc.append("<li><a href=\"#%s\">%s</a></li>\n".formatted(extra.id(), title));
             chapters.append("<div class=\"back\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()));
         }
         String notice = (book.fanfic() ? "<div class=\"front\">" + EpubWriter.fanNotice(book) + "</div>\n" : "")
-                + BookPagesHtml.front(book.pages(), book.pages().isbnPrint()).stream()
+                + BookPagesHtml.front(book.pages(), book.pages().isbnPrint(), book.title()).stream()
                 .map(extra -> "<div class=\"front\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()))
                 .collect(java.util.stream.Collectors.joining());
         return """
@@ -302,6 +302,12 @@ final class PdfWriter {
         return COVER_TYPES.contains(contentType);
     }
 
+    /** A foto de quem escreveu, como data URI (null sem foto, ou num formato que o PDF não lê). */
+    static String authorPhoto(ExportBook book) {
+        var id = book.pages().authorPhotoId();
+        return id == null ? null : dataUri(book, id.toString());
+    }
+
     /** Ilustração como data URI; WebP o motor de PDF não lê, então sai só a legenda. */
     static String dataUri(ExportBook book, String imageId) {
         var image = book.illustrations().get(imageId);
@@ -358,6 +364,13 @@ final class PdfWriter {
             p.indent { text-indent: 1.5em; }
             .part-page { page-break-before: always; page-break-after: always; text-align: center; padding-top: 60mm; }
             h1.part-title { font-size: 20pt; margin: 0; }
+            .half-title { page-break-after: always; padding-top: 60mm; text-align: center; font-size: 15pt; }
+            .catalog-card { margin-top: 6mm; border: 0.5pt solid #555; padding: 3mm 4mm; font-size: 8pt; }
+            .catalog-card p { text-align: left; text-indent: 0; margin: 0; }
+            .author-photo { text-align: center; margin: 0 0 6mm; text-indent: 0; }
+            .author-photo img { width: 40mm; height: auto; }
+            .colophon { padding-top: 120mm; text-align: center; font-size: 8.5pt; }
+            .colophon p { text-align: center; text-indent: 0; }
             .toc li.toc-part { margin-top: 5mm; font-weight: bold; }
             .toc li.toc-section { margin: -1mm 0 2mm 6mm; font-size: .92em; }
             figure.illustration { margin: 6mm 0; text-align: center; page-break-inside: avoid; }

@@ -31,6 +31,23 @@ class CoverDesignTest {
         assertInvalid(() -> new CoverDesign(null, null, null, null, "T", null, null, "comic", null, null, null));
     }
 
+    @Test
+    void backCoverOptionsHaveDefaultsAndLimits() {
+        var design = new CoverDesign(null, null, null, null, "T", null, null, null, null, null, null, null, null, null,
+                null, "  Ana escreve à noite.\r\n ", null);
+        assertThat(design.backShade()).isZero();
+        assertThat(design.backPhoto()).isFalse();
+        assertThat(design.barcode()).isTrue();
+        assertThat(design.backBio()).isEqualTo("Ana escreve à noite.");
+        // A de antes (sem contracapa completa) continua lendo igual
+        assertThat(new CoverDesign(null, null, null, null, "T", null, null, null, null, null, null, "Sinopse").barcode())
+                .isTrue();
+        assertInvalid(() -> new CoverDesign(null, null, null, null, "T", null, null, null, null, null, null, null, null,
+                71, null, null, null));
+        assertInvalid(() -> new CoverDesign(null, null, null, null, "T", null, null, null, null, null, null, null, null,
+                null, null, "x".repeat(501), null));
+    }
+
     private static void assertInvalid(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
         assertThatThrownBy(call).isInstanceOfSatisfying(ApiException.class,
                 e -> assertThat(e.getCode()).isEqualTo("cover_design_invalid"));

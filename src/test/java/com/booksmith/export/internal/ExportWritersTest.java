@@ -654,6 +654,48 @@ class ExportWritersTest {
                 base.generatedAt(), base.chapters(), java.util.Map.of(), pages);
     }
 
+    private static ExportBook withFullStructure() throws Exception {
+        ExportBook base = withParts();
+        var pages = new com.booksmith.manuscript.api.Manuscripts.BookPages("Copyright © 2026 Lia", "Para Vel.", null,
+                null, null, "Escreve à noite.", "Sobre a autora", true,
+                "Dados Internacionais de Catalogação na Publicação (CIP)\nMoreno, Lia\nCDD 869.3", "Composto em Literata.",
+                UUID.fromString(IMAGE_ID));
+        return new ExportBook(base.id(), base.title(), base.author(), base.language(), null, null, null,
+                base.generatedAt(), base.chapters(),
+                java.util.Map.of(IMAGE_ID, new ImageData(twoColors(400, 400), "image/png", "png")), pages);
+    }
+
+    @Test
+    void fullBookStructureInTheEpubAndPdf(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(withFullStructure());
+        Path file = dir.resolve("estrutura.epub");
+        Files.write(file, epub);
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        assertThat(entry(epub, "EPUB/half-title.xhtml")).contains("A Conversão");
+        assertThat(entry(epub, "EPUB/credits.xhtml")).contains("<div class=\"catalog-card\">").contains("CDD 869.3");
+        assertThat(entry(epub, "EPUB/about-author.xhtml")).contains("<img src=\"images/ill-" + IMAGE_ID + ".png\"");
+        assertThat(entry(epub, "EPUB/colophon.xhtml")).contains("Composto em Literata.");
+
+        String html = PdfWriter.html(withFullStructure());
+        // Falsa folha de rosto antes dos créditos; a foto na página "sobre"; o colofão no fim
+        assertThat(html.indexOf("class=\"half-title\"")).isPositive().isLessThan(html.indexOf("class=\"credits\""));
+        assertThat(html).contains("<p class=\"author-photo\"><img src=\"data:image/png;base64,");
+        assertThat(html.lastIndexOf("Composto em Literata.")).isGreaterThan(html.indexOf("Escreve à noite."));
+        assertThat(PdfWriter.write(withFullStructure())).isNotEmpty();
+    }
+
+    @Test
+    void fullBookStructureInTheWord() throws Exception {
+        byte[] docx = DocxWriter.write(withFullStructure());
+        String document = entry(docx, "word/document.xml");
+        assertThat(document).contains("CDD 869.3").contains("Composto em Literata.").contains("rIdImg1");
+        // O Word exportado volta pela importação: a falsa folha de rosto e a ficha ficam na capa, não viram capítulo
+        assertThat(com.booksmith.manuscript.internal.ImportRoundTrip.plan(docx))
+                .containsExactly("Prólogo|", "O Encontro|Parte I — A partida", "A Estrada|", "O Retorno|Parte II — A volta");
+    }
+
     @Test
     void bookPagesGoBeforeAndAfterTheStoryInTheEpub(@TempDir Path dir) throws Exception {
         byte[] epub = EpubWriter.write(withPages(null));

@@ -68,7 +68,8 @@ final class ManuscriptDtos {
                               String language, String coverUrl, BookStatus status, UUID universeId, Instant createdAt,
                               Instant updatedAt, List<ChapterSummary> chapters, Manuscripts.BookPages pages,
                               BookLayout layout, CoverDesign coverDesign, CoverPdf coverPdf,
-                              com.booksmith.manuscript.api.Publishing publishing, BookGenre genre) {
+                              com.booksmith.manuscript.api.Publishing publishing, BookGenre genre,
+                              boolean pictureBook) {
 
         static BookDetailResponse from(BookService.BookDetail detail) {
             Book book = detail.book();
@@ -76,7 +77,8 @@ final class ManuscriptDtos {
                     book.getFandom(), book.getLanguage().tag(), book.getCoverUrl(), book.getStatus(),
                     book.getUniverseId(), book.getCreatedAt(),
                     book.getUpdatedAt(), detail.chapters().stream().map(ChapterSummary::from).toList(), book.pages(),
-                    detail.layout(), detail.coverDesign(), detail.coverPdf(), detail.publishing(), book.getGenre());
+                    detail.layout(), detail.coverDesign(), detail.coverPdf(), detail.publishing(), book.getGenre(),
+                    book.getGenre() == BookGenre.CHILDREN || detail.layout().isFixedLayout());
         }
     }
 
@@ -88,11 +90,15 @@ final class ManuscriptDtos {
             @Size(max = 200, message = "O autor da epígrafe passa de 200 caracteres.") String epigraphSource,
             @Size(max = 20000, message = "Os agradecimentos passam de 20.000 caracteres.") String acknowledgments,
             @Size(max = 5000, message = "O \"sobre o autor\" passa de 5.000 caracteres.") String aboutAuthor,
-            @Size(max = 80, message = "O título da página sobre você passa de 80 caracteres.") String aboutAuthorTitle) {
+            @Size(max = 80, message = "O título da página sobre você passa de 80 caracteres.") String aboutAuthorTitle,
+            Boolean halfTitle,
+            @Size(max = 3000, message = "A ficha catalográfica passa de 3.000 caracteres.") String catalogCard,
+            @Size(max = 2000, message = "O colofão passa de 2.000 caracteres.") String colophon,
+            UUID authorPhotoId) {
 
         Manuscripts.BookPages toPages() {
             return new Manuscripts.BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
-                    aboutAuthorTitle);
+                    aboutAuthorTitle, halfTitle, catalogCard, colophon, authorPhotoId);
         }
     }
 
@@ -111,14 +117,16 @@ final class ManuscriptDtos {
     /** {@code genre} e {@code page}: no livro infantil, o editor mostra o desenho da página. */
     record ChapterResponse(UUID id, UUID bookId, String title, int position, String language, JsonNode content,
                            int wordCount, String contentHash, long version, Instant updatedAt, BookGenre genre,
-                           PageDesign page) {
+                           PageDesign page, boolean pictureBook) {
 
         static ChapterResponse from(ChapterService.ChapterWithBook view, JsonMapper mapper) {
             Chapter chapter = view.chapter();
             return new ChapterResponse(chapter.getId(), chapter.getBookId(), chapter.getTitle(),
                     chapter.getPosition(), view.book().getLanguage().tag(), mapper.readTree(chapter.getContent()),
                     chapter.getWordCount(), chapter.getContentHash(), chapter.getVersion(), chapter.getUpdatedAt(),
-                    view.book().getGenre(), ChapterService.pageOf(chapter));
+                    view.book().getGenre(), ChapterService.pageOf(chapter),
+                    view.book().getGenre() == BookGenre.CHILDREN
+                            || mapper.readTree(view.book().getLayout()).path("fixedLayout").asBoolean(false));
         }
     }
 

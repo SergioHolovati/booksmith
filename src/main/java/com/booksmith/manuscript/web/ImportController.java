@@ -65,7 +65,55 @@ class ImportController {
         return importService.importStructured(currentUser.id(), bookId, read(file), file.getOriginalFilename(), structure);
     }
 
+    /** Envio de arquivo de texto: até 15 MB (o limite geral é maior por causa do livro pronto em PDF). */
+    static final long MAX_TEXT_FILE = 15L * 1024 * 1024;
+    /** O livro pronto em PDF: até 100 MB. */
+    static final long MAX_PDF = 100L * 1024 * 1024;
+
+    /**
+     * O livro pronto em PDF: cada página vira uma página do livro (a página como imagem de fundo). Pode levar
+     * alguns minutos num livro grande: as páginas são desenhadas em 300 DPI.
+     */
+    @PostMapping(path = "/pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
+    ImportService.PdfImport importPdf(@PathVariable UUID bookId, @RequestPart("file") MultipartFile file) {
+        if (file.getSize() > MAX_PDF) {
+            throw tooLarge(100);
+        }
+        java.io.File temp = null;
+        try {
+            temp = java.io.File.createTempFile("booksmith-pdf-", ".pdf");
+            file.transferTo(temp);
+            if (!isPdf(temp)) {
+                throw ApiException.unprocessable("pdf_invalid", "Este arquivo não é um PDF.");
+            }
+            return importService.importPdf(currentUser.id(), bookId, temp);
+        } catch (IOException e) {
+            throw ApiException.unprocessable("import_failed", "Não conseguimos receber o arquivo. Tente de novo.").causedBy(e);
+        } finally {
+            if (temp != null && !temp.delete()) {
+                temp.deleteOnExit();
+            }
+        }
+    }
+
+    /** Assinatura "%PDF-" no começo (pelo conteúdo, não pelo nome). */
+    private static boolean isPdf(java.io.File file) throws IOException {
+        try (var in = new java.io.FileInputStream(file)) {
+            byte[] head = in.readNBytes(5);
+            return head.length == 5 && new String(head, java.nio.charset.StandardCharsets.US_ASCII).equals("%PDF-");
+        }
+    }
+
+    private static ApiException tooLarge(int mb) {
+        return new ApiException(HttpStatus.CONTENT_TOO_LARGE, "file_too_large",
+                "O arquivo é grande demais. O limite é de %d MB.".formatted(mb));
+    }
+
     private static byte[] read(MultipartFile file) {
+        if (file.getSize() > MAX_TEXT_FILE) {
+            throw tooLarge(15);
+        }
         try {
             return file.getBytes();
         } catch (IOException e) {

@@ -22,9 +22,21 @@ import java.util.regex.Pattern;
  */
 public record CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
                           String subtitle, String author, String font, String titleSize, String textColor,
-                          String accentColor, String backText) {
+                          String accentColor, String backText, UUID backImageId, Integer backShade, Boolean backPhoto,
+                          String backBio, Boolean barcode) {
 
     static final int MAX_BACK_TEXT = 1500;
+    static final int MAX_BACK_BIO = 500;
+
+    /**
+     * Desenho sem a contracapa completa (fundo próprio, foto, mini biografia e código de barras): a de antes.
+     */
+    public CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
+                       String subtitle, String author, String font, String titleSize, String textColor,
+                       String accentColor, String backText) {
+        this(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize, textColor, accentColor,
+                backText, null, null, null, null, null);
+    }
 
     /** Desenho sem texto de contracapa. */
     public CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
@@ -64,6 +76,17 @@ public record CoverDesign(String template, String backgroundColor, UUID imageId,
         if (backText != null && backText.length() > MAX_BACK_TEXT) {
             throw invalid("O texto da contracapa passa de " + MAX_BACK_TEXT + " caracteres.");
         }
+        // Contracapa: imagem de fundo (com escurecimento), foto e mini biografia de quem escreveu, código de barras
+        backShade = backShade == null ? Integer.valueOf(0) : backShade;
+        if (backShade < 0 || backShade > MAX_SHADE) {
+            throw invalid("O escurecimento da contracapa vai de 0 a " + MAX_SHADE + ".");
+        }
+        backPhoto = Boolean.TRUE.equals(backPhoto);
+        backBio = backBio == null || backBio.isBlank() ? null : backBio.replace("\r\n", "\n").replace('\r', '\n').strip();
+        if (backBio != null && backBio.length() > MAX_BACK_BIO) {
+            throw invalid("A mini biografia da contracapa passa de " + MAX_BACK_BIO + " caracteres.");
+        }
+        barcode = !Boolean.FALSE.equals(barcode);
     }
 
     private static String option(String value, List<String> options, String message) {

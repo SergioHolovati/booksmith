@@ -46,6 +46,12 @@ public interface Universes {
     GeneratedImage addGeneratedImage(UUID ownerId, UUID universeId, byte[] bytes, String contentType, String caption,
                                      List<UUID> entityIds, UUID portraitFor);
 
+    /**
+     * Guarda na biblioteca do universo uma imagem que veio de um arquivo do autor (as páginas de um livro pronto em
+     * PDF). Confere o dono e os limites da biblioteca.
+     */
+    GeneratedImage addImportedImage(UUID ownerId, UUID universeId, byte[] bytes, String contentType, String caption);
+
     /** A ficha de um lugar do universo, resumida para o gerador de ilustrações. Vazio se não existe. */
     java.util.Optional<PlaceBrief> placeBrief(UUID universeId, UUID placeId);
 

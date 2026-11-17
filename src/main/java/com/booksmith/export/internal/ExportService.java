@@ -185,18 +185,24 @@ public class ExportService {
         if (content.universeId() == null) {
             return images;
         }
+        List<String> ids = new ArrayList<>();
+        // A foto de quem escreveu (página "sobre"), também da biblioteca do universo do livro
+        if (content.pages() != null && content.pages().authorPhotoId() != null) {
+            ids.add(content.pages().authorPhotoId().toString());
+        }
         for (ExportBook.Chapter chapter : chapters) {
-            for (String id : BookHtml.illustrationIds(chapter.document())) {
-                if (images.containsKey(id)) {
-                    continue;
-                }
-                try {
-                    universes.imageUrl(content.universeId(), UUID.fromString(id))
-                            .flatMap(imageStorage::read)
-                            .ifPresent(image -> images.put(id, image));
-                } catch (IllegalArgumentException e) {
-                    log.debug("Ilustração com id inválido: {}", id);
-                }
+            ids.addAll(BookHtml.illustrationIds(chapter.document()));
+        }
+        for (String id : ids) {
+            if (images.containsKey(id)) {
+                continue;
+            }
+            try {
+                universes.imageUrl(content.universeId(), UUID.fromString(id))
+                        .flatMap(imageStorage::read)
+                        .ifPresent(image -> images.put(id, image));
+            } catch (IllegalArgumentException e) {
+                log.debug("Ilustração com id inválido: {}", id);
             }
         }
         return images;

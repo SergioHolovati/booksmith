@@ -141,6 +141,15 @@ public class UniverseService implements Universes {
     }
 
     @Override
+    @Transactional
+    public GeneratedImage addImportedImage(UUID ownerId, UUID universeId, byte[] bytes, String contentType,
+                                           String caption) {
+        String dataUrl = "data:" + contentType + ";base64," + java.util.Base64.getEncoder().encodeToString(bytes);
+        UniverseImage image = galleryService.upload(ownerId, universeId, dataUrl, caption, List.of());
+        return new GeneratedImage(image.getId(), image.getUrl(), image.getCaption());
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public java.util.Optional<PlaceBrief> placeBrief(UUID universeId, UUID placeId) {
         return entityRepository.findById(placeId)

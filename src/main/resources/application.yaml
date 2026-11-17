@@ -31,9 +31,9 @@ spring:
       enabled: true
   servlet:
     multipart:
-      # Importação de .docx (§9.3): um romance inteiro em .docx raramente passa de 2 MB
-      max-file-size: 15MB
-      max-request-size: 16MB
+      # O livro pronto em PDF (ilustrado) chega a 100 MB; cada endpoint confere o seu limite (texto e capa: 15 MB)
+      max-file-size: 100MB
+      max-request-size: 101MB
   security:
     oauth2:
       client:

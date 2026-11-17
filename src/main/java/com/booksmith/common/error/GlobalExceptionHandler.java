@@ -67,7 +67,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             WebRequest request
     ) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE,
-                "O arquivo é grande demais. O limite é de 15 MB.");
+                "O arquivo é grande demais (o livro pronto em PDF vai até 100 MB; os outros arquivos, até 15 MB).");
         problem.setProperty("code", "file_too_large");
         return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(problem);
     }

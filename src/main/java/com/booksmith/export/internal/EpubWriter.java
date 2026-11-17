@@ -54,7 +54,7 @@ final class EpubWriter {
             if (book.fanfic()) {
                 text(zip, "EPUB/fan-notice.xhtml", page(book, "Aviso", "frontmatter", fanNotice(book)));
             }
-            for (BookPagesHtml.Page extra : BookPagesHtml.front(book.pages(), book.pages().isbnEbook())) {
+            for (BookPagesHtml.Page extra : BookPagesHtml.front(book.pages(), book.pages().isbnEbook(), book.title())) {
                 text(zip, "EPUB/" + extra.id() + ".xhtml", page(book, extra.title(), "frontmatter", extra.html()));
             }
             for (int i = 0; i < book.chapters().size(); i++) {
@@ -125,7 +125,7 @@ final class EpubWriter {
             manifest.append("    <item id=\"fan-notice\" href=\"fan-notice.xhtml\" media-type=\"application/xhtml+xml\"/>\n");
             spine.append("    <itemref idref=\"fan-notice\"/>\n");
         }
-        extras(BookPagesHtml.front(book.pages(), book.pages().isbnEbook()), manifest, spine);
+        extras(BookPagesHtml.front(book.pages(), book.pages().isbnEbook(), book.title()), manifest, spine);
         for (int i = 0; i < book.chapters().size(); i++) {
             if (book.chapters().get(i).partTitle() != null) {
                 manifest.append("    <item id=\"part-%d\" href=\"%s\" media-type=\"application/xhtml+xml\"/>\n"
@@ -161,7 +161,8 @@ final class EpubWriter {
     }
 
     private static List<BookPagesHtml.Page> back(ExportBook book) {
-        return BookPagesHtml.back(book.pages(), book.author());
+        var photo = book.pages().authorPhotoId();
+        return BookPagesHtml.back(book.pages(), book.author(), photo == null ? null : illustrationHref(book, photo.toString()));
     }
 
     private static void extras(List<BookPagesHtml.Page> pages, StringBuilder manifest, StringBuilder spine) {
@@ -381,6 +382,13 @@ final class EpubWriter {
             nav ol { list-style: none; padding: 0; }
             nav ol.sections { padding-left: 1.2em; font-size: .92em; }
             a.noteref { vertical-align: super; font-size: .7em; line-height: 0; text-decoration: none; }
+            .half-title { text-align: center; margin-top: 30%; font-size: 1.3em; }
+            .catalog-card { margin-top: 1.5em; border: 1px solid #555; padding: .6em .8em; font-size: .75em; }
+            .catalog-card p { text-indent: 0; margin: 0; text-align: left; }
+            .author-photo { text-align: center; text-indent: 0; }
+            .author-photo img { width: 40%; max-width: 12em; }
+            .colophon { margin-top: 40%; text-align: center; font-size: .8em; }
+            .colophon p { text-indent: 0; text-align: center; }
             section.footnotes { margin-top: 2em; border-top: 1px solid #999; padding-top: .5em; font-size: .85em; }
             aside.footnote p { text-indent: 0; margin: 0 0 .4em; }
             nav li { margin: .4em 0; }

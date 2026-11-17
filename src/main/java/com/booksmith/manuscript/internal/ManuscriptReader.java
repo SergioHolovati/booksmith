@@ -47,7 +47,7 @@ class ManuscriptReader implements Manuscripts {
         List<ChapterContent> chapters = detail.chapters().stream()
                 .map(chapter -> new ChapterContent(chapter.getId(), chapter.getPosition(), chapter.getTitle(),
                         chapter.getContent(), chapter.getPartTitle(),
-                        book.getGenre() == BookGenre.CHILDREN ? ChapterService.pageOf(chapter) : null))
+                        bookService.isPictureBook(book) ? ChapterService.pageOf(chapter) : null))
                 .toList();
         return new BookContent(book.getId(), book.getTitle(), book.getSynopsis(), book.getLanguage().tag(),
                 book.getKind() == BookKind.FANFIC, book.getFandom(), book.getCoverUrl(), book.getUniverseId(), chapters,

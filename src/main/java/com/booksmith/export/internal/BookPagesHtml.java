@@ -37,14 +37,31 @@ final class BookPagesHtml {
      * de créditos, como nos livros; só com ISBN, a página sai só com ele.
      */
     static List<Page> front(BookPages pages, String isbn) {
+        return front(pages, isbn, null);
+    }
+
+    /**
+     * Idem, com a falsa folha de rosto (só o título, antes de tudo) quando o autor pede, e a ficha catalográfica
+     * em quadro no fim dos créditos.
+     */
+    static List<Page> front(BookPages pages, String isbn, String title) {
         List<Page> front = new ArrayList<>();
-        if (pages.credits() != null || isbn != null) {
+        if (pages.hasHalfTitle() && title != null) {
+            front.add(new Page("half-title", title, """
+                    <section epub:type="halftitlepage" class="half-title">
+                    <p>%s</p>
+                    </section>
+                    """.formatted(escape(title)), false));
+        }
+        if (pages.credits() != null || isbn != null || pages.catalogCard() != null) {
             String credits = pages.credits() == null ? "" : paragraphs(pages.credits());
             String line = isbn == null ? "" : "<p class=\"isbn\">ISBN " + escape(isbn) + "</p>\n";
+            String card = pages.catalogCard() == null ? ""
+                    : "<div class=\"catalog-card\">\n" + paragraphs(pages.catalogCard()) + "</div>\n";
             front.add(new Page("credits", "Créditos", """
                     <section epub:type="copyright-page" class="credits">
-                    %s%s</section>
-                    """.formatted(credits, line), false));
+                    %s%s%s</section>
+                    """.formatted(credits, line, card), false));
         }
         if (pages.dedication() != null) {
             front.add(new Page("dedication", "Dedicatória", """
@@ -67,6 +84,14 @@ final class BookPagesHtml {
 
     /** Agradecimentos e a página sobre quem escreveu (com o título escolhido, ou o nome de quem escreveu). */
     static List<Page> back(BookPages pages, String author) {
+        return back(pages, author, null);
+    }
+
+    /**
+     * Idem, com a foto de quem escreveu na página "sobre" ({@code photoSrc}: o endereço da imagem no arquivo, ou
+     * null sem foto) e o colofão no fim.
+     */
+    static List<Page> back(BookPages pages, String author, String photoSrc) {
         List<Page> back = new ArrayList<>();
         if (pages.acknowledgments() != null) {
             back.add(new Page("acknowledgments", "Agradecimentos", """
@@ -77,11 +102,19 @@ final class BookPagesHtml {
         }
         if (pages.aboutAuthor() != null) {
             String title = pages.aboutAuthorTitle() == null ? author : pages.aboutAuthorTitle();
+            String photo = photoSrc == null ? ""
+                    : "<p class=\"author-photo\"><img src=\"" + escape(photoSrc) + "\" alt=\"" + escape(author) + "\"/></p>\n";
             back.add(new Page("about-author", title, """
                     <section class="back-page about-author">
                     <h1>%s</h1>
+                    %s%s</section>
+                    """.formatted(escape(title), photo, paragraphs(pages.aboutAuthor())), true));
+        }
+        if (pages.colophon() != null) {
+            back.add(new Page("colophon", "Colofão", """
+                    <section epub:type="colophon" class="colophon">
                     %s</section>
-                    """.formatted(escape(title), paragraphs(pages.aboutAuthor())), true));
+                    """.formatted(paragraphs(pages.colophon())), false));
         }
         return back;
     }

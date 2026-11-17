@@ -201,6 +201,10 @@ final class DocxWriter {
                     + ". Os direitos sobre a obra original, seus personagens e seu universo pertencem aos seus criadores.")));
             body.append(paragraph("Subtitle", null, escapedRun("Cópia para uso pessoal, sem fins comerciais. Não pode ser vendida.")));
         }
+        if (book.pages().hasHalfTitle()) {
+            // Falsa folha de rosto: só o título, numa página; o texto em "Subtítulo", como o resto da capa
+            body.append(paragraph("Subtitle", "<w:pageBreakBefore/><w:jc w:val=\"center\"/>", escapedRun(book.title())));
+        }
         frontPages(book.pages(), body);
         for (ExportBook.Chapter chapter : book.chapters()) {
             if (chapter.partTitle() != null) {
@@ -211,7 +215,18 @@ final class DocxWriter {
         }
         for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author())) {
             body.append(paragraph("PosTextual", null, escapedRun(extra.title())));
-            String text = "acknowledgments".equals(extra.id()) ? book.pages().acknowledgments() : book.pages().aboutAuthor();
+            String text = switch (extra.id()) {
+                case "acknowledgments" -> book.pages().acknowledgments();
+                case "colophon" -> book.pages().colophon();
+                default -> book.pages().aboutAuthor();
+            };
+            if ("about-author".equals(extra.id()) && book.pages().authorPhotoId() != null) {
+                // A foto de quem escreveu, pequena e no meio, antes do texto
+                var photo = tools.jackson.databind.json.JsonMapper.builder().build().createObjectNode();
+                photo.put("type", "illustration");
+                photo.putObject("attrs").put("imageId", book.pages().authorPhotoId().toString()).put("size", "small");
+                illustration(photo, null, body);
+            }
             for (String line : lines(text)) {
                 body.append(paragraph(null, "<w:ind w:firstLine=\"%d\"/>".formatted(FIRST_LINE_INDENT), escapedRun(line)));
             }
@@ -236,7 +251,13 @@ final class DocxWriter {
      * importação do arquivo os reconhece como capa e não cria um capítulo com eles.
      */
     private static void frontPages(com.booksmith.manuscript.api.Manuscripts.BookPages pages, StringBuilder body) {
-        page(lines(pages.credits()), "<w:jc w:val=\"left\"/>", body);
+        List<String> credits = new java.util.ArrayList<>(lines(pages.credits()));
+        if (pages.catalogCard() != null) {
+            // A ficha catalográfica no fim dos créditos, como nos livros
+            credits.add("");
+            credits.addAll(lines(pages.catalogCard()));
+        }
+        page(credits.stream().filter(l -> !l.isEmpty()).toList(), "<w:jc w:val=\"left\"/>", body);
         page(lines(pages.dedication()), "<w:jc w:val=\"right\"/>", body);
         List<String> epigraph = new java.util.ArrayList<>(lines(pages.epigraph()));
         if (!epigraph.isEmpty() && pages.epigraphSource() != null) {
