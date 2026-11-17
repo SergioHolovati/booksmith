@@ -245,6 +245,13 @@ final class ChapterSplitter {
                 node.put("type", "hardBreak");
                 continue;
             }
+            if (segment.isFootnote()) {
+                node.put("type", "footnote");
+                String note = segment.text().strip();
+                node.putObject("attrs").put("text", note.length() > ManuscriptDocument.MAX_FOOTNOTE
+                        ? note.substring(0, ManuscriptDocument.MAX_FOOTNOTE) : note);
+                continue;
+            }
             node.put("type", "text");
             node.put("text", segment.text());
             if (!segment.marks().isEmpty()) {

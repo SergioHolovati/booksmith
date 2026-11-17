@@ -15,12 +15,23 @@ final class ImportedText {
     /** Um trecho de texto com a mesma formatação, ou uma quebra de linha ({@code text == null}). */
     record Segment(String text, Set<String> marks) {
 
+        /** Marca interna da nota de rodapé: o trecho é o texto da nota (vira o nó "footnote"). */
+        static final String FOOTNOTE = "footnote";
+
         static Segment lineBreak() {
             return new Segment(null, Set.of());
         }
 
+        static Segment footnote(String text) {
+            return new Segment(text, Set.of(FOOTNOTE));
+        }
+
         boolean isLineBreak() {
             return text == null;
+        }
+
+        boolean isFootnote() {
+            return marks.contains(FOOTNOTE);
         }
     }
 
@@ -53,7 +64,7 @@ final class ImportedText {
         boolean allBold() {
             boolean any = false;
             for (Segment segment : segments) {
-                if (segment.isLineBreak() || segment.text().isBlank()) {
+                if (segment.isLineBreak() || segment.isFootnote() || segment.text().isBlank()) {
                     continue;
                 }
                 if (!segment.marks().contains("bold")) {
@@ -71,7 +82,9 @@ final class ImportedText {
         String text() {
             StringBuilder text = new StringBuilder();
             for (Segment segment : segments) {
-                text.append(segment.isLineBreak() ? "\n" : segment.text());
+                if (!segment.isFootnote()) { // a nota não é texto do parágrafo
+                    text.append(segment.isLineBreak() ? "\n" : segment.text());
+                }
             }
             return text.toString();
         }
@@ -92,7 +105,8 @@ final class ImportedText {
         List<Segment> merged = new java.util.ArrayList<>();
         for (Segment segment : segments) {
             Segment last = merged.isEmpty() ? null : merged.getLast();
-            if (last != null && !last.isLineBreak() && !segment.isLineBreak() && last.marks().equals(segment.marks())) {
+            if (last != null && !last.isLineBreak() && !segment.isLineBreak() && !last.isFootnote()
+                    && !segment.isFootnote() && last.marks().equals(segment.marks())) {
                 merged.set(merged.size() - 1, new Segment(last.text() + segment.text(), last.marks()));
             } else {
                 merged.add(segment);

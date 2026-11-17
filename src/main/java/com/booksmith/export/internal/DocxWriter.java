@@ -40,6 +40,8 @@ final class DocxWriter {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         Images images = new Images(book);
         IMAGES.set(images);
+        List<String> notes = new java.util.ArrayList<>();
+        NOTES.set(notes);
         try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
             String document = document(book);
             entry(zip, "[Content_Types].xml", CONTENT_TYPES);
@@ -50,6 +52,7 @@ final class DocxWriter {
             entry(zip, "word/settings.xml", SETTINGS);
             entry(zip, "word/footer1.xml", FOOTER);
             entry(zip, "word/document.xml", document);
+            entry(zip, "word/footnotes.xml", footnotes(notes));
             for (Images.Media media : images.media()) {
                 zip.putNextEntry(new ZipEntry("word/media/" + media.file()));
                 zip.write(media.bytes());
@@ -59,8 +62,28 @@ final class DocxWriter {
             throw new UncheckedIOException(e);
         } finally {
             IMAGES.remove();
+            NOTES.remove();
         }
         return bytes.toByteArray();
+    }
+
+    /** As notas de rodapé, na ordem do livro (o Word numera sozinho); o id é a posição + 1. */
+    private static final ThreadLocal<List<String>> NOTES = new ThreadLocal<>();
+
+    /** word/footnotes.xml: as duas separadoras que o Word exige (ids -1 e 0) e uma nota por chamada no texto. */
+    static String footnotes(List<String> notes) {
+        StringBuilder xml = new StringBuilder("""
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <w:footnotes xmlns:w="%s">
+                <w:footnote w:type="separator" w:id="-1"><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:separator/></w:r></w:p></w:footnote>
+                <w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>
+                """.formatted(W));
+        for (int i = 0; i < notes.size(); i++) {
+            xml.append("<w:footnote w:id=\"%d\"><w:p><w:pPr><w:pStyle w:val=\"FootnoteText\"/></w:pPr>".formatted(i + 1))
+                    .append("<w:r><w:rPr><w:rStyle w:val=\"FootnoteReference\"/></w:rPr><w:footnoteRef/></w:r>")
+                    .append("<w:r><w:t xml:space=\"preserve\"> ").append(escape(notes.get(i))).append("</w:t></w:r></w:p></w:footnote>\n");
+        }
+        return xml.append("</w:footnotes>\n").toString();
     }
 
     /** As imagens das ilustrações que vão dentro do .docx (word/media), uma vez cada. */
@@ -317,6 +340,17 @@ final class DocxWriter {
                 runs.append("<w:r><w:br/></w:r>");
                 continue;
             }
+            if ("footnote".equals(type(node))) {
+                List<String> notes = NOTES.get();
+                JsonNode attrs = node.get("attrs");
+                String note = attrs == null || attrs.get("text") == null ? "" : attrs.get("text").stringValue().strip();
+                if (notes != null && !note.isEmpty()) {
+                    notes.add(note);
+                    runs.append("<w:r><w:rPr><w:rStyle w:val=\"FootnoteReference\"/></w:rPr><w:footnoteReference w:id=\"%d\"/></w:r>"
+                            .formatted(notes.size()));
+                }
+                continue;
+            }
             JsonNode text = BookHtml.textOf(node);
             if (text == null) {
                 continue;
@@ -416,6 +450,8 @@ final class DocxWriter {
                 <w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:jc w:val="left"/><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:b/><w:i/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:qFormat/>
                 <w:pPr><w:ind w:left="851" w:right="851"/></w:pPr><w:rPr><w:i/></w:rPr></w:style>
+                <w:style w:type="paragraph" w:styleId="FootnoteText"><w:name w:val="footnote text"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:jc w:val="left"/></w:pPr><w:rPr><w:sz w:val="20"/></w:rPr></w:style>
+                <w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Footer"><w:name w:val="footer"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/></w:pPr>
                 <w:rPr><w:sz w:val="20"/></w:rPr></w:style>
                 </w:styles>
@@ -439,6 +475,7 @@ final class DocxWriter {
             <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
             <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
             <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>
+            <Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>
             <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
             </Types>
             """;
@@ -457,6 +494,7 @@ final class DocxWriter {
             <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
             <Relationship Id="rIdSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
             <Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>
+            <Relationship Id="rIdFootnotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>
             </Relationships>
             """;
 
@@ -464,6 +502,7 @@ final class DocxWriter {
             <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
             <w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
             <w:defaultTabStop w:val="709"/>
+            <w:footnotePr><w:footnote w:id="-1"/><w:footnote w:id="0"/></w:footnotePr>
             <w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat>
             </w:settings>
             """;

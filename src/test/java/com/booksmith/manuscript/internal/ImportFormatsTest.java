@@ -179,7 +179,9 @@ class ImportFormatsTest {
         assertThat(plan.documentTitle()).isEqualTo("A Conversão");
         assertThat(plan.chapters()).extracting(ChapterSplitter.Draft::title).containsExactly("O Encontro", "A Partida");
         String first = plan.chapters().getFirst().document().json();
-        assertThat(first).doesNotContain("Apagado").doesNotContain("Nota");
+        assertThat(first).doesNotContain("Apagado");
+        // A nota de rodapé vem junto, no lugar da chamada (o número "1" da chamada não entra)
+        assertThat(first).contains("{\"type\":\"footnote\",\"attrs\":{\"text\":\"Nota\"}}");
         assertThat(first).contains("{\"type\":\"text\",\"text\":\"Lia entrou  no \"}");
         assertThat(first).contains("{\"type\":\"text\",\"text\":\"café\",\"marks\":[{\"type\":\"italic\"}]}");
         assertThat(first).contains("{\"type\":\"text\",\"text\":\"sem\",\"marks\":[{\"type\":\"bold\"}]}");
@@ -187,7 +189,7 @@ class ImportFormatsTest {
         assertThat(first).contains("\"indent\":true");
         assertThat(first).contains("\"text\":\"Tudo sublinhado\",\"marks\":[{\"type\":\"underline\"}]},{\"type\":\"hardBreak\"}");
         assertThat(first).contains("\"type\":\"sceneBreak\"");
-        assertThat(plan.warnings()).anyMatch(w -> w.contains("1 imagem")).anyMatch(w -> w.contains("1 nota de rodapé"));
+        assertThat(plan.warnings()).anyMatch(w -> w.contains("1 imagem")).noneMatch(w -> w.contains("nota de rodapé"));
     }
 
     // ===== Reconhecimento do formato =====

@@ -217,8 +217,14 @@ final class OdtReader {
                 return;
             }
             if (name.equals("note")) {
-                footnotes++;
-                ImportFiles.skipElement(reader);
+                // A nota de rodapé entra no texto, no lugar da chamada (a nota de fim conta como deixada de fora)
+                boolean footnote = !"endnote".equals(reader.getAttributeValue(TEXT, "note-class"));
+                String note = noteText(reader);
+                if (footnote && !note.isBlank() && segments != null) {
+                    segments.add(Segment.footnote(note));
+                } else {
+                    footnotes++;
+                }
                 return;
             }
             if (SKIPPED_TEXT.contains(name)) {
@@ -347,6 +353,36 @@ final class OdtReader {
             }
             // No ODF, espaços seguidos, quebras de linha e tabs do XML valem um espaço (os de verdade são text:s)
             add(WHITESPACE.matcher(text).replaceAll(" "));
+        }
+
+        /**
+         * O texto da nota ({@code text:note-body}), parágrafos juntos por espaço; o número da chamada
+         * ({@code text:note-citation}) fica de fora. Consome o elemento até o fim.
+         */
+        private static String noteText(XMLStreamReader reader) throws XMLStreamException {
+            StringBuilder text = new StringBuilder();
+            int depth = 1;
+            boolean inBody = false;
+            while (depth > 0 && reader.hasNext()) {
+                int event = reader.next();
+                if (event == XMLStreamConstants.START_ELEMENT) {
+                    depth++;
+                    if (TEXT.equals(reader.getNamespaceURI()) && reader.getLocalName().equals("note-body")) {
+                        inBody = true;
+                    } else if (inBody && TEXT.equals(reader.getNamespaceURI())
+                            && (reader.getLocalName().equals("s") || reader.getLocalName().equals("tab"))) {
+                        text.append(' ');
+                    }
+                } else if (event == XMLStreamConstants.END_ELEMENT) {
+                    depth--;
+                    if (inBody && TEXT.equals(reader.getNamespaceURI()) && reader.getLocalName().equals("p")) {
+                        text.append(' ');
+                    }
+                } else if (inBody && event == XMLStreamConstants.CHARACTERS) {
+                    text.append(reader.getText());
+                }
+            }
+            return text.toString().replaceAll("\\s+", " ").strip();
         }
 
         private void add(String text) {

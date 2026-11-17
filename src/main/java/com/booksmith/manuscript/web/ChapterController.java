@@ -92,10 +92,12 @@ class ChapterController {
     }
 
     record PageRequest(String imageId, String background, String text, String align, String size, String color,
-                       Boolean band, Boolean spread, String textSide, Double x, Double y, Double w) {
+                       Boolean band, Boolean spread, String textSide, Double x, Double y, Double w, Double zoom,
+                       Double imageX, Double imageY) {
 
         PageDesign toPage() {
-            return new PageDesign(imageId, background, text, align, size, color, band, spread, textSide, x, y, w);
+            return new PageDesign(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, zoom,
+                    imageX, imageY);
         }
     }
 

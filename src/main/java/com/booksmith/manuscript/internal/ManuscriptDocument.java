@@ -47,6 +47,9 @@ public final class ManuscriptDocument {
      * place ou lore) e {@code label} (o nome, que vale como texto: conta palavra e sai na exportação).
      */
     public static final String MENTION = "mention";
+    /** Nota de rodapé: dentro do parágrafo, com o texto da nota; não conta no texto do capítulo. */
+    public static final String FOOTNOTE = "footnote";
+    static final int MAX_FOOTNOTE = 2_000;
     private static final Set<String> MENTION_KINDS = Set.of("character", "place", "lore");
     private static final int MAX_MENTION_LABEL = 120;
     private static final Pattern UUID_TEXT = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -326,9 +329,21 @@ public final class ManuscriptDocument {
                     text.append(value.stringValue());
                 } else if (MENTION.equals(type)) {
                     text.append(mention(node));
+                } else if (FOOTNOTE.equals(type)) {
+                    footnote(node);
                 } else {
                     throw invalid("elemento \"%s\" não permitido dentro do texto".formatted(type));
                 }
+            }
+        }
+
+        /** A nota de rodapé: só o texto, de 1 a {@value #MAX_FOOTNOTE} caracteres. */
+        private static void footnote(JsonNode node) {
+            JsonNode attrs = node.get("attrs");
+            JsonNode value = attrs == null ? null : attrs.get("text");
+            if (attrs == null || !attrs.isObject() || attrs.size() != 1 || value == null || !value.isString()
+                    || value.stringValue().isBlank() || value.stringValue().length() > MAX_FOOTNOTE) {
+                throw invalid("nota de rodapé inválida (o texto, até %d caracteres)".formatted(MAX_FOOTNOTE));
             }
         }
 

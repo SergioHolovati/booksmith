@@ -371,6 +371,71 @@ class ExportWritersTest {
         assertThat(html).contains("left: 15.2mm; width: 176.0mm").contains("left: 12.0mm; width: 176.0mm");
     }
 
+    private static ExportBook withFootnotes() {
+        String doc = "{\"type\":\"doc\",\"content\":["
+                + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Ele orou.\"},"
+                + "{\"type\":\"footnote\",\"attrs\":{\"text\":\"Mateus 6:9.\"}},"
+                + "{\"type\":\"text\",\"text\":\" E esperou.\"},"
+                + "{\"type\":\"footnote\",\"attrs\":{\"text\":\"Salmo 27:14 & <outros>.\"}}]}]}";
+        return new ExportBook(UUID.randomUUID(), "Notas", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"), List.of(new ExportBook.Chapter("Oração", JSON.readTree(doc))));
+    }
+
+    @Test
+    void footnotesInTheEpubOpenFromTheNumberAndPassEpubcheck(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(withFootnotes());
+        Path file = dir.resolve("notas.epub");
+        Files.write(file, epub);
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        String chapter = entry(epub, "EPUB/chapter-001.xhtml");
+        assertThat(chapter).contains("<a epub:type=\"noteref\" class=\"noteref\" id=\"chapter-1-fnref1\" href=\"#chapter-1-fn1\">1</a>")
+                .contains("<aside epub:type=\"footnote\" class=\"footnote\" id=\"chapter-1-fn2\"><p><a href=\"#chapter-1-fnref2\">2</a> Salmo 27:14 &amp; &lt;outros&gt;.</p></aside>");
+    }
+
+    @Test
+    void footnotesGoToTheBottomOfThePdfPage() throws Exception {
+        byte[] pdf = PdfWriter.write(withFootnotes());
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            int last = document.getNumberOfPages();
+            float height = document.getPage(last - 1).getMediaBox().getHeight();
+            float[] noteY = {-1};
+            float[] bodyY = {-1};
+            PDFTextStripper stripper = new PDFTextStripper() {
+                @Override
+                protected void writeString(String text, List<org.apache.pdfbox.text.TextPosition> positions) {
+                    if (text.contains("Mateus 6:9")) {
+                        noteY[0] = positions.getFirst().getYDirAdj();
+                    } else if (text.contains("Ele orou")) {
+                        bodyY[0] = positions.getFirst().getYDirAdj();
+                    }
+                }
+            };
+            stripper.setStartPage(last);
+            stripper.setEndPage(last);
+            stripper.getText(document);
+            // O texto do capítulo no alto da página; a nota no pé dela
+            assertThat(bodyY[0]).isPositive();
+            assertThat(noteY[0] / height).isGreaterThan(0.75f);
+            assertThat(noteY[0]).isGreaterThan(bodyY[0]);
+        }
+    }
+
+    @Test
+    void wordGetsRealFootnotesThatComeBackOnImport() throws Exception {
+        byte[] docx = DocxWriter.write(withFootnotes());
+        String document = entry(docx, "word/document.xml");
+        assertThat(document).contains("<w:footnoteReference w:id=\"1\"/>").contains("<w:footnoteReference w:id=\"2\"/>");
+        assertThat(entry(docx, "word/footnotes.xml")).contains("w:id=\"-1\"").contains("Mateus 6:9.")
+                .contains("Salmo 27:14 &amp; &lt;outros&gt;.");
+        assertThat(entry(docx, "word/_rels/document.xml.rels")).contains("Target=\"footnotes.xml\"");
+        // Importar o Word de volta: as notas voltam como notas, no mesmo lugar
+        String imported = com.booksmith.manuscript.internal.ImportRoundTrip.documents(docx).getFirst();
+        assertThat(imported).contains("{\"type\":\"footnote\",\"attrs\":{\"text\":\"Mateus 6:9.\"}}")
+                .contains("{\"type\":\"footnote\",\"attrs\":{\"text\":\"Salmo 27:14 & <outros>.\"}}");
+    }
+
     @Test
     void freeTextGoesWhereTheAuthorDraggedIt() throws Exception {
         var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null, true);
@@ -396,6 +461,49 @@ class ExportWritersTest {
                 95.0, 150.0, 40.0);
         assertThat(out.x()).isEqualTo(60.0);
         assertThat(out.y()).isEqualTo(95.0);
+    }
+
+    @Test
+    void artZoomAndPositionAndTheAuthorBuildsEveryPage() throws Exception {
+        // 17 × 24 sem sangria, sem as páginas automáticas, com número de página
+        var layout = new com.booksmith.manuscript.api.BookLayout("17x24", null, null, null, null, null, null, null, false,
+                false, true);
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Capa.\"}]}]}";
+        // Arte quadrada 2400 × 2400 numa página 170 × 240: cobrir dá 240 × 240; zoom 2 = 480 × 480, centro em (25%, 50%)
+        var zoomed = new com.booksmith.manuscript.api.PageDesign(IMAGE_ID, null, "top", null, null, null, null, null, null,
+                null, null, null, 2.0, 25.0, 50.0);
+        var book = new ExportBook(UUID.randomUUID(), "Hiper", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Capa", PictureBookHtml.withBackground(JSON.readTree(text), zoomed), null, zoomed)),
+                java.util.Map.of(IMAGE_ID, new ImageData(twoColors(2400, 2400), "image/png", "png")),
+                com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY, layout, true);
+        String html = PictureBookHtml.html(book);
+        // centro em 42,5 mm: a imagem começa em 42,5 − 240 = −197,5; em cima, 120 − 240 = −120
+        assertThat(html).contains("width: 480.0mm; height: 480.0mm; margin-left: -197.5mm; margin-top: -120.0mm");
+        // Sem folha de rosto: a primeira página é a do autor, número 1, no canto de fora (direita)
+        assertThat(html).doesNotContain("class=\"title-page\"").contains("<div class=\"pb-number dark\" style=\"right: 8.0mm; bottom: 6.0mm\">1</div>");
+        try (PDDocument document = Loader.loadPDF(PdfWriter.write(book))) {
+            assertThat(document.getNumberOfPages()).isEqualTo(1);
+        }
+        // A conferência conta o zoom: o DPI cai pela metade
+        var check = PrintCheck.check(book);
+        var plain = PrintCheck.check(pictureBook());
+        assertThat(check.illustrations().getFirst().dpi()).isEqualTo((int) Math.floor(2400 / (240 / 25.4) / 2 + 0.001));
+        assertThat(plain.illustrations().getFirst().dpi()).isGreaterThan(check.illustrations().getFirst().dpi());
+    }
+
+    @Test
+    void pictureBookEscapesTheAuthorsText() throws Exception {
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"<script>alert(1)</script> & cia\"}]}]}";
+        var book = new ExportBook(UUID.randomUUID(), "<b>Título</b>", "Ana & <i>Bia</i>", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"), List.of(new ExportBook.Chapter("Página 1", JSON.readTree(text), null,
+                com.booksmith.manuscript.api.PageDesign.DEFAULT)), java.util.Map.of(),
+                new com.booksmith.manuscript.api.Manuscripts.BookPages("Créditos <x>", "Para <y>", null, null, null, null, null),
+                com.booksmith.manuscript.api.BookLayout.DEFAULT, true);
+        String html = PictureBookHtml.html(book);
+        assertThat(html).doesNotContain("<script>").doesNotContain("<b>Título").doesNotContain("<i>Bia")
+                .doesNotContain("<x>").doesNotContain("<y>")
+                .contains("&lt;script&gt;alert(1)&lt;/script&gt; &amp; cia").contains("Ana &amp; &lt;i&gt;Bia&lt;/i&gt;");
     }
 
     @Test

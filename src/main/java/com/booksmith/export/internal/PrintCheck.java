@@ -79,7 +79,10 @@ public final class PrintCheck {
                 String caption = captionNode == null || captionNode.isNull() ? "" : captionNode.stringValue().strip();
                 ImageData image = book.illustrations().get(imageId);
                 if (image != null) {
-                    found.add(measure(imageId, chapter.title(), caption, image, Placement.of(attrs), layout));
+                    Illustration measured = measure(imageId, chapter.title(), caption, image, Placement.of(attrs), layout);
+                    // No livro ilustrado, o fundo com zoom: a mesma imagem esticada mais, menos DPI
+                    JsonNode zoom = attrs.get("zoom");
+                    found.add(zoom != null && zoom.isNumber() && zoom.doubleValue() > 0 ? zoomed(measured, zoom.doubleValue()) : measured);
                 }
             }
         }
@@ -108,6 +111,13 @@ public final class PrintCheck {
         int minWidthPx = (int) Math.ceil(widthMm / MM_PER_INCH * MIN_DPI);
         return new Illustration(imageId, chapter, caption, size[0], size[1], round(widthMm), round(heightMm), dpi,
                 printable, minWidthPx, where);
+    }
+
+    /** A medida com o zoom do autor: o tamanho na página multiplicado, o DPI dividido. */
+    static Illustration zoomed(Illustration i, double zoom) {
+        int dpi = (int) Math.floor(i.dpi() / zoom + 0.001);
+        return new Illustration(i.imageId(), i.chapter(), i.caption(), i.widthPx(), i.heightPx(), round(i.widthMm() * zoom),
+                round(i.heightMm() * zoom), dpi, i.printable(), (int) Math.ceil(i.minWidthPx() * zoom), i.size());
     }
 
     /** Largura e altura em pixels, lendo só o cabeçalho; {0, 0} se o formato não é lido (ex.: WebP). */

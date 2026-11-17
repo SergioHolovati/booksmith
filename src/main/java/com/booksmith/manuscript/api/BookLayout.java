@@ -24,11 +24,15 @@ import java.util.List;
  * @param customHeightMm altura do tamanho personalizado, idem
  * @param bleed          sangria do miolo para a gráfica: a página cresce {@value #BLEED_MM} mm na borda de fora e em
  *                       cima e embaixo (o padrão do KDP), para a ilustração até a borda não sair com filete branco
+ * @param autoPages      livro ilustrado: o Booksmith gera a folha de rosto, os créditos e a dedicatória (padrão); sem
+ *                       isso, o autor monta todas as páginas (capa ilustrada, créditos com ficha, dedicatória…)
+ * @param pageNumbers    livro ilustrado: número de página pequeno no canto de fora (padrão: sem)
  */
 public record BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
-                         String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed) {
+                         String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
+                         Boolean autoPages, Boolean pageNumbers) {
 
-    public static final List<String> TRIMS = List.of("a5", "14x21", "16x23", "6x9",
+    public static final List<String> TRIMS = List.of("a5", "14x21", "16x23", "17x24", "6x9",
             "15x15", "20x20", "21x21", "25x25", "8.5x8.5", "8.25x8.25",
             "21x15", "25x20", "28x21", "8.25x6", "custom");
     public static final List<Double> FONT_SIZES = List.of(10.0, 10.5, 11.0, 11.5, 12.0);
@@ -48,6 +52,13 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
     public BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                       String sceneBreak) {
         this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, null, null, null);
+    }
+
+    /** Sem as escolhas do livro ilustrado (páginas automáticas e número de página no padrão). */
+    public BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
+                      String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed) {
+        this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm, customHeightMm, bleed, null,
+                null);
     }
 
     /**
@@ -77,6 +88,17 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
             customHeightMm = null;
         }
         bleed = Boolean.TRUE.equals(bleed);
+        autoPages = !Boolean.FALSE.equals(autoPages);
+        pageNumbers = Boolean.TRUE.equals(pageNumbers);
+    }
+
+    /** Livro ilustrado: o Booksmith gera a folha de rosto e as páginas da frente. */
+    public boolean generatesPages() {
+        return !Boolean.FALSE.equals(autoPages);
+    }
+
+    public boolean numbersPages() {
+        return Boolean.TRUE.equals(pageNumbers);
     }
 
     private static boolean inRange(Double mm) {
@@ -102,6 +124,7 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
         return switch (trim) {
             case "14x21" -> 140;
             case "16x23" -> 160;
+            case "17x24" -> 170;
             case "6x9" -> 152.4;
             case "15x15" -> 150;
             case "20x20" -> 200;
@@ -117,6 +140,7 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
     public static double trimHeightMm(String trim) {
         return switch (trim) {
             case "16x23" -> 230;
+            case "17x24" -> 240;
             case "6x9" -> 228.6;
             case "15x15", "21x15" -> 150;
             case "20x20", "25x20" -> 200;

@@ -73,6 +73,24 @@ class ManuscriptDocumentTest {
     }
 
     @Test
+    void footnoteKeepsOnlyItsTextAndDoesNotCountAsWords() {
+        String ok = """
+                {"type":"doc","content":[{"type":"paragraph","attrs":{"id":"b_p1"},"content":[
+                  {"type":"text","text":"Ele orou."},
+                  {"type":"footnote","attrs":{"text":"Mateus 6:9, na versão Almeida."}}]}]}""";
+        var document = ManuscriptDocument.parse(json(ok), mapper);
+        assertThat(document.plainText()).isEqualTo("Ele orou.");
+        assertThat(document.wordCount()).isEqualTo(2);
+
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("\"text\":\"Mateus", "\"extra\":1,\"text\":\"Mateus")), mapper))
+                .isInstanceOf(ApiException.class).hasMessageContaining("nota de rodapé");
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("Mateus 6:9, na versão Almeida.", "  ")), mapper))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("Mateus 6:9, na versão Almeida.", "x".repeat(2001))), mapper))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
     void illustrationSizeAndAlignAreFixedOptions() {
         String ok = """
                 {"type":"doc","content":[

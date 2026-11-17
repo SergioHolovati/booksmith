@@ -380,6 +380,9 @@ final class EpubWriter {
             .back-page p { text-indent: 1.5em; }
             nav ol { list-style: none; padding: 0; }
             nav ol.sections { padding-left: 1.2em; font-size: .92em; }
+            a.noteref { vertical-align: super; font-size: .7em; line-height: 0; text-decoration: none; }
+            section.footnotes { margin-top: 2em; border-top: 1px solid #999; padding-top: .5em; font-size: .85em; }
+            aside.footnote p { text-indent: 0; margin: 0 0 .4em; }
             nav li { margin: .4em 0; }
             """;
 }

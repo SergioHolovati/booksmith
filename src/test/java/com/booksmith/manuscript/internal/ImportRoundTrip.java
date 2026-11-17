@@ -10,6 +10,13 @@ public final class ImportRoundTrip {
     private ImportRoundTrip() {
     }
 
+    /** O documento (JSON) de cada capítulo importado. */
+    public static List<String> documents(byte[] docx) {
+        var plan = ChapterSplitter.plan(DocxReader.read(docx), ChapterSplitter.Mode.AUTO, "livro.docx",
+                JsonMapper.builder().build());
+        return plan.chapters().stream().map(d -> d.document().json()).toList();
+    }
+
     public static List<String> plan(byte[] docx) {
         var plan = ChapterSplitter.plan(DocxReader.read(docx), ChapterSplitter.Mode.AUTO, "livro.docx",
                 JsonMapper.builder().build());

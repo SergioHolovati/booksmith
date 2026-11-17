@@ -44,6 +44,7 @@ final class PictureBookHtml {
         attrs.put("id", BACKGROUND_ID);
         attrs.put("imageId", page.imageId());
         attrs.put("size", page.isSpread() ? "spread" : "bleed");
+        attrs.put("zoom", page.zoom());
         return copy;
     }
 
@@ -70,7 +71,8 @@ final class PictureBookHtml {
         StringBuilder bookmarks = new StringBuilder();
         // A numeração das páginas, como o motor faz: a ímpar é a da direita (a sangria fica à direita), a par é a da
         // esquerda; a dupla começa numa par, com uma página em branco antes se precisar
-        int last = 1 + frontPages(book);
+        boolean auto = layout.generatesPages();
+        int last = auto ? 1 + frontPages(book) : 0;
         for (int i = 0; i < book.chapters().size(); i++) {
             ExportBook.Chapter chapter = book.chapters().get(i);
             PageDesign design = chapter.page() == null ? PageDesign.DEFAULT : chapter.page();
@@ -87,11 +89,11 @@ final class PictureBookHtml {
                 // lado onde está o meio da caixa)
                 boolean textRight = "free".equals(design.text())
                         ? design.x() + design.w() / 2 >= 50 : "right".equals(design.textSide());
-                pages.append(page(book, design, page, id, 0, !textRight && hasText ? text : null, true, false));
-                pages.append(page(book, design, page, null, page[0], textRight && hasText ? text : null, false, true));
+                pages.append(page(book, design, page, id, 0, !textRight && hasText ? text : null, true, false, last - 1));
+                pages.append(page(book, design, page, null, page[0], textRight && hasText ? text : null, false, true, last));
             } else {
                 last++;
-                pages.append(page(book, design, page, id, 0, hasText ? text : null, false, last % 2 != 0));
+                pages.append(page(book, design, page, id, 0, hasText ? text : null, false, last % 2 != 0, last));
             }
         }
         return """
@@ -105,14 +107,17 @@ final class PictureBookHtml {
                 %4$s</bookmarks>
                 </head>
                 <body>
-                <div class="title-page" style="width: %6$smm; height: %7$smm; padding-top: %10$smm">
-                <p class="book-title">%2$s</p>
-                <p class="book-author">%5$s</p>
-                </div>
-                %8$s%9$s</body>
+                %10$s%8$s%9$s</body>
                 </html>
                 """.formatted(book.language(), escape(book.title()), css(page), bookmarks, escape(book.author()),
-                mm(page[0]), mm(page[1] - 1), front(book, page), pages, mm(page[1] * 0.33));
+                mm(page[0]), mm(page[1] - 1), auto ? front(book, page) : "", pages,
+                auto ? titlePage(book, page) : "");
+    }
+
+    /** A folha de rosto automática (desligada quando o autor monta todas as páginas). */
+    private static String titlePage(ExportBook book, double[] page) {
+        return "<div class=\"title-page\" style=\"width: %smm; height: %smm; padding-top: %smm\"><p class=\"book-title\">%s</p><p class=\"book-author\">%s</p></div>\n"
+                .formatted(mm(page[0]), mm(page[1] - 1), mm(page[1] * 0.33), escape(book.title()), escape(book.author()));
     }
 
     private static int frontPages(ExportBook book) {
@@ -141,10 +146,11 @@ final class PictureBookHtml {
 
     /**
      * Uma página: o fundo (cor e imagem cobrindo) e a caixa de texto. {@code offsetX}: na dupla, quanto da imagem já
-     * ficou na página da esquerda. {@code right}: página da direita (ímpar), com a sangria à direita.
+     * ficou na página da esquerda. {@code right}: página da direita (ímpar), com a sangria à direita. {@code number}:
+     * o número da página (sai no canto de fora, se a diagramação pedir).
      */
     private static String page(ExportBook book, PageDesign design, double[] page, String id, double offsetX,
-                               String text, boolean spreadLeft, boolean right) {
+                               String text, boolean spreadLeft, boolean right, int number) {
         StringBuilder html = new StringBuilder();
         html.append("<div class=\"pb-page%s\"%s style=\"width: %smm; height: %smm; background-color: %s\">"
                 .formatted(spreadLeft ? " spread-left" : "", id == null ? "" : " id=\"" + id + "\"", mm(page[0]),
@@ -155,12 +161,24 @@ final class PictureBookHtml {
             if (px[0] > 0 && px[1] > 0) {
                 Placement placement = design.isSpread() ? Placement.SPREAD : Placement.BLEED;
                 Placement.Fit fit = placement.fit(px[0], px[1], book.layout(), false);
-                html.append("<img class=\"pb-art\" src=\"%s\" alt=\"\" style=\"width: %smm; height: %smm; margin-left: -%smm; margin-top: -%smm\"/>"
-                        .formatted(url, mm(fit.widthMm()), mm(fit.heightMm()), mm(fit.offsetXMm() + offsetX), mm(fit.offsetYMm())));
+                // Cobrir a página (ou o livro aberto) e então o zoom do autor, com o centro onde ele arrastou
+                double width = fit.widthMm() * design.zoom();
+                double height = fit.heightMm() * design.zoom();
+                double left = design.imageX() / 100 * fit.boxWidthMm() - width / 2 - offsetX;
+                double top = design.imageY() / 100 * fit.boxHeightMm() - height / 2;
+                html.append("<img class=\"pb-art\" src=\"%s\" alt=\"\" style=\"width: %smm; height: %smm; margin-left: %smm; margin-top: %smm\"/>"
+                        .formatted(url, mm(width), mm(height), mm(left), mm(top)));
             }
         }
         if (text != null) {
             html.append(textBox(book.layout(), design, page, text, right));
+        }
+        if (book.layout().numbersPages()) {
+            // Pequeno, no canto de fora, dentro da área segura (como nos livros ilustrados)
+            double bleed = book.layout().hasBleed() ? BookLayout.BLEED_MM : 0;
+            String side = right ? "right: %smm".formatted(mm(8)) : "left: %smm".formatted(mm(8 + bleed));
+            html.append("<div class=\"pb-number %s\" style=\"%s; bottom: %smm\">%d</div>"
+                    .formatted(design.color(), side, mm(6 + bleed), number));
         }
         html.append("</div>\n");
         return html.toString();
@@ -221,6 +239,9 @@ final class PictureBookHtml {
                 .pb-page { position: relative; overflow: hidden; page-break-before: always; }
                 .pb-page.spread-left { page-break-before: left; }
                 .pb-art { display: block; }
+                .pb-number { position: absolute; font-size: 9pt; font-weight: bold; }
+                .pb-number.dark { color: #1a1a1a; }
+                .pb-number.light { color: #ffffff; }
                 .pb-text { position: absolute; line-height: 1.3; font-weight: bold; box-sizing: border-box; }
                 .pb-text p { margin: 0 0 0.35em; text-indent: 0; }
                 .pb-text p.blank { display: none; }

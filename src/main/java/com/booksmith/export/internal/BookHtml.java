@@ -36,14 +36,53 @@ final class BookHtml {
         IMAGE_SRC.set(src);
         SECTION_PREFIX.set(idPrefix);
         SECTION_COUNT.set(new int[1]);
+        List<String> notes = new java.util.ArrayList<>();
+        NOTES.set(notes);
         try {
             children(document, html);
+            if (!notes.isEmpty() && !Boolean.TRUE.equals(FLOAT_NOTES.get())) {
+                html.append(footnotes(notes, idPrefix == null ? "fn" : idPrefix));
+            }
         } finally {
             IMAGE_SRC.remove();
             SECTION_PREFIX.remove();
             SECTION_COUNT.remove();
+            NOTES.remove();
         }
         return html.toString();
+    }
+
+    /** As notas do capítulo, na ordem; numeradas a partir de 1 em cada capítulo. */
+    private static final ThreadLocal<List<String>> NOTES = new ThreadLocal<>();
+    /** No PDF, a nota vai para o pé da página ({@code float: footnote}); no ePub, para o fim do capítulo. */
+    private static final ThreadLocal<Boolean> FLOAT_NOTES = new ThreadLocal<>();
+
+    /** As notas no fim do capítulo, como o ePub 3 pede: o leitor abre cada uma ao tocar no número. */
+    private static String footnotes(List<String> notes, String prefix) {
+        StringBuilder html = new StringBuilder("<section class=\"footnotes\" epub:type=\"footnotes\">\n");
+        for (int i = 0; i < notes.size(); i++) {
+            int n = i + 1;
+            html.append("<aside epub:type=\"footnote\" class=\"footnote\" id=\"%1$s-fn%2$d\"><p><a href=\"#%1$s-fnref%2$d\">%2$d</a> %3$s</p></aside>\n"
+                    .formatted(escape(prefix), n, escape(notes.get(i))));
+        }
+        return html.append("</section>\n").toString();
+    }
+
+    /** O texto das notas de rodapé do documento, na ordem (o Word as escreve em footnotes.xml). */
+    static List<String> footnoteTexts(JsonNode node) {
+        List<String> notes = new java.util.ArrayList<>();
+        collectFootnotes(node, notes);
+        return notes;
+    }
+
+    private static void collectFootnotes(JsonNode node, List<String> notes) {
+        if ("footnote".equals(type(node)) && node.get("attrs") != null && node.get("attrs").get("text") != null) {
+            notes.add(node.get("attrs").get("text").stringValue().strip());
+        }
+        JsonNode content = node.get("content");
+        if (content != null) {
+            content.forEach(child -> collectFootnotes(child, notes));
+        }
     }
 
     private static final ThreadLocal<java.util.function.Function<String, String>> IMAGE_SRC = new ThreadLocal<>();
@@ -63,10 +102,12 @@ final class BookHtml {
     static String body(JsonNode document, java.util.function.Function<String, String> src, String idPrefix,
                        PageIllustration pages) {
         PAGE_ILLUSTRATION.set(pages);
+        FLOAT_NOTES.set(Boolean.TRUE); // só o PDF passa por aqui: a nota vai para o pé da página
         try {
             return body(document, src, idPrefix);
         } finally {
             PAGE_ILLUSTRATION.remove();
+            FLOAT_NOTES.remove();
         }
     }
     private static final ThreadLocal<String> SECTION_PREFIX = new ThreadLocal<>();
@@ -255,6 +296,10 @@ final class BookHtml {
                 html.append("<br/>");
                 continue;
             }
+            if ("footnote".equals(type(node))) {
+                footnoteCall(node, html);
+                continue;
+            }
             JsonNode text = textOf(node);
             if (text == null) {
                 continue;
@@ -268,6 +313,28 @@ final class BookHtml {
                 html.append("</").append(tag(marks.get(i))).append('>');
             }
         }
+    }
+
+    /**
+     * A chamada da nota no texto. No PDF, a nota inteira fica aqui e o motor a leva para o pé da página (com o
+     * número); no ePub, o número leva à nota no fim do capítulo.
+     */
+    private static void footnoteCall(JsonNode node, StringBuilder html) {
+        List<String> notes = NOTES.get();
+        JsonNode attrs = node.get("attrs");
+        String text = attrs == null || attrs.get("text") == null ? "" : attrs.get("text").stringValue().strip();
+        if (notes == null || text.isEmpty()) {
+            return;
+        }
+        notes.add(text);
+        int n = notes.size();
+        if (Boolean.TRUE.equals(FLOAT_NOTES.get())) {
+            html.append("<span class=\"footnote\">").append(escape(text)).append("</span>");
+            return;
+        }
+        String prefix = escape(SECTION_PREFIX.get() == null ? "fn" : SECTION_PREFIX.get());
+        html.append("<a epub:type=\"noteref\" class=\"noteref\" id=\"%1$s-fnref%2$d\" href=\"#%1$s-fn%2$d\">%2$d</a>"
+                .formatted(prefix, n));
     }
 
     /** Texto do nó; a menção ("@Lia") sai só com o nome, como texto comum. */

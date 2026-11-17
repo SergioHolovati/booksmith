@@ -45,14 +45,60 @@ final class DocxReader {
     }
 
     static Result read(byte[] file) {
-        Map<String, byte[]> parts = ImportFiles.unzip(file, Set.of("word/document.xml", "word/styles.xml"),
-                DocxReader::notDocx);
+        Map<String, byte[]> parts = ImportFiles.unzip(file,
+                Set.of("word/document.xml", "word/styles.xml", "word/footnotes.xml"), DocxReader::notDocx);
         byte[] document = parts.get("word/document.xml");
         if (document == null) {
             throw notDocx();
         }
         Styles styles = parts.containsKey("word/styles.xml") ? Styles.parse(parts.get("word/styles.xml")) : Styles.EMPTY;
-        return new DocumentParser(styles).parse(document);
+        Map<String, String> notes = parts.containsKey("word/footnotes.xml")
+                ? footnotes(parts.get("word/footnotes.xml")) : Map.of();
+        return new DocumentParser(styles, notes).parse(document);
+    }
+
+    /** O texto de cada nota de rodapé ({@code w:id} → texto), sem as separadoras do Word. */
+    static Map<String, String> footnotes(byte[] bytes) {
+        Map<String, String> notes = new HashMap<>();
+        try {
+            XMLStreamReader reader = ImportFiles.xml(bytes);
+            String id = null;
+            StringBuilder text = null;
+            boolean inText = false;
+            while (reader.hasNext()) {
+                int event = reader.next();
+                if (event == XMLStreamConstants.START_ELEMENT && W.equals(reader.getNamespaceURI())) {
+                    String name = reader.getLocalName();
+                    if (name.equals("footnote")) {
+                        String type = attr(reader, "type");
+                        id = type == null || type.equals("normal") ? attr(reader, "id") : null;
+                        text = new StringBuilder();
+                    } else if (name.equals("t") && id != null) {
+                        inText = true;
+                    } else if ((name.equals("tab") || name.equals("br")) && text != null) {
+                        text.append(' ');
+                    }
+                } else if (event == XMLStreamConstants.CHARACTERS && inText && text != null) {
+                    text.append(reader.getText());
+                } else if (event == XMLStreamConstants.END_ELEMENT && W.equals(reader.getNamespaceURI())) {
+                    String name = reader.getLocalName();
+                    if (name.equals("t")) {
+                        inText = false;
+                    } else if (name.equals("p") && text != null && !text.isEmpty()) {
+                        text.append(' ');
+                    } else if (name.equals("footnote")) {
+                        if (id != null && text != null && !text.toString().isBlank()) {
+                            notes.put(id, text.toString().replaceAll("\\s+", " ").strip());
+                        }
+                        id = null;
+                        text = null;
+                    }
+                }
+            }
+        } catch (XMLStreamException e) {
+            return Map.of(); // notas ilegíveis: o texto entra sem elas (e o aviso conta)
+        }
+        return notes;
     }
 
     private static String attr(XMLStreamReader reader, String name) {
@@ -266,6 +312,8 @@ final class DocxReader {
     private static final class DocumentParser {
 
         private final Styles styles;
+        /** O texto das notas de rodapé, pelo id (word/footnotes.xml). */
+        private final Map<String, String> notes;
         private final List<Paragraph> paragraphs = new ArrayList<>();
         private int images;
         private int tables;
@@ -287,8 +335,9 @@ final class DocxReader {
         private boolean inRunProps;
         private boolean inParagraphProps;
 
-        DocumentParser(Styles styles) {
+        DocumentParser(Styles styles, Map<String, String> notes) {
             this.styles = styles;
+            this.notes = notes;
         }
 
         Result parse(byte[] bytes) {
@@ -326,7 +375,15 @@ final class DocxReader {
                 ImportFiles.skipElement(reader);
                 return;
             }
-            if (name.equals("footnoteReference") || name.equals("endnoteReference")) {
+            if (name.equals("footnoteReference")) {
+                // A nota entra no texto, no lugar da chamada; sem o texto dela, conta como deixada de fora
+                String note = notes.get(attr(reader, "id"));
+                if (note != null && segments != null) {
+                    segments.add(Segment.footnote(note));
+                } else {
+                    footnotes++;
+                }
+            } else if (name.equals("endnoteReference")) {
                 footnotes++;
             }
             if (SKIPPED.contains(name)) {

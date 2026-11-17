@@ -151,7 +151,8 @@ Step "Dependências com falha conhecida (OSV)" {
     $first = (Get-Content (Join-Path $out "osv.txt") | Select-Object -First 1)
     if ($depsCached) { "ok - $first (dependências iguais às conferidas hoje)" }
     elseif ($depsResult.osvOk) {
-        $state["deps"] = "$today|$depsHash"
+        # Só fica no cache do dia com as duas conferências aprovadas (a origem também)
+        if ($depsResult.originOk) { $state["deps"] = "$today|$depsHash" }
         "ok - $first (em paralelo, $($depsResult.osvTime)s)"
     }
     else { "FALHOU - $first (ver osv.txt)" }
@@ -203,7 +204,8 @@ Step "Segredos no código e no histórico (Gitleaks)" {
         $since = $state["gitleaks"][$repo]
         $image = "zricethezav/gitleaks:v8.30.1"
         # Histórico: só os commits novos desde a última varredura aprovada (inteiro na completa)
-        $range = if (-not $full -and $since) { @("--log-opts=$since..HEAD") } else { @() }
+        # @(...) por fora: com um item só, o PowerShell viraria texto e o splatting passaria letra por letra
+        $range = @(if (-not $full -and $since) { "--log-opts=$since..HEAD" })
         if ($range -and $since -eq $head) {
             $commits = 0; $historyClean = $true; $log = ""
         } else {

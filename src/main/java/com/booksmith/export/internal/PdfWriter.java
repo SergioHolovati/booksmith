@@ -377,6 +377,11 @@ final class PdfWriter {
             .bleed-box { overflow: hidden; }
             .bleed-box img { display: block; }
             p.scene-break { text-align: center; margin: 4mm 0; letter-spacing: 2mm; }
+            .chapter { counter-reset: footnote; }
+            .footnote { float: footnote; font-size: 8.5pt; line-height: 1.3; text-align: left; text-indent: 0; font-style: normal; font-weight: normal; }
+            ::footnote-call { content: counter(footnote); vertical-align: super; font-size: 70%; line-height: 0; }
+            ::footnote-marker { content: counter(footnote) ". "; }
+            @page main { @footnote { border-top: 0.5pt solid #999; padding-top: 1.5mm; margin-top: 4mm; } }
             blockquote { margin: 3mm 8mm; font-style: italic; }
             blockquote em { font-style: normal; }
             """;

@@ -23,9 +23,14 @@ import java.util.regex.Pattern;
  * @param x          no texto livre, a borda esquerda da caixa, em % da largura da página (na dupla, do livro aberto)
  * @param y          no texto livre, o topo da caixa, em % da altura da página
  * @param w          no texto livre, a largura da caixa, em % da largura da página (na dupla, do livro aberto)
+ * @param zoom       zoom da ilustração de fundo: 1 (padrão) cobre a página; maior aproxima, menor afasta (aparece a
+ *                   cor de fundo em volta); de 0,3 a 4
+ * @param imageX     onde fica o centro da ilustração, em % da largura da página (na dupla, do livro aberto); padrão 50
+ * @param imageY     idem, em % da altura; padrão 50
  */
 public record PageDesign(String imageId, String background, String text, String align, String size, String color,
-                         Boolean band, Boolean spread, String textSide, Double x, Double y, Double w) {
+                         Boolean band, Boolean spread, String textSide, Double x, Double y, Double w,
+                         Double zoom, Double imageX, Double imageY) {
 
     public static final List<String> TEXTS = List.of("top", "middle", "bottom", "free", "none");
     public static final List<String> ALIGNS = List.of("left", "center", "right");
@@ -39,6 +44,12 @@ public record PageDesign(String imageId, String background, String text, String 
     public PageDesign(String imageId, String background, String text, String align, String size, String color,
                       Boolean band, Boolean spread, String textSide) {
         this(imageId, background, text, align, size, color, band, spread, textSide, null, null, null);
+    }
+
+    /** Sem zoom nem posição da ilustração (a ilustração cobre a página, centralizada). */
+    public PageDesign(String imageId, String background, String text, String align, String size, String color,
+                      Boolean band, Boolean spread, String textSide, Double x, Double y, Double w) {
+        this(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, null, null, null);
     }
 
     private static final Pattern UUID_TEXT = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -67,6 +78,9 @@ public record PageDesign(String imageId, String background, String text, String 
         w = w == null ? Double.valueOf(80) : Double.valueOf(clamp(w, 15, 100));
         x = x == null ? Double.valueOf(10) : Double.valueOf(clamp(x, 0, 100 - w));
         y = y == null ? Double.valueOf(10) : Double.valueOf(clamp(y, 0, 95));
+        zoom = zoom == null ? Double.valueOf(1) : Double.valueOf(Math.round(Math.max(0.3, Math.min(4, zoom)) * 100) / 100.0);
+        imageX = imageX == null ? Double.valueOf(50) : Double.valueOf(clamp(imageX, -50, 150));
+        imageY = imageY == null ? Double.valueOf(50) : Double.valueOf(clamp(imageY, -50, 150));
     }
 
     private static double clamp(double value, double min, double max) {
