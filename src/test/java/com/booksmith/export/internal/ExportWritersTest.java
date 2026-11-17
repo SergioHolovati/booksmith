@@ -1227,4 +1227,49 @@ class ExportWritersTest {
                 .isInstanceOfSatisfying(com.booksmith.common.error.ApiException.class,
                         e -> assertThat(e.getCode()).isEqualTo("page_invalid"));
     }
+
+    @Test
+    void theArtGoesToTheBottomEdgeWithoutAWhiteStrip() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null,
+                false, false, false);
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Fim.\"}]}]}";
+        var page = new com.booksmith.manuscript.api.PageDesign(IMAGE_ID, null, "top", null, null, null, null, null,
+                null);
+        var book = new ExportBook(UUID.randomUUID(), "Borda", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Página 1", PictureBookHtml.withBackground(JSON.readTree(text), page), null, page),
+                        new ExportBook.Chapter("Página 2", PictureBookHtml.withBackground(JSON.readTree(text), page), null, page)),
+                java.util.Map.of(IMAGE_ID, new ImageData(twoColors(2000, 2000), "image/png", "png")),
+                com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY, layout, true);
+        try (PDDocument document = Loader.loadPDF(PdfWriter.write(book))) {
+            assertThat(document.getNumberOfPages()).as("sem página em branco a mais").isEqualTo(2);
+            var image = new org.apache.pdfbox.rendering.PDFRenderer(document).renderImageWithDPI(0, 150);
+            int bottom = image.getRGB(image.getWidth() / 4, image.getHeight() - 1);
+            assertThat((bottom >> 16) & 0xff).as("vermelho no pé").isGreaterThan(200);
+            assertThat((bottom >> 8) & 0xff).as("sem branco no pé").isLessThan(60);
+        }
+    }
+
+    @Test
+    void pictureBookEbookIsFixedLayoutWithTheTextOverTheArt(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(pictureBook());
+        Path file = dir.resolve("infantil.epub");
+        Files.write(file, epub);
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+
+        String opf = entry(epub, "EPUB/package.opf");
+        assertThat(opf).contains("<meta property=\"rendition:layout\">pre-paginated</meta>")
+                .contains("properties=\"page-spread-left\"").contains("properties=\"page-spread-right\"");
+        // A página: do tamanho do livro (20 cm = 756 px), com a arte e o texto por cima, na mesma página
+        String page = entry(epub, "EPUB/page-001.xhtml");
+        assertThat(page).contains("<meta name=\"viewport\" content=\"width=756, height=")
+                .contains("class=\"pb-art\"").contains("src=\"images/ill-").contains("class=\"pb-text")
+                .contains("Página 1 da história.");
+        assertThat(page.indexOf("pb-text")).isGreaterThan(page.indexOf("pb-art"));
+        // Sem sangria e sem número de página no e-book
+        assertThat(entry(epub, "EPUB/css/book.css")).doesNotContain("@page");
+        assertThat(page).doesNotContain("pb-number");
+    }
 }

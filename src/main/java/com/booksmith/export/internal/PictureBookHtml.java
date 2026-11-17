@@ -129,6 +129,46 @@ final class PictureBookHtml {
         return "free".equals(box.text()) ? box.x() + box.w() / 2 >= 50 : "right".equals(box.textSide());
     }
 
+    /**
+     * Uma página da história: o HTML dela e o lado no livro aberto ({@code left}/{@code right} na dupla; null na
+     * página simples).
+     */
+    record Sheet(String html, String side) {
+    }
+
+    /**
+     * As páginas da história, na ordem: a dupla vira a página da esquerda e a da direita, com a mesma ilustração e
+     * cada bloco de texto no lado dele. {@code src} dá o endereço de cada ilustração (no PDF, a memória; no ePub, o
+     * arquivo); {@code before}: quantas páginas vêm antes (para o número de página e o lado da dupla).
+     */
+    static java.util.List<Sheet> sheets(ExportBook book, double[] page, java.util.function.Function<String, String> src,
+                                        int before) {
+        java.util.List<Sheet> sheets = new java.util.ArrayList<>();
+        // A numeração das páginas, como o motor faz: a ímpar é a da direita (a sangria fica à direita), a par é a da
+        // esquerda; a dupla começa numa par, com uma página em branco antes se precisar
+        int last = before;
+        for (int i = 0; i < book.chapters().size(); i++) {
+            ExportBook.Chapter chapter = book.chapters().get(i);
+            PageDesign design = chapter.page() == null ? PageDesign.DEFAULT : chapter.page();
+            String id = "page-" + (i + 1);
+            java.util.List<Placed> texts = placed(design, chapter.document());
+            if (design.isSpread()) {
+                if ((last + 1) % 2 != 0) {
+                    last++; // a página em branco que o motor põe antes da dupla
+                }
+                last += 2;
+                sheets.add(new Sheet(page(book, design, page, id, 0, texts.stream().filter(t -> !onRight(t.design()))
+                        .toList(), true, false, last - 1, src), "left"));
+                sheets.add(new Sheet(page(book, design, page, null, page[0], texts.stream()
+                        .filter(t -> onRight(t.design())).toList(), false, true, last, src), "right"));
+            } else {
+                last++;
+                sheets.add(new Sheet(page(book, design, page, id, 0, texts, false, last % 2 != 0, last, src), null));
+            }
+        }
+        return sheets;
+    }
+
     static String html(ExportBook book) {
         BookLayout layout = book.layout();
         double[] page = PdfWriter.pageBoxMm(layout);
@@ -137,27 +177,12 @@ final class PictureBookHtml {
         // A numeração das páginas, como o motor faz: a ímpar é a da direita (a sangria fica à direita), a par é a da
         // esquerda; a dupla começa numa par, com uma página em branco antes se precisar
         boolean auto = layout.generatesPages();
-        int last = auto ? 1 + frontPages(book) : 0;
         for (int i = 0; i < book.chapters().size(); i++) {
-            ExportBook.Chapter chapter = book.chapters().get(i);
-            PageDesign design = chapter.page() == null ? PageDesign.DEFAULT : chapter.page();
-            String id = "page-" + (i + 1);
-            bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(escape(chapter.title()), id));
-            java.util.List<Placed> texts = placed(design, chapter.document());
-            if (design.isSpread()) {
-                if ((last + 1) % 2 != 0) {
-                    last++; // a página em branco que o motor põe antes da dupla
-                }
-                last += 2;
-                // A esquerda e a direita do livro aberto, com a mesma imagem; cada bloco no lado dele
-                pages.append(page(book, design, page, id, 0, texts.stream().filter(t -> !onRight(t.design())).toList(),
-                        true, false, last - 1));
-                pages.append(page(book, design, page, null, page[0],
-                        texts.stream().filter(t -> onRight(t.design())).toList(), false, true, last));
-            } else {
-                last++;
-                pages.append(page(book, design, page, id, 0, texts, false, last % 2 != 0, last));
-            }
+            bookmarks.append("<bookmark name=\"%s\" href=\"#page-%d\"/>\n"
+                    .formatted(escape(book.chapters().get(i).title()), i + 1));
+        }
+        for (Sheet sheet : sheets(book, page, id -> PdfWriter.imageUri(book, id), auto ? 1 + frontPages(book) : 0)) {
+            pages.append(sheet.html());
         }
         return """
                 <!DOCTYPE html>
@@ -178,7 +203,7 @@ final class PictureBookHtml {
     }
 
     /** A folha de rosto automática (desligada quando o autor monta todas as páginas). */
-    private static String titlePage(ExportBook book, double[] page) {
+    static String titlePage(ExportBook book, double[] page) {
         return "<div class=\"title-page\" style=\"width: %smm; height: %smm; padding-top: %smm\"><p class=\"book-title\">%s</p><p class=\"book-author\">%s</p></div>\n"
                 .formatted(mm(page[0]), mm(page[1] - 1), mm(page[1] * 0.33), escape(book.title()), escape(book.author()));
     }
@@ -192,7 +217,7 @@ final class PictureBookHtml {
     }
 
     /** Créditos e dedicatória, cada um na sua página, como nos livros ilustrados. */
-    private static String front(ExportBook book, double[] page) {
+    static String front(ExportBook book, double[] page) {
         StringBuilder html = new StringBuilder();
         String credits = book.pages().catalogCard() == null ? book.pages().credits()
                 : (book.pages().credits() == null ? "" : book.pages().credits() + "\n\n") + book.pages().catalogCard();
@@ -215,12 +240,17 @@ final class PictureBookHtml {
      * o número da página (sai no canto de fora, se a diagramação pedir).
      */
     private static String page(ExportBook book, PageDesign design, double[] page, String id, double offsetX,
-                               java.util.List<Placed> texts, boolean spreadLeft, boolean right, int number) {
+                               java.util.List<Placed> texts, boolean spreadLeft, boolean right, int number,
+                               java.util.function.Function<String, String> src) {
         StringBuilder html = new StringBuilder();
-        html.append("<div class=\"pb-page%s\"%s style=\"width: %smm; height: %smm; background-color: %s\">"
+        // A caixa da página tem 1 mm a menos (na altura exata o motor abria uma página em branco depois); o fundo e a
+        // arte ficam numa camada com a altura inteira da folha, para não sobrar uma faixa branca no pé
+        html.append("<div class=\"pb-page%s\"%s style=\"width: %smm; height: %smm\">"
                 .formatted(spreadLeft ? " spread-left" : "", id == null ? "" : " id=\"" + id + "\"", mm(page[0]),
-                        mm(page[1] - 1), design.background()));
-        String url = design.imageId() == null ? null : PdfWriter.imageUri(book, design.imageId());
+                        mm(page[1] - 1)));
+        html.append("<div class=\"pb-clip\" style=\"width: %smm; height: %smm; background-color: %s\">"
+                .formatted(mm(page[0]), mm(page[1]), design.background()));
+        String url = design.imageId() == null ? null : src.apply(design.imageId());
         double[] art = null;
         if (url != null) {
             int[] px = PrintCheck.pixels(book.illustrations().get(design.imageId()).bytes());
@@ -237,6 +267,7 @@ final class PictureBookHtml {
                 art = new double[] {left, top, width, height};
             }
         }
+        html.append("</div>");
         for (Placed placed : texts) {
             PageDesign box = placed.design();
             if (art != null && box.hasBlur()) {
@@ -377,7 +408,7 @@ final class PictureBookHtml {
         return font == layout.bookFont() ? "" : " font-family: '%s';".formatted(font.family());
     }
 
-    private static String css(double[] page, BookFont font) {
+    static String css(double[] page, BookFont font) {
         return """
                 @page { size: %1$smm %2$smm; margin: 0; }
                 body { margin: 0; font-family: '%3$s'; color: #1a1a1a; }
@@ -386,7 +417,8 @@ final class PictureBookHtml {
                 .book-title { font-size: 30pt; font-weight: bold; line-height: 1.15; margin: 0 0 10mm; }
                 .book-author { font-size: 16pt; margin: 0; }
                 .front-page p { font-size: 12pt; margin: 0 0 3mm; font-style: italic; }
-                .pb-page { position: relative; overflow: hidden; page-break-before: always; }
+                .pb-page { position: relative; page-break-before: always; }
+                .pb-clip { position: absolute; left: 0; top: 0; overflow: hidden; }
                 .pb-page.spread-left { page-break-before: left; }
                 .pb-art { display: block; }
                 .pb-blur { position: absolute; display: block; }

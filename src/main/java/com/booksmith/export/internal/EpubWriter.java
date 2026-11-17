@@ -27,6 +27,10 @@ final class EpubWriter {
     }
 
     static byte[] write(ExportBook book) {
+        if (book.pictureBook()) {
+            // Livro ilustrado: layout fixo, com o texto por cima da ilustração (ver PictureBookEpub)
+            return PictureBookEpub.write(book);
+        }
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
             stored(zip, "mimetype", "application/epub+zip".getBytes(StandardCharsets.US_ASCII));
@@ -328,18 +332,18 @@ final class EpubWriter {
                 """.formatted(book.language(), escape(title), bodyType, body);
     }
 
-    private static void text(ZipOutputStream zip, String name, String content) throws IOException {
+    static void text(ZipOutputStream zip, String name, String content) throws IOException {
         entry(zip, name, content.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static void entry(ZipOutputStream zip, String name, byte[] content) throws IOException {
+    static void entry(ZipOutputStream zip, String name, byte[] content) throws IOException {
         zip.putNextEntry(new ZipEntry(name));
         zip.write(content);
         zip.closeEntry();
     }
 
     /** O {@code mimetype} vai sem compressão, como a especificação exige. */
-    private static void stored(ZipOutputStream zip, String name, byte[] content) throws IOException {
+    static void stored(ZipOutputStream zip, String name, byte[] content) throws IOException {
         ZipEntry entry = new ZipEntry(name);
         entry.setMethod(ZipEntry.STORED);
         entry.setSize(content.length);
@@ -360,7 +364,7 @@ final class EpubWriter {
         return book.layout().bookFont() != com.booksmith.manuscript.api.BookFont.DEFAULT;
     }
 
-    private static List<String> fontStyles(com.booksmith.manuscript.api.BookFont font) {
+    static List<String> fontStyles(com.booksmith.manuscript.api.BookFont font) {
         if (font.hasItalic()) {
             return List.of("Regular", "Bold", "Italic", "BoldItalic");
         }
@@ -381,7 +385,7 @@ final class EpubWriter {
         return css.append("body { font-family: '%s', serif; }\n".formatted(font.family())).toString();
     }
 
-    private static byte[] fontBytes(com.booksmith.manuscript.api.BookFont font, String style) throws IOException {
+    static byte[] fontBytes(com.booksmith.manuscript.api.BookFont font, String style) throws IOException {
         try (var in = new org.springframework.core.io.ClassPathResource("export/fonts/" + font.fileName(style))
                 .getInputStream()) {
             return in.readAllBytes();
