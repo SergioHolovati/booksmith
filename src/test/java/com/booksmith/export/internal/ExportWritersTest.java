@@ -1103,4 +1103,36 @@ class ExportWritersTest {
         assertThat(entry(DocxWriter.write(book(null, null)), "word/styles.xml"))
                 .contains("<w:rFonts w:ascii=\"Times New Roman\"");
     }
+
+    @Test
+    void hazeLightensTheArtBehindTheTextWithASoftEdge() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null,
+                false, false, false);
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Oi.\"}]}]}";
+        var page = new com.booksmith.manuscript.api.PageDesign(IMAGE_ID, null, "free", "center", "m", "dark", true,
+                false, null, 20.0, 10.0, 60.0, null, null, null, null, true);
+        assertThat(page.hasBand()).as("névoa e faixa: uma só").isFalse();
+        var book = new ExportBook(UUID.randomUUID(), "Névoa", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Página 1", PictureBookHtml.withBackground(JSON.readTree(text), page),
+                        null, page)),
+                java.util.Map.of(IMAGE_ID, new ImageData(twoColors(2000, 2000), "image/png", "png")),
+                com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY, layout, true);
+        assertThat(PictureBookHtml.html(book)).contains("haze-light").contains("background-image: url(data:image/png");
+
+        try (PDDocument document = Loader.loadPDF(PdfWriter.write(book))) {
+            var image = new org.apache.pdfbox.rendering.PDFRenderer(document).renderImageWithDPI(0, 72);
+            double px = 72 / 25.4;
+            // Dentro da caixa (40 a 160 mm, a partir de 20 mm), longe da palavra: o vermelho fica claro
+            int inside = image.getRGB((int) (70 * px), (int) (30 * px));
+            // Longe do texto, a arte como é
+            int outside = image.getRGB((int) (70 * px), (int) (150 * px));
+            assertThat((inside >> 8) & 0xff).as("verde perto do texto").isGreaterThan(150);
+            assertThat((outside >> 8) & 0xff).as("verde longe do texto").isLessThan(40);
+        }
+        // A borda da névoa é transparente; o miolo, cheio
+        assertThat(Haze.alpha(0.5, 0.5, 0.86)).isEqualTo(0.86);
+        assertThat(Haze.alpha(0.0, 0.5, 0.86)).isZero();
+        assertThat(Haze.alpha(0.5, 0.0, 0.86)).isZero();
+    }
 }

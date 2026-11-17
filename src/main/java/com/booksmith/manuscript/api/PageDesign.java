@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
  */
 public record PageDesign(String imageId, String background, String text, String align, String size, String color,
                          Boolean band, Boolean spread, String textSide, Double x, Double y, Double w,
-                         Double zoom, Double imageX, Double imageY, String font) {
+                         Double zoom, Double imageX, Double imageY, String font, Boolean haze) {
 
     public static final List<String> TEXTS = List.of("top", "middle", "bottom", "free", "none");
     public static final List<String> ALIGNS = List.of("left", "center", "right");
@@ -50,6 +50,14 @@ public record PageDesign(String imageId, String background, String text, String 
     public PageDesign(String imageId, String background, String text, String align, String size, String color,
                       Boolean band, Boolean spread, String textSide, Double x, Double y, Double w) {
         this(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, null, null, null);
+    }
+
+    /** Sem névoa atrás do texto. */
+    public PageDesign(String imageId, String background, String text, String align, String size, String color,
+                      Boolean band, Boolean spread, String textSide, Double x, Double y, Double w, Double zoom,
+                      Double imageX, Double imageY, String font) {
+        this(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, zoom, imageX, imageY,
+                font, null);
     }
 
     /** Sem fonte própria (usa a do livro). */
@@ -79,7 +87,9 @@ public record PageDesign(String imageId, String background, String text, String 
         align = pick(align, ALIGNS, "center", "Alinhamento desconhecido.");
         size = pick(size, SIZES, "l", "Tamanho de letra desconhecido.");
         color = pick(color, COLORS, "dark", "Cor do texto desconhecida.");
-        band = Boolean.TRUE.equals(band);
+        // Névoa (a arte clareia atrás do texto, com a borda esfumada) e faixa são jeitos de destacar o texto: um só
+        haze = Boolean.TRUE.equals(haze);
+        band = Boolean.TRUE.equals(band) && !haze;
         spread = Boolean.TRUE.equals(spread);
         textSide = pick(textSide, SIDES, "right", "Lado do texto desconhecido.");
         // A caixa cabe na página: largura de 15% a 100%, e a borda esquerda e o topo de 0% até onde ela ainda cabe
@@ -126,6 +136,10 @@ public record PageDesign(String imageId, String background, String text, String 
 
     public boolean hasBand() {
         return Boolean.TRUE.equals(band);
+    }
+
+    public boolean hasHaze() {
+        return Boolean.TRUE.equals(haze);
     }
 
     private static String pick(String value, List<String> options, String fallback, String message) {

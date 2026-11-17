@@ -204,8 +204,7 @@ final class PictureBookHtml {
             case "middle" -> "top: 50%; transform: translateY(-50%)";
             default -> "bottom: %smm".formatted(mm(inset + 1));
         };
-        String band = design.hasBand()
-                ? ("light".equals(design.color()) ? " band-dark" : " band-light") : "";
+        String band = backdrop(design);
         return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; %s; font-size: %spt;%s\">%s</div>"
                 .formatted(design.color(), band, design.align(), mm(left), mm(width), vertical,
                         mm(design.fontSizePt()), fontStyle(layout, design), text);
@@ -225,10 +224,19 @@ final class PictureBookHtml {
         // Na página da esquerda, o corte começa depois da sangria (que fica à esquerda)
         double left = boxX + (right ? 0 : bleed);
         double top = bleed + design.y() / 100 * trimH;
-        String band = design.hasBand() ? ("light".equals(design.color()) ? " band-dark" : " band-light") : "";
+        String band = backdrop(design);
         return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; top: %smm; font-size: %spt;%s\">%s</div>"
                 .formatted(design.color(), band, design.align(), mm(left), mm(boxW), mm(top), mm(design.fontSizePt()),
                         fontStyle(layout, design), text);
+    }
+
+    /** O destaque atrás do texto: faixa ou névoa, clara atrás do texto escuro e escura atrás do texto claro. */
+    private static String backdrop(PageDesign design) {
+        String tone = "light".equals(design.color()) ? "dark" : "light";
+        if (design.hasHaze()) {
+            return " haze-" + tone;
+        }
+        return design.hasBand() ? " band-" + tone : "";
     }
 
     /** A fonte da página, quando ela tem uma diferente da do livro (o nome vem do catálogo, nunca do usuário). */
@@ -259,10 +267,14 @@ final class PictureBookHtml {
                 .pb-text.light { color: #ffffff; }
                 .pb-text.band-light { background-color: rgba(255, 255, 255, 0.82); padding: 4mm 5mm; border-radius: 4mm; }
                 .pb-text.band-dark { background-color: rgba(0, 0, 0, 0.6); padding: 4mm 5mm; border-radius: 4mm; }
+                .pb-text.haze-light, .pb-text.haze-dark { padding: 9mm 12mm; background-size: 100%% 100%%;
+                  background-repeat: no-repeat; }
+                .pb-text.haze-light { background-image: url(%4$s); }
+                .pb-text.haze-dark { background-image: url(%5$s); }
                 .align-left { text-align: left; }
                 .align-center { text-align: center; }
                 .align-right { text-align: right; }
-                """.formatted(mm(page[0]), mm(page[1]), font.family());
+                """.formatted(mm(page[0]), mm(page[1]), font.family(), Haze.LIGHT, Haze.DARK);
     }
 
     private static String mm(double value) {

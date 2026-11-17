@@ -206,4 +206,24 @@ class ChapterServiceTest {
         assertThat(second.getPosition()).isEqualTo(1);
         assertThat(chapter.getPosition()).isEqualTo(2);
     }
+
+    @org.junit.jupiter.api.Test
+    void pagePreviewTakesTheTextOfParagraphsAndHeadings() {
+        String doc = """
+                {"type":"doc","content":[
+                  {"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Título"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":"Que não consigo "},
+                    {"type":"text","marks":[{"type":"bold"}],"text":"pensar"},
+                    {"type":"footnote","attrs":{"text":"nota"}}]},
+                  {"type":"paragraph"},
+                  {"type":"sceneBreak"}]}""";
+        org.assertj.core.api.Assertions.assertThat(ChapterService.paragraphs(doc))
+                .containsExactly("Título", "Que não consigo pensar");
+        org.assertj.core.api.Assertions.assertThat(ChapterService.paragraphs(null)).isEmpty();
+        String longText = "a".repeat(ChapterService.PREVIEW_CHARS + 50);
+        org.assertj.core.api.Assertions.assertThat(ChapterService.paragraphs(
+                        "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\""
+                                + longText + "\"}]}]}").getFirst())
+                .hasSize(ChapterService.PREVIEW_CHARS + 1).endsWith("…");
+    }
 }

@@ -60,6 +60,12 @@ class ChapterController {
                 .toList();
     }
 
+    /** Livro ilustrado: as páginas com o desenho e o texto, para organizar vendo as miniaturas. */
+    @GetMapping("/books/{bookId}/page-previews")
+    List<ChapterService.PagePreview> pages(@PathVariable UUID bookId) {
+        return chapterService.pages(currentUser.id(), bookId);
+    }
+
     @GetMapping("/chapters/{chapterId}")
     ResponseEntity<ChapterResponse> get(@PathVariable UUID chapterId) {
         var view = chapterService.get(currentUser.id(), chapterId);
@@ -93,11 +99,11 @@ class ChapterController {
 
     record PageRequest(String imageId, String background, String text, String align, String size, String color,
                        Boolean band, Boolean spread, String textSide, Double x, Double y, Double w, Double zoom,
-                       Double imageX, Double imageY, String font) {
+                       Double imageX, Double imageY, String font, Boolean haze) {
 
         PageDesign toPage() {
             return new PageDesign(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, zoom,
-                    imageX, imageY, font);
+                    imageX, imageY, font, haze);
         }
     }
 

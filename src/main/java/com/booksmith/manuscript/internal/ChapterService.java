@@ -120,6 +120,46 @@ public class ChapterService {
         return chapterRepository.saveAndFlush(chapter);
     }
 
+    /** Uma página do livro ilustrado para a tela de organizar: o desenho e os parágrafos do texto. */
+    public record PagePreview(UUID id, String title, PageDesign page, List<String> paragraphs) {
+    }
+
+    static final int PREVIEW_PARAGRAPHS = 12;
+    static final int PREVIEW_CHARS = 400;
+
+    /** As páginas na ordem do livro, com o texto para a miniatura (sem buscar capítulo por capítulo). */
+    @Transactional(readOnly = true)
+    public List<PagePreview> pages(UUID ownerId, UUID bookId) {
+        bookService.require(ownerId, bookId);
+        return chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId).stream()
+                .map(c -> new PagePreview(c.getId(), c.getTitle(), pageOf(c), paragraphs(c.getContent())))
+                .toList();
+    }
+
+    /** O texto de cada parágrafo e título (o resto, como notas de rodapé, fica de fora da miniatura). */
+    static List<String> paragraphs(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        List<String> out = new java.util.ArrayList<>();
+        for (JsonNode block : PAGE_READER.readTree(json).path("content")) {
+            String type = block.path("type").asString("");
+            if (out.size() < PREVIEW_PARAGRAPHS && ("paragraph".equals(type) || "heading".equals(type))) {
+                StringBuilder text = new StringBuilder();
+                for (JsonNode inline : block.path("content")) {
+                    if ("text".equals(inline.path("type").asString(""))) {
+                        text.append(inline.path("text").asString(""));
+                    }
+                }
+                String clean = text.toString().strip();
+                if (!clean.isEmpty()) {
+                    out.add(clean.length() > PREVIEW_CHARS ? clean.substring(0, PREVIEW_CHARS) + "…" : clean);
+                }
+            }
+        }
+        return out;
+    }
+
     /** O desenho guardado, ou o padrão. */
     public static PageDesign pageOf(Chapter chapter) {
         if (chapter.getPage() == null || chapter.getPage().isBlank()) {
