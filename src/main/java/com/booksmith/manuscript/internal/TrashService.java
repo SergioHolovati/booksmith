@@ -27,6 +27,7 @@ public class TrashService {
     private final BookRepository bookRepository;
     private final ChapterRepository chapterRepository;
     private final BookService bookService;
+    private final com.booksmith.universe.api.Universes universes;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -43,6 +44,10 @@ public class TrashService {
                 .orElseThrow(TrashService::notFound);
         book.setDeletedAt(null);
         book.setUpdatedAt(Instant.now(clock));
+        // Se o universo do livro foi excluído junto, ele volta também
+        if (book.getUniverseId() != null) {
+            universes.restore(ownerId, book.getUniverseId());
+        }
         return book;
     }
 

@@ -25,6 +25,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "universes", schema = "universe")
+// Universo excluído (na lixeira) não aparece em nenhuma busca; só a restauração, por SQL próprio, o enxerga
+@org.hibernate.annotations.SQLRestriction("deleted_at is null")
 public class Universe {
 
     @Id
@@ -67,6 +69,9 @@ public class Universe {
 
     @CreationTimestamp
     private Instant createdAt;
+
+    /** Na lixeira desde (V37); null = ativo. */
+    private Instant deletedAt;
 
     @UpdateTimestamp
     private Instant updatedAt;

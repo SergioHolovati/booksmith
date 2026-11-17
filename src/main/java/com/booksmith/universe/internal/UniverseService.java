@@ -42,6 +42,7 @@ public class UniverseService implements Universes {
     private final ImageStorage imageStorage;
     private final UniverseImageRepository imageRepository;
     private final JsonMapper jsonMapper;
+    private final java.time.Clock clock;
     private final CustomFields customFields;
     private final UniverseBriefs briefs;
     private final CharacterService characterService;
@@ -138,6 +139,29 @@ public class UniverseService implements Universes {
         UniverseImage image = galleryService.uploadGenerated(ownerId, universeId, bytes, contentType, caption,
                 entityIds, portraitFor);
         return new GeneratedImage(image.getId(), image.getUrl(), image.getCaption());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String nameOf(UUID ownerId, UUID universeId) {
+        return universeRepository.findByIdAndOwnerId(universeId, ownerId)
+                .orElseThrow(() -> ApiException.notFound("universe_not_found", "Universo não encontrado."))
+                .getName();
+    }
+
+    @Override
+    @Transactional
+    public void trash(UUID ownerId, UUID universeId) {
+        Universe universe = universeRepository.findByIdAndOwnerId(universeId, ownerId)
+                .orElseThrow(() -> ApiException.notFound("universe_not_found", "Universo não encontrado."));
+        universe.setDeletedAt(java.time.Instant.now(clock));
+        universeRepository.saveAndFlush(universe);
+    }
+
+    @Override
+    @Transactional
+    public void restore(UUID ownerId, UUID universeId) {
+        universeRepository.restore(universeId, ownerId);
     }
 
     @Override

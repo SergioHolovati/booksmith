@@ -17,6 +17,15 @@ public interface Universes {
     /** Confere que o universo existe e é do usuário; senão, 404 {@code universe_not_found}. */
     void requireOwned(UUID ownerId, UUID universeId);
 
+    /** O nome do universo do dono (404 se não é dele ou está na lixeira). */
+    String nameOf(UUID ownerId, UUID universeId);
+
+    /** Leva o universo para a lixeira (some das listas e telas). Os livros dele, quem chama decide. */
+    void trash(UUID ownerId, UUID universeId);
+
+    /** Tira o universo da lixeira (ao restaurar um livro dele). Sem efeito se ele não está na lixeira. */
+    void restore(UUID ownerId, UUID universeId);
+
     /**
      * Junta {@code from} em {@code into}: personagens, lugares e eventos da linha do tempo passam para
      * {@code into} (os eventos entram depois dos que já existiam) e {@code from} deixa de existir. Nada é

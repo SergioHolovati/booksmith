@@ -24,7 +24,8 @@ class TrashServiceTest {
     private final BookRepository bookRepository = mock(BookRepository.class);
     private final ChapterRepository chapterRepository = mock(ChapterRepository.class);
     private final BookService bookService = mock(BookService.class);
-    private final TrashService service = new TrashService(bookRepository, chapterRepository, bookService,
+    private final com.booksmith.universe.api.Universes universes = mock(com.booksmith.universe.api.Universes.class);
+    private final TrashService service = new TrashService(bookRepository, chapterRepository, bookService, universes,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     private final UUID ownerId = UUID.randomUUID();
@@ -72,5 +73,17 @@ class TrashServiceTest {
 
         verify(chapterRepository).purgeDeletedBefore(NOW.minus(TrashService.RETENTION));
         verify(bookRepository).purgeDeletedBefore(NOW.minus(TrashService.RETENTION));
+    }
+
+    @Test
+    void restoringABookBringsItsUniverseBack() {
+        UUID universeId = UUID.randomUUID();
+        Book book = Book.builder().id(bookId).ownerId(ownerId).universeId(universeId).deletedAt(NOW).build();
+        when(bookRepository.findByIdAndOwnerIdAndDeletedAtAfter(eq(bookId), eq(ownerId), any()))
+                .thenReturn(Optional.of(book));
+
+        service.restoreBook(ownerId, bookId);
+
+        verify(universes).restore(ownerId, universeId);
     }
 }

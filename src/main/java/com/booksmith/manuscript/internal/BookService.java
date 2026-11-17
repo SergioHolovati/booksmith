@@ -306,6 +306,34 @@ public class BookService {
         require(ownerId, bookId).setDeletedAt(Instant.now(clock));
     }
 
+    /** Um livro do universo, para o alerta antes de excluir. */
+    public record LinkedBook(UUID id, String title) {
+    }
+
+    /**
+     * Leva o universo para a lixeira. Com livros dele, recusa (409 {@code universe_has_books}, com os livros) a
+     * menos que {@code withBooks}: então os livros vão juntos para a lixeira (30 dias, com volta; restaurar um
+     * livro traz o universo de volta).
+     */
+    @Transactional
+    public List<LinkedBook> deleteUniverse(UUID ownerId, UUID universeId, boolean withBooks) {
+        universes.requireOwned(ownerId, universeId);
+        List<Book> books = bookRepository.findAllByOwnerIdAndUniverseIdAndDeletedAtIsNullOrderByCreatedAtAsc(ownerId,
+                universeId);
+        List<LinkedBook> linked = books.stream().map(b -> new LinkedBook(b.getId(), b.getTitle())).toList();
+        if (!books.isEmpty() && !withBooks) {
+            throw ApiException.conflict("universe_has_books", books.size() == 1
+                    ? "Este universo tem 1 livro. Excluir o universo leva o livro junto para a lixeira."
+                    : "Este universo tem %d livros. Excluir o universo leva os livros juntos para a lixeira."
+                            .formatted(books.size()),
+                    Map.of("books", linked));
+        }
+        Instant now = Instant.now(clock);
+        books.forEach(book -> book.setDeletedAt(now));
+        universes.trash(ownerId, universeId);
+        return linked;
+    }
+
     Book require(UUID ownerId, UUID bookId) {
         // Livro de outra pessoa responde 404, não 403: não revela que o id existe
         return bookRepository.findByIdAndOwnerIdAndDeletedAtIsNull(bookId, ownerId)

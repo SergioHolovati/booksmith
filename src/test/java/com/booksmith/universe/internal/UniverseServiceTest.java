@@ -28,7 +28,7 @@ class UniverseServiceTest {
     private final RelationRepository relations = mock(RelationRepository.class);
     private final UniverseImageRepository gallery = mock(UniverseImageRepository.class);
     private final UniverseService service = new UniverseService(universes, entities, timeline, relations,
-            new AppearanceForm(mapper), new UniverseForm(mapper), images, gallery, mapper,
+            new AppearanceForm(mapper), new UniverseForm(mapper), images, gallery, mapper, java.time.Clock.systemUTC(),
             new CustomFields(new LoreForm(mapper)),
             new UniverseBriefs(entities, relations, timeline, new UniverseForm(mapper), new AppearanceForm(mapper),
                     new LoreForm(mapper), mapper),
