@@ -83,9 +83,12 @@ final class PictureBookHtml {
                     last++; // a página em branco que o motor põe antes da dupla
                 }
                 last += 2;
-                // A esquerda e a direita do livro aberto, com a mesma imagem; o texto no lado escolhido
-                pages.append(page(book, design, page, id, 0, "left".equals(design.textSide()) && hasText ? text : null, true, false));
-                pages.append(page(book, design, page, null, page[0], "right".equals(design.textSide()) && hasText ? text : null, false, true));
+                // A esquerda e a direita do livro aberto, com a mesma imagem; o texto no lado escolhido (no livre, o
+                // lado onde está o meio da caixa)
+                boolean textRight = "free".equals(design.text())
+                        ? design.x() + design.w() / 2 >= 50 : "right".equals(design.textSide());
+                pages.append(page(book, design, page, id, 0, !textRight && hasText ? text : null, true, false));
+                pages.append(page(book, design, page, null, page[0], textRight && hasText ? text : null, false, true));
             } else {
                 last++;
                 pages.append(page(book, design, page, id, 0, hasText ? text : null, false, last % 2 != 0));
@@ -172,6 +175,9 @@ final class PictureBookHtml {
         double inset = SAFE_MM + bleed;
         double left = SAFE_MM + (right ? 0 : bleed);
         double width = page[0] - 2 * SAFE_MM - bleed;
+        if ("free".equals(design.text())) {
+            return freeTextBox(layout, design, text, right, bleed);
+        }
         String vertical = switch (design.text()) {
             case "top" -> "top: %smm".formatted(mm(inset));
             case "middle" -> "top: 50%; transform: translateY(-50%)";
@@ -182,6 +188,25 @@ final class PictureBookHtml {
         return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; %s; font-size: %spt\">%s</div>"
                 .formatted(design.color(), band, design.align(), mm(left), mm(width), vertical,
                         mm(design.fontSizePt()), text);
+    }
+
+    /**
+     * O texto onde o autor arrastou: {@code x}, {@code y} e {@code w} em % do corte (na dupla, do livro aberto). Na
+     * dupla, a caixa vai para a página onde está o meio dela e não passa da dobra.
+     */
+    private static String freeTextBox(BookLayout layout, PageDesign design, String text, boolean right, double bleed) {
+        double trimW = layout.widthMm();
+        double trimH = layout.heightMm();
+        double canvas = design.isSpread() ? 2 * trimW : trimW;
+        double boxW = Math.min(design.w() / 100 * canvas, trimW);
+        double boxX = design.x() / 100 * canvas - (design.isSpread() && right ? trimW : 0);
+        boxX = Math.max(0, Math.min(boxX, trimW - boxW));
+        // Na página da esquerda, o corte começa depois da sangria (que fica à esquerda)
+        double left = boxX + (right ? 0 : bleed);
+        double top = bleed + design.y() / 100 * trimH;
+        String band = design.hasBand() ? ("light".equals(design.color()) ? " band-dark" : " band-light") : "";
+        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; top: %smm; font-size: %spt\">%s</div>"
+                .formatted(design.color(), band, design.align(), mm(left), mm(boxW), mm(top), mm(design.fontSizePt()), text);
     }
 
     private static String css(double[] page) {

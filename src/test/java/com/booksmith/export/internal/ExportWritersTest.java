@@ -372,6 +372,33 @@ class ExportWritersTest {
     }
 
     @Test
+    void freeTextGoesWhereTheAuthorDraggedIt() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null, true);
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Livre.\"}]}]}";
+        // Dupla (400 mm de largura): caixa de 30% (120 mm) começando em 60% (240 mm): o meio está na página da direita,
+        // a 40 mm do corte dela; 25% de altura = 50 mm, mais 3,2 de sangria
+        var spread = new com.booksmith.manuscript.api.PageDesign(null, null, "free", "left", "m", "dark", false, true,
+                null, 60.0, 25.0, 30.0);
+        // Página simples: 10% e 70% = 20 mm (+3,2 de sangria: é a página da esquerda) e 140 mm; largura 50% = 100 mm
+        var single = new com.booksmith.manuscript.api.PageDesign(null, null, "free", "left", "m", "dark", false, false,
+                null, 10.0, 70.0, 50.0);
+        var book = new ExportBook(UUID.randomUUID(), "Livre", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-16T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Página 1", JSON.readTree(text), null, single),
+                        new ExportBook.Chapter("Página 2", JSON.readTree(text), null, spread)),
+                java.util.Map.of(), com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY, layout, true);
+        String html = PictureBookHtml.html(book);
+        assertThat(html).contains("left: 23.2mm; width: 100.0mm; top: 143.2mm")
+                .contains("left: 40.0mm; width: 120.0mm; top: 53.2mm");
+        assertThat(PdfWriter.write(book)).isNotEmpty();
+        // Fora da página, a caixa é trazida de volta: largura no máximo 100%, borda até onde ela cabe
+        var out = new com.booksmith.manuscript.api.PageDesign(null, null, "free", null, null, null, null, null, null,
+                95.0, 150.0, 40.0);
+        assertThat(out.x()).isEqualTo(60.0);
+        assertThat(out.y()).isEqualTo(95.0);
+    }
+
+    @Test
     void pictureBookBackgroundsShowInTheEpubAndAreCheckedForPrint() throws Exception {
         ExportBook book = pictureBook();
         String page1 = book.chapters().getFirst().html(id -> "images/x.png");
