@@ -43,7 +43,8 @@ class ExportController {
         AuthenticatedUser user = currentUser.get();
         BookLayout layout = request.layout();
         return exportService.preview(user.id(), authorName(user), bookId, layout,
-                request.from() == null ? 1 : request.from(), request.count() == null ? 2 : request.count());
+                request.from() == null ? 1 : request.from(), request.count() == null ? 2 : request.count(),
+                "ebook".equals(request.target()));
     }
 
     /**
@@ -60,12 +61,14 @@ class ExportController {
     /** A diagramação (campos soltos, conferidos no {@link BookLayout}) e as páginas pedidas, a partir de 1. */
     record PreviewRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                           String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
-                          Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font, Integer from,
+                          Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font, String pagesImageId,
+                          String pagesColor, Boolean spreadSheets, String target, Integer from,
                           Integer count) {
 
         BookLayout layout() {
             return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm,
-                    customHeightMm, bleed, autoPages, pageNumbers, fixedLayout, font);
+                    customHeightMm, bleed, autoPages, pageNumbers, fixedLayout, font, pagesImageId, pagesColor,
+                    spreadSheets);
         }
     }
 

@@ -133,7 +133,7 @@ final class PictureBookHtml {
      * Uma página da história: o HTML dela e o lado no livro aberto ({@code left}/{@code right} na dupla; null na
      * página simples).
      */
-    record Sheet(String html, String side) {
+    record Sheet(String html, String side, int number) {
     }
 
     /**
@@ -158,18 +158,34 @@ final class PictureBookHtml {
                 }
                 last += 2;
                 sheets.add(new Sheet(page(book, design, page, id, 0, texts.stream().filter(t -> !onRight(t.design()))
-                        .toList(), true, false, last - 1, src), "left"));
+                        .toList(), true, false, last - 1, src), "left", last - 1));
                 sheets.add(new Sheet(page(book, design, page, null, page[0], texts.stream()
-                        .filter(t -> onRight(t.design())).toList(), false, true, last, src), "right"));
+                        .filter(t -> onRight(t.design())).toList(), false, true, last, src), "right", last));
             } else {
                 last++;
-                sheets.add(new Sheet(page(book, design, page, id, 0, texts, false, last % 2 != 0, last, src), null));
+                sheets.add(new Sheet(page(book, design, page, id, 0, texts, false, last % 2 != 0, last, src), null, last));
             }
         }
         return sheets;
     }
 
     static String html(ExportBook book) {
+        return html(book, true);
+    }
+
+    /** Quantas páginas o livro ilustrado tem impresso (com as que o Booksmith gera e as em branco do fim). */
+    static int pageCount(ExportBook book) {
+        double[] page = PdfWriter.pageBoxMm(book.layout());
+        java.util.function.Function<String, String> src = id -> "x";
+        boolean auto = book.layout().generatesPages();
+        int front = auto ? PictureBookExtras.front(book, page, src).size() : 0;
+        java.util.List<Sheet> sheets = sheets(book, page, src, front);
+        int last = sheets.isEmpty() ? front : sheets.getLast().number();
+        return last + (auto ? PictureBookExtras.back(book, page, src, last, true).size() : 0);
+    }
+
+    /** {@code fill}: completa o livro com páginas em branco até múltiplo de 4 (no impresso; no e-book não). */
+    static String html(ExportBook book, boolean fill) {
         BookLayout layout = book.layout();
         double[] page = PdfWriter.pageBoxMm(layout);
         StringBuilder pages = new StringBuilder();
@@ -181,9 +197,17 @@ final class PictureBookHtml {
             bookmarks.append("<bookmark name=\"%s\" href=\"#page-%d\"/>\n"
                     .formatted(escape(book.chapters().get(i).title()), i + 1));
         }
-        for (Sheet sheet : sheets(book, page, id -> PdfWriter.imageUri(book, id), auto ? 1 + frontPages(book) : 0)) {
-            pages.append(sheet.html());
-        }
+        java.util.function.Function<String, String> src = id -> "cover".equals(id)
+                ? PdfWriter.IMAGE_SCHEME + ":cover" : PdfWriter.imageUri(book, id);
+        // As páginas que o Booksmith gera (frente e fim), em volta da história, como num miolo de editora
+        java.util.List<PictureBookExtras.Extra> front = auto ? PictureBookExtras.front(book, page, src) : java.util.List.of();
+        java.util.List<Sheet> sheets = sheets(book, page, src, front.size());
+        int lastStory = sheets.isEmpty() ? front.size() : sheets.getLast().number();
+        java.util.List<PictureBookExtras.Extra> back = auto ? PictureBookExtras.back(book, page, src, lastStory, fill)
+                : java.util.List.of();
+        front.forEach(extra -> pages.append(extra.html()));
+        sheets.forEach(sheet -> pages.append(sheet.html()));
+        back.forEach(extra -> pages.append(extra.html()));
         return """
                 <!DOCTYPE html>
                 <html lang="%1$s">
@@ -198,40 +222,7 @@ final class PictureBookHtml {
                 %10$s%8$s%9$s</body>
                 </html>
                 """.formatted(book.language(), escape(book.title()), css(page, book.layout().bookFont()), bookmarks, escape(book.author()),
-                mm(page[0]), mm(page[1] - 1), auto ? front(book, page) : "", pages,
-                auto ? titlePage(book, page) : "");
-    }
-
-    /** A folha de rosto automática (desligada quando o autor monta todas as páginas). */
-    static String titlePage(ExportBook book, double[] page) {
-        return "<div class=\"title-page\" style=\"width: %smm; height: %smm; padding-top: %smm\"><p class=\"book-title\">%s</p><p class=\"book-author\">%s</p></div>\n"
-                .formatted(mm(page[0]), mm(page[1] - 1), mm(page[1] * 0.33), escape(book.title()), escape(book.author()));
-    }
-
-    private static int frontPages(ExportBook book) {
-        int count = 0;
-        boolean credits = book.pages().credits() != null || book.pages().catalogCard() != null;
-        count += credits ? 1 : 0;
-        count += book.pages().dedication() == null ? 0 : 1;
-        return count;
-    }
-
-    /** Créditos e dedicatória, cada um na sua página, como nos livros ilustrados. */
-    static String front(ExportBook book, double[] page) {
-        StringBuilder html = new StringBuilder();
-        String credits = book.pages().catalogCard() == null ? book.pages().credits()
-                : (book.pages().credits() == null ? "" : book.pages().credits() + "\n\n") + book.pages().catalogCard();
-        for (String text : new String[] {credits, book.pages().dedication()}) {
-            if (text == null || text.isBlank()) {
-                continue;
-            }
-            html.append("<div class=\"front-page\" style=\"width: %smm; height: %smm; padding-top: %smm\">"
-                    .formatted(mm(page[0]), mm(page[1] - 1), mm(page[1] * 0.4)));
-            text.lines().map(String::strip).filter(l -> !l.isEmpty())
-                    .forEach(line -> html.append("<p>").append(escape(line)).append("</p>"));
-            html.append("</div>\n");
-        }
-        return html.toString();
+                mm(page[0]), mm(page[1] - 1), "", pages, "");
     }
 
     /**
@@ -439,7 +430,7 @@ final class PictureBookHtml {
                 .align-left { text-align: left; }
                 .align-center { text-align: center; }
                 .align-right { text-align: right; }
-                """.formatted(mm(page[0]), mm(page[1]), font.family(), Haze.LIGHT, Haze.DARK);
+                """.formatted(mm(page[0]), mm(page[1]), font.family(), Haze.LIGHT, Haze.DARK) + PictureBookExtras.CSS;
     }
 
     private static String mm(double value) {

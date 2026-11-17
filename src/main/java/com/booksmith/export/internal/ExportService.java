@@ -56,7 +56,13 @@ public class ExportService {
      * @throws ApiException 404 se o livro não é do usuário; 422 {@code book_empty} se não há capítulos
      */
     public PdfPreview.Preview preview(UUID ownerId, String author, UUID bookId, BookLayout layout, int from, int count) {
-        return PdfPreview.render(rendered(ownerId, author, manuscripts.bookContent(ownerId, bookId), layout).pdf(),
+        return preview(ownerId, author, bookId, layout, from, count, false);
+    }
+
+    /** {@code ebook}: no livro ilustrado, as páginas como no e-book (sem sangria, sem número, sem as em branco). */
+    public PdfPreview.Preview preview(UUID ownerId, String author, UUID bookId, BookLayout layout, int from, int count,
+                                      boolean ebook) {
+        return PdfPreview.render(rendered(ownerId, author, manuscripts.bookContent(ownerId, bookId), layout, ebook).pdf(),
                 from, count);
     }
 
@@ -85,7 +91,7 @@ public class ExportService {
                                           Double bleedMm, Double flapMm) {
         BookContent content = manuscripts.bookContent(ownerId, bookId);
         BookLayout layout = content.layout() == null ? BookLayout.DEFAULT : content.layout();
-        int pages = rendered(ownerId, author, content, layout).interiorPages();
+        int pages = rendered(ownerId, author, content, layout, false).interiorPages();
         return PrintCover.spec(PrintCover.Profile.of(profile), layout, pages, spineMm, bleedMm, flapMm)
                 .withImported(manuscripts.coverPdf(ownerId, bookId).orElse(null));
     }
@@ -125,13 +131,13 @@ public class ExportService {
     static final int PREVIEW_IMAGE_SIDE = 2000;
 
     /** O PDF do livro com uma diagramação, do cache quando nada mudou. */
-    private Rendered rendered(UUID ownerId, String author, BookContent content, BookLayout layout) {
-        String key = fingerprint(ownerId + "|" + author + "|" + layout + "|" + content);
+    private Rendered rendered(UUID ownerId, String author, BookContent content, BookLayout layout, boolean ebook) {
+        String key = fingerprint(ownerId + "|" + author + "|" + layout + "|" + ebook + "|" + content);
         Rendered rendered = previews.get(key);
         if (rendered == null) {
             long start = System.nanoTime();
             ExportBook book = prepare(content, author).withLayout(layout).withPreviewImages(PREVIEW_IMAGE_SIDE);
-            byte[] pdf = PdfWriter.write(book);
+            byte[] pdf = ebook && book.pictureBook() ? PdfWriter.writeEbookPreview(book) : PdfWriter.write(book);
             rendered = new Rendered(pdf, PdfPreview.pageCount(pdf) - (PdfWriter.hasCoverPage(book) ? 1 : 0));
             previews.put(key, rendered);
             log.info("PDF do livro {} para prévia: {} KB em {} ms", content.bookId(), pdf.length / 1024,
@@ -204,6 +210,10 @@ public class ExportService {
         // A foto de quem escreveu (página "sobre"), também da biblioteca do universo do livro
         if (content.pages() != null && content.pages().authorPhotoId() != null) {
             ids.add(content.pages().authorPhotoId().toString());
+        }
+        // O fundo das páginas que o Booksmith gera no livro ilustrado (créditos, dedicatória, sobre o autor…)
+        if (content.layout() != null && content.layout().pagesImageId() != null) {
+            ids.add(content.layout().pagesImageId());
         }
         for (ExportBook.Chapter chapter : chapters) {
             ids.addAll(BookHtml.illustrationIds(chapter.document()));

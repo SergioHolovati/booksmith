@@ -59,7 +59,21 @@ public final class PrintCheck {
      * {@code textWidthMm}: largura da área de texto na diagramação, o máximo de uma ilustração. {@code needsBleed}:
      * há ilustração até a borda (ou dupla) e a diagramação está sem sangria: na gráfica, ela sairia com filete branco.
      */
-    public record Result(int minDpi, double textWidthMm, List<Illustration> illustrations, boolean needsBleed) {
+    /**
+     * @param pages     livro ilustrado: a conferência das páginas para a gráfica (o que o miolo tem e o que falta)
+     * @param pageCount livro ilustrado: quantas páginas o miolo impresso tem
+     */
+    public record Result(int minDpi, double textWidthMm, List<Illustration> illustrations, boolean needsBleed,
+                         List<PageCheck> pages, int pageCount) {
+    }
+
+    /**
+     * Um item da conferência para a gráfica.
+     *
+     * @param status {@code ok} (pronto), {@code warn} (a gráfica ou o registro pedem e falta) ou {@code info}
+     *               (opcional, ou como o livro vai sair)
+     */
+    public record PageCheck(String key, String label, String status, String detail) {
     }
 
     static Result check(ExportBook book) {
@@ -87,7 +101,64 @@ public final class PrintCheck {
             }
         }
         boolean edge = found.stream().anyMatch(i -> "bleed".equals(i.size()) || "spread".equals(i.size()));
-        return new Result(MIN_DPI, round(maxWidth), List.copyOf(found), edge && !layout.hasBleed());
+        boolean bleedMissing = edge && !layout.hasBleed();
+        if (!book.pictureBook()) {
+            return new Result(MIN_DPI, round(maxWidth), List.copyOf(found), bleedMissing, List.of(), 0);
+        }
+        int pageCount = PictureBookHtml.pageCount(book);
+        return new Result(MIN_DPI, round(maxWidth), List.copyOf(found), bleedMissing,
+                pictureBookPages(book, found, pageCount), pageCount);
+    }
+
+    /** O que o miolo do livro ilustrado precisa ter para a gráfica (no modelo das editoras). */
+    static List<PageCheck> pictureBookPages(ExportBook book, List<Illustration> illustrations, int pageCount) {
+        var p = book.pages();
+        BookLayout layout = book.layout();
+        List<PageCheck> checks = new ArrayList<>();
+        if (!layout.generatesPages()) {
+            checks.add(new PageCheck("autoPages", "Páginas da frente e do fim", "info",
+                    "Você monta todas as páginas: confira se o livro tem folha de rosto, créditos e página de rosto."));
+        } else {
+            checks.add(new PageCheck("cover", "Folha de rosto ilustrada", book.cover() != null ? "ok" : "info",
+                    book.cover() != null ? "A capa do livro abre o miolo." : "Sem capa: sai o título e o autor sobre o fundo."));
+            checks.add(new PageCheck("credits", "Créditos (ficha técnica)", present(p.credits()) ? "ok" : "warn",
+                    present(p.credits()) ? "Com o copyright."
+                            : "Só o copyright: falta a ficha técnica (edição, revisão, ilustração, diagramação, editora)."));
+            checks.add(new PageCheck("catalogCard", "Ficha catalográfica", present(p.catalogCard()) ? "ok" : "warn",
+                    present(p.catalogCard()) ? "No quadro, nos créditos."
+                            : "Peça a um bibliotecário (CRB) ou à editora; vai nos créditos."));
+            checks.add(new PageCheck("isbn", "ISBN do impresso", present(p.isbnPrint()) ? "ok" : "warn",
+                    present(p.isbnPrint()) ? "Nos créditos." : "Sem ISBN: informe no guia de publicação (Publicar)."));
+            checks.add(new PageCheck("titlePage", "Página de rosto", "ok", "Título e autor."));
+            checks.add(new PageCheck("dedication", "Dedicatória", present(p.dedication()) ? "ok" : "info",
+                    present(p.dedication()) ? "Na página dela." : "Opcional."));
+            checks.add(new PageCheck("acknowledgments", "Agradecimentos", present(p.acknowledgments()) ? "ok" : "info",
+                    present(p.acknowledgments()) ? "Na página deles." : "Opcional."));
+            boolean about = present(p.aboutAuthor());
+            checks.add(new PageCheck("aboutAuthor", "Sobre o autor", about && p.authorPhotoId() != null ? "ok" : "warn",
+                    !about ? "Falta o texto sobre quem escreveu (com foto, fica na página dupla do fim)."
+                            : p.authorPhotoId() == null ? "Falta a foto." : "Foto e nome de um lado, a biografia do outro."));
+            checks.add(new PageCheck("colophon", "Colofão (última página)", present(p.colophon()) ? "ok" : "info",
+                    present(p.colophon()) ? "Na última página." : "Opcional: fontes, papel, gráfica e ano."));
+        }
+        checks.add(new PageCheck("pageCount", "Total de páginas", pageCount % 4 == 0 ? "ok" : "warn",
+                pageCount % 4 == 0 ? pageCount + " páginas (múltiplo de 4)."
+                        : pageCount + " páginas: gráficas imprimem em múltiplos de 4; faltam " + (4 - pageCount % 4) + "."));
+        checks.add(new PageCheck("bleed", "Sangria", layout.hasBleed() ? "ok" : "warn",
+                layout.hasBleed() ? "3,2 mm nas bordas de fora."
+                        : "Sem sangria: a ilustração até a borda pode sair com filete branco no corte."));
+        long low = illustrations.stream().filter(i -> !i.ok()).count();
+        checks.add(new PageCheck("resolution", "Resolução das ilustrações", low == 0 ? "ok" : "warn",
+                low == 0 ? "Todas com " + MIN_DPI + " DPI ou mais."
+                        : low + (low == 1 ? " ilustração sai" : " ilustrações saem") + " com menos de " + MIN_DPI + " DPI."));
+        checks.add(new PageCheck("spreads", "Formato do PDF", "info", layout.joinsSpreads()
+                ? "Páginas lado a lado (o livro aberto), a primeira e a última sozinhas."
+                : "Uma página por folha."));
+        return checks;
+    }
+
+    private static boolean present(String text) {
+        return text != null && !text.isBlank();
     }
 
     /**

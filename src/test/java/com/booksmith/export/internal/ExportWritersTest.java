@@ -332,8 +332,13 @@ class ExportWritersTest {
             }
             int first = texts.indexOf("Página 1 da história.");
             int third = texts.indexOf("Página 3 da história.");
+            // Como num miolo de editora: folha de rosto, créditos (com o copyright), página de rosto; depois a história
             assertThat(texts.getFirst()).contains("O dia colorido");
-            assertThat(first).isEqualTo(1);
+            assertThat(texts.get(1)).contains("Copyright ©").contains("Todos os direitos reservados.");
+            assertThat(texts.get(2)).contains("O dia colorido").contains("Autora");
+            assertThat(first).isEqualTo(3);
+            // O livro fecha em múltiplo de 4 (páginas em branco no fim)
+            assertThat(document.getNumberOfPages() % 4).isZero();
             // A dupla: duas páginas seguidas, a primeira par (índice ímpar = página par), texto só na da direita
             int spreadLeft = third - 2;
             assertThat((spreadLeft + 1) % 2).isZero();
@@ -1271,5 +1276,50 @@ class ExportWritersTest {
         // Sem sangria e sem número de página no e-book
         assertThat(entry(epub, "EPUB/css/book.css")).doesNotContain("@page");
         assertThat(page).doesNotContain("pb-number");
+    }
+
+    @Test
+    void printerSheetsJoinTheOpenBookLikeTheMiolo() throws Exception {
+        ExportBook book = pictureBook();
+        var l = book.layout();
+        var joined = new com.booksmith.manuscript.api.BookLayout(l.trim(), l.fontSize(), l.leading(), l.margins(),
+                l.chapterStyle(), l.sceneBreak(), l.customWidthMm(), l.customHeightMm(), l.bleed(), l.autoPages(),
+                l.pageNumbers(), l.fixedLayout(), l.font(), null, "#ffeecc", true);
+        int pages;
+        try (PDDocument single = Loader.loadPDF(PdfWriter.write(book))) {
+            pages = single.getNumberOfPages();
+        }
+        try (PDDocument sheets = Loader.loadPDF(PdfWriter.write(book.withLayout(joined)))) {
+            // A primeira e a última sozinhas, as outras em pares (o livro aberto)
+            assertThat(sheets.getNumberOfPages()).isEqualTo(pages / 2 + 1);
+            float pt = 72 / 25.4f;
+            var first = sheets.getPage(0);
+            var pair = sheets.getPage(1);
+            assertThat(pair.getMediaBox().getWidth()).isCloseTo(2 * first.getMediaBox().getWidth(),
+                    org.assertj.core.data.Offset.offset(0.5f));
+            // O corte da folha vai de uma borda de corte à outra: 2 × 200 mm, com a sangria (3,2 mm) nas bordas de fora
+            assertThat(pair.getTrimBox().getWidth() / pt).isCloseTo(400f, org.assertj.core.data.Offset.offset(0.5f));
+            assertThat(pair.getTrimBox().getLowerLeftX() / pt).isCloseTo(3.2f, org.assertj.core.data.Offset.offset(0.2f));
+            assertThat(sheets.getPage(sheets.getNumberOfPages() - 1).getMediaBox().getWidth())
+                    .isCloseTo(first.getMediaBox().getWidth(), org.assertj.core.data.Offset.offset(0.5f));
+        }
+    }
+
+    @Test
+    void printChecklistSaysWhatThePictureBookLacks() throws Exception {
+        var check = PrintCheck.check(pictureBook());
+        var status = check.pages().stream().collect(java.util.stream.Collectors.toMap(PrintCheck.PageCheck::key,
+                PrintCheck.PageCheck::status));
+        assertThat(status).containsEntry("credits", "warn").containsEntry("catalogCard", "warn")
+                .containsEntry("isbn", "warn").containsEntry("titlePage", "ok").containsEntry("aboutAuthor", "warn")
+                .containsEntry("bleed", "ok").containsEntry("pageCount", "ok");
+        assertThat(check.pageCount() % 4).isZero();
+        try (PDDocument pdf = Loader.loadPDF(PdfWriter.write(pictureBook()))) {
+            assertThat(check.pageCount()).as("a conta bate com o PDF").isEqualTo(pdf.getNumberOfPages());
+        }
+        // A prévia do e-book: sem as páginas em branco do fim
+        try (PDDocument ebook = Loader.loadPDF(PdfWriter.writeEbookPreview(pictureBook()))) {
+            assertThat(ebook.getNumberOfPages()).isLessThanOrEqualTo(check.pageCount());
+        }
     }
 }

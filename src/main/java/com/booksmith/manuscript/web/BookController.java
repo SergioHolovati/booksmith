@@ -154,11 +154,13 @@ class BookController {
     /** Recebido solto e conferido no {@link BookLayout} (422 {@code layout_invalid}), fora do Jackson. */
     record LayoutRequest(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                          String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
-                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font) {
+                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font,
+                         String pagesImageId, String pagesColor, Boolean spreadSheets) {
 
         BookLayout toLayout() {
             return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm,
-                    customHeightMm, bleed, autoPages, pageNumbers, fixedLayout, font);
+                    customHeightMm, bleed, autoPages, pageNumbers, fixedLayout, font, pagesImageId, pagesColor,
+                    spreadSheets);
         }
     }
 

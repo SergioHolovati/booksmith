@@ -27,7 +27,27 @@ final class PdfWriter {
     private PdfWriter() {
     }
 
+    /**
+     * As páginas do livro ilustrado como no e-book (sem sangria, sem número de página, sem as páginas em branco do
+     * fim e uma por folha), para a prévia do e-book.
+     */
+    static byte[] writeEbookPreview(ExportBook book) {
+        BookLayout l = book.layout();
+        BookLayout ebook = new BookLayout(l.trim(), l.fontSize(), l.leading(), l.margins(), l.chapterStyle(),
+                l.sceneBreak(), l.customWidthMm(), l.customHeightMm(), false, l.autoPages(), false, l.fixedLayout(),
+                l.font(), l.pagesImageId(), l.pagesColor(), false);
+        return render(book.withLayout(ebook), PictureBookHtml.html(book.withLayout(ebook), false));
+    }
+
     static byte[] write(ExportBook book) {
+        byte[] rendered = render(book, book.pictureBook() ? PictureBookHtml.html(book) : html(book));
+        byte[] pdf = book.layout().hasBleed() ? withPrintBoxes(rendered, book.layout()) : rendered;
+        // Livro ilustrado com as páginas lado a lado (o miolo como muitas gráficas pedem)
+        return book.pictureBook() && book.layout().joinsSpreads() ? SpreadSheets.join(pdf) : pdf;
+    }
+
+    /** O HTML em PDF, com as fontes do livro e as imagens lidas da memória. */
+    private static byte[] render(ExportBook book, String html) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try {
             PdfRendererBuilder builder = new PdfRendererBuilder();
@@ -35,13 +55,13 @@ final class PdfWriter {
             // As imagens vêm da memória pelo id (booksmith-img:<id>), não em base64 dentro do HTML: o HTML de um livro
             // ilustrado com as artes em resolução de impressão passava de 1 GB de memória
             builder.useProtocolsStreamImplementation(url -> imageStream(book, url), IMAGE_SCHEME);
-            builder.withHtmlContent(book.pictureBook() ? PictureBookHtml.html(book) : html(book), null);
+            builder.withHtmlContent(html, null);
             builder.toStream(bytes);
             builder.run();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return book.layout().hasBleed() ? withPrintBoxes(bytes.toByteArray(), book.layout()) : bytes.toByteArray();
+        return bytes.toByteArray();
     }
 
     private static final float POINTS_PER_MM = 72f / 25.4f;

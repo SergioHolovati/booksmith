@@ -30,10 +30,16 @@ import java.util.List;
  * @param fixedLayout    modo páginas: cada capítulo é uma página com fundo e texto por cima, em qualquer gênero (o
  *                       livro pronto importado em PDF); no infantil, é sempre assim
  * @param font           a fonte do texto ({@link BookFont}, pelo id); padrão Literata
+ * @param pagesImageId   livro ilustrado: a ilustração de fundo das páginas que o Booksmith gera (créditos,
+ *                       dedicatória, sobre o autor…); null = a cor
+ * @param pagesColor     a cor de fundo dessas páginas ({@code #rrggbb}); padrão branco
+ * @param spreadSheets   livro ilustrado: o PDF com as páginas lado a lado (o livro aberto numa folha, a primeira e a
+ *                       última sozinhas), como muitas gráficas pedem o miolo
  */
 public record BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
                          String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
-                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font) {
+                         Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font,
+                         String pagesImageId, String pagesColor, Boolean spreadSheets) {
 
     public static final List<String> TRIMS = List.of("a5", "14x21", "16x23", "17x24", "6x9",
             "15x15", "20x20", "21x21", "25x25", "8.5x8.5", "8.25x8.25",
@@ -62,6 +68,14 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
                       String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed) {
         this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm, customHeightMm, bleed, null,
                 null, null);
+    }
+
+    /** Sem as escolhas das páginas geradas do livro ilustrado. */
+    public BookLayout(String trim, Double fontSize, String leading, String margins, String chapterStyle,
+                      String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed, Boolean autoPages,
+                      Boolean pageNumbers, Boolean fixedLayout, String font) {
+        this(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm, customHeightMm, bleed, autoPages,
+                pageNumbers, fixedLayout, font, null, null, null);
     }
 
     /** Com a fonte padrão. */
@@ -115,6 +129,22 @@ public record BookLayout(String trim, Double fontSize, String leading, String ma
         } else if (BookFont.of(font).isEmpty()) {
             throw invalid("Fonte desconhecida.");
         }
+        if (pagesImageId != null && pagesImageId.isBlank()) {
+            pagesImageId = null;
+        }
+        if (pagesImageId != null && !pagesImageId.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+            throw invalid("Ilustração de fundo inválida.");
+        }
+        if (pagesColor != null && !pagesColor.matches("^#[0-9a-fA-F]{6}$")) {
+            throw invalid("Cor de fundo inválida (use #rrggbb).");
+        }
+        pagesColor = pagesColor == null ? "#ffffff" : pagesColor.toLowerCase(java.util.Locale.ROOT);
+        spreadSheets = Boolean.TRUE.equals(spreadSheets);
+    }
+
+    /** O PDF com as páginas lado a lado (o livro aberto numa folha). */
+    public boolean joinsSpreads() {
+        return Boolean.TRUE.equals(spreadSheets);
     }
 
     /** A fonte do texto. */
