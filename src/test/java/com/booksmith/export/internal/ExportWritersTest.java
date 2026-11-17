@@ -1135,4 +1135,40 @@ class ExportWritersTest {
         assertThat(Haze.alpha(0.0, 0.5, 0.86)).isZero();
         assertThat(Haze.alpha(0.5, 0.0, 0.86)).isZero();
     }
+
+    @Test
+    void blurSoftensTheArtBehindTheTextOnly() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null,
+                false, false, false);
+        String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Que não consigo pensar em mais nada\"}]}]}";
+        // A caixa no meio da página, em cima da divisa entre o vermelho e o azul (100 mm)
+        var page = new com.booksmith.manuscript.api.PageDesign(IMAGE_ID, null, "free", "center", "m", "dark", true,
+                false, null, 25.0, 40.0, 50.0, null, null, null, null, true, true);
+        assertThat(page.hasBand()).isFalse();
+        assertThat(page.hasHaze()).as("desfoque, névoa e faixa: um só").isFalse();
+        var book = new ExportBook(UUID.randomUUID(), "Desfoque", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Página 1", PictureBookHtml.withBackground(JSON.readTree(text), page),
+                        null, page)),
+                java.util.Map.of(IMAGE_ID, new ImageData(twoColors(2000, 2000), "image/png", "png")),
+                com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY, layout, true);
+        assertThat(PictureBookHtml.html(book)).contains("class=\"pb-blur\"");
+
+        try (PDDocument document = Loader.loadPDF(PdfWriter.write(book))) {
+            var image = new org.apache.pdfbox.rendering.PDFRenderer(document).renderImageWithDPI(0, 72);
+            double px = 72 / 25.4;
+            // Na divisa, atrás do texto (acima da linha): vermelho e azul misturados
+            int behind = image.getRGB((int) (99 * px), (int) (78 * px));
+            assertThat((behind >> 16) & 0xff).as("vermelho atrás do texto").isGreaterThan(60);
+            assertThat(behind & 0xff).as("azul atrás do texto").isGreaterThan(60);
+            // Na divisa, longe do texto: nítida (vermelho puro)
+            int far = image.getRGB((int) (98 * px), (int) (170 * px));
+            assertThat(far & 0xff).as("azul longe do texto").isLessThan(30);
+        }
+        assertThat(BlurPatch.ramp(0)).isZero();
+        assertThat(BlurPatch.ramp(1)).isEqualTo(1.0);
+        // Estimativa da altura: 30 letras, 15 por linha em 60 mm a 20 pt: 2 linhas com entrelinha 1,3
+        assertThat(BlurPatch.textHeightMm("<p>" + "a".repeat(30) + "</p>", 60, 20))
+                .isCloseTo(2 * 1.3 * 20 * 25.4 / 72, org.assertj.core.data.Offset.offset(0.01));
+    }
 }

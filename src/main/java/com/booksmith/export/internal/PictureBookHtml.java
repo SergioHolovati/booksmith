@@ -159,6 +159,7 @@ final class PictureBookHtml {
                 .formatted(spreadLeft ? " spread-left" : "", id == null ? "" : " id=\"" + id + "\"", mm(page[0]),
                         mm(page[1] - 1), design.background()));
         String url = design.imageId() == null ? null : PdfWriter.dataUri(book, design.imageId());
+        double[] art = null;
         if (url != null) {
             int[] px = PrintCheck.pixels(book.illustrations().get(design.imageId()).bytes());
             if (px[0] > 0 && px[1] > 0) {
@@ -171,7 +172,14 @@ final class PictureBookHtml {
                 double top = design.imageY() / 100 * fit.boxHeightMm() - height / 2;
                 html.append("<img class=\"pb-art\" src=\"%s\" alt=\"\" style=\"width: %smm; height: %smm; margin-left: %smm; margin-top: %smm\"/>"
                         .formatted(url, mm(width), mm(height), mm(left), mm(top)));
+                art = new double[] {left, top, width, height};
             }
+        }
+        if (text != null && art != null && design.hasBlur()) {
+            // O pedaço da arte atrás do texto, desfocado, entre a arte e o texto
+            html.append(BlurPatch.html(book.illustrations().get(design.imageId()).bytes(), art,
+                    textRect(book.layout(), design, page, text, right), new double[] {page[0], page[1] - 1},
+                    design.fontSizePt(), !"light".equals(design.color()), design.background()));
         }
         if (text != null) {
             html.append(textBox(book.layout(), design, page, text, right));
@@ -230,9 +238,46 @@ final class PictureBookHtml {
                         fontStyle(layout, design), text);
     }
 
+    /**
+     * Onde fica a caixa do texto, em mm a partir do canto da página (esquerda, topo, largura, altura): a mesma conta
+     * de {@link #textBox} e {@link #freeTextBox}, com a altura estimada pelo texto.
+     */
+    static double[] textRect(BookLayout layout, PageDesign design, double[] page, String text, boolean right) {
+        double bleed = layout.hasBleed() ? BookLayout.BLEED_MM : 0;
+        double height = page[1] - 1;
+        double left;
+        double width;
+        double top;
+        if ("free".equals(design.text())) {
+            double trimW = layout.widthMm();
+            double canvas = design.isSpread() ? 2 * trimW : trimW;
+            width = Math.min(design.w() / 100 * canvas, trimW);
+            double boxX = design.x() / 100 * canvas - (design.isSpread() && right ? trimW : 0);
+            left = Math.max(0, Math.min(boxX, trimW - width)) + (right ? 0 : bleed);
+            top = bleed + design.y() / 100 * layout.heightMm();
+        } else {
+            left = SAFE_MM + (right ? 0 : bleed);
+            width = page[0] - 2 * SAFE_MM - bleed;
+            top = 0;
+        }
+        double textHeight = BlurPatch.textHeightMm(text, width, design.fontSizePt());
+        if (!"free".equals(design.text())) {
+            double inset = SAFE_MM + bleed;
+            top = switch (design.text()) {
+                case "top" -> inset;
+                case "middle" -> (height - textHeight) / 2;
+                default -> height - (inset + 1) - textHeight;
+            };
+        }
+        return new double[] {left, top, width, textHeight};
+    }
+
     /** O destaque atrás do texto: faixa ou névoa, clara atrás do texto escuro e escura atrás do texto claro. */
     private static String backdrop(PageDesign design) {
         String tone = "light".equals(design.color()) ? "dark" : "light";
+        if (design.hasBlur()) {
+            return " blur";
+        }
         if (design.hasHaze()) {
             return " haze-" + tone;
         }
@@ -257,6 +302,7 @@ final class PictureBookHtml {
                 .pb-page { position: relative; overflow: hidden; page-break-before: always; }
                 .pb-page.spread-left { page-break-before: left; }
                 .pb-art { display: block; }
+                .pb-blur { position: absolute; display: block; }
                 .pb-number { position: absolute; font-size: 9pt; font-weight: bold; }
                 .pb-number.dark { color: #1a1a1a; }
                 .pb-number.light { color: #ffffff; }
