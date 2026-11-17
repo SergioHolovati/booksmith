@@ -77,17 +77,29 @@ public class ExportService {
      */
     public PrintCover.Spec printCoverSpec(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
                                           Double bleedMm) {
+        return printCoverSpec(ownerId, author, bookId, profile, spineMm, bleedMm, null);
+    }
+
+    /** Idem, com orelhas ({@code flapMm}: a largura de cada uma; só em outra gráfica). */
+    public PrintCover.Spec printCoverSpec(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
+                                          Double bleedMm, Double flapMm) {
         BookContent content = manuscripts.bookContent(ownerId, bookId);
         BookLayout layout = content.layout() == null ? BookLayout.DEFAULT : content.layout();
         int pages = rendered(ownerId, author, content, layout).interiorPages();
-        return PrintCover.spec(PrintCover.Profile.of(profile), layout, pages, spineMm, bleedMm)
+        return PrintCover.spec(PrintCover.Profile.of(profile), layout, pages, spineMm, bleedMm, flapMm)
                 .withImported(manuscripts.coverPdf(ownerId, bookId).orElse(null));
     }
 
     /** PDF da capa aberta, com a imagem desenhada no aparelho nas medidas de {@link #printCoverSpec}. */
     public ExportFile printCover(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
                                  Double bleedMm, String imageDataUrl) {
-        PrintCover.Spec spec = printCoverSpec(ownerId, author, bookId, profile, spineMm, bleedMm);
+        return printCover(ownerId, author, bookId, profile, spineMm, bleedMm, null, imageDataUrl);
+    }
+
+    /** Idem, com orelhas. */
+    public ExportFile printCover(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
+                                 Double bleedMm, Double flapMm, String imageDataUrl) {
+        PrintCover.Spec spec = printCoverSpec(ownerId, author, bookId, profile, spineMm, bleedMm, flapMm);
         var imported = manuscripts.coverPdf(ownerId, bookId).orElse(null);
         byte[] pdf;
         if (imported != null && imported.wrap()) {

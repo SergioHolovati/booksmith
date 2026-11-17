@@ -36,6 +36,24 @@ class PrintCoverTest {
     }
 
     @Test
+    void flapsWidenTheWrapAndOnlyOtherPrintersHaveThem() {
+        var layout = new BookLayout("16x23", null, null, null, null, null);
+        var plain = PrintCover.spec(PrintCover.Profile.CUSTOM, layout, 120, 10.0, 3.0);
+        var flaps = PrintCover.spec(PrintCover.Profile.CUSTOM, layout, 120, 10.0, 3.0, 80.0);
+        // Duas orelhas de 80 mm a mais na largura; a altura não muda
+        assertThat(flaps.widthMm()).isEqualTo(plain.widthMm() + 160);
+        assertThat(flaps.heightMm()).isEqualTo(plain.heightMm());
+        assertThat(flaps.flapMm()).isEqualTo(80);
+        assertThat(plain.flapMm()).isZero();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                PrintCover.spec(PrintCover.Profile.KDP_WHITE, layout, 120, null, null, 80.0))
+                .hasMessageContaining("KDP");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                PrintCover.spec(PrintCover.Profile.CUSTOM, layout, 120, 10.0, 3.0, 20.0))
+                .hasMessageContaining("50");
+    }
+
+    @Test
     void kdpWarnsAboutSizeAndPageCount() {
         var spec = PrintCover.spec(PrintCover.Profile.KDP_WHITE, new BookLayout("16x23", null, null, null, null, null),
                 20, null, null);

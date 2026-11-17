@@ -665,6 +665,30 @@ class ExportWritersTest {
                 java.util.Map.of(IMAGE_ID, new ImageData(twoColors(400, 400), "image/png", "png")), pages);
     }
 
+    private static ExportBook withCallout() {
+        String doc = "{\"type\":\"doc\",\"content\":[{\"type\":\"callout\",\"attrs\":{\"kind\":\"verse\"},\"content\":["
+                + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Ore sem cessar. 1 Ts 5:17\"}]}]},"
+                + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Texto.\"}]}]}";
+        return new ExportBook(UUID.randomUUID(), "Oração", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"), List.of(new ExportBook.Chapter("Dia 1", JSON.readTree(doc))));
+    }
+
+    @Test
+    void calloutsAreFramedBoxesInEpubPdfAndWord(@TempDir Path dir) throws Exception {
+        byte[] epub = EpubWriter.write(withCallout());
+        Path file = dir.resolve("destaque.epub");
+        Files.write(file, epub);
+        StringWriter messages = new StringWriter();
+        assertThat(new EpubCheck(file.toFile(), new PrintWriter(messages)).doValidate())
+                .withFailMessage(messages::toString).isZero();
+        assertThat(entry(epub, "EPUB/chapter-001.xhtml")).contains("<div class=\"callout callout-verse\">")
+                .contains("<p class=\"callout-title\">Versículo-chave</p>");
+        assertThat(PdfWriter.html(withCallout())).contains("<div class=\"callout callout-verse\">");
+        assertThat(PdfWriter.write(withCallout())).isNotEmpty();
+        String document = entry(DocxWriter.write(withCallout()), "word/document.xml");
+        assertThat(document).contains("<w:pStyle w:val=\"Destaque\"/>").contains("Versículo-chave").contains("1 Ts 5:17");
+    }
+
     @Test
     void fullBookStructureInTheEpubAndPdf(@TempDir Path dir) throws Exception {
         byte[] epub = EpubWriter.write(withFullStructure());

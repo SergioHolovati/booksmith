@@ -209,6 +209,15 @@ final class BookHtml {
                 children(node, html);
                 html.append("</blockquote>\n");
             }
+            case "callout" -> {
+                // Quadro de destaque com o nome do tipo em cima (div, não aside: alguns leitores escondem o aside)
+                String kind = node.get("attrs") == null || node.get("attrs").get("kind") == null
+                        ? "important" : node.get("attrs").get("kind").stringValue();
+                html.append("<div class=\"callout callout-").append(escape(kind)).append("\">\n")
+                        .append("<p class=\"callout-title\">").append(escape(calloutLabel(kind))).append("</p>\n");
+                children(node, html);
+                html.append("</div>\n");
+            }
             case "sceneBreak" -> html.append("<p class=\"scene-break\">* * *</p>\n");
             case "illustration" -> illustration(node, html);
             case "bulletList" -> list(node, "ul", html);
@@ -335,6 +344,20 @@ final class BookHtml {
         String prefix = escape(SECTION_PREFIX.get() == null ? "fn" : SECTION_PREFIX.get());
         html.append("<a epub:type=\"noteref\" class=\"noteref\" id=\"%1$s-fnref%2$d\" href=\"#%1$s-fn%2$d\">%2$d</a>"
                 .formatted(prefix, n));
+    }
+
+    /** O nome que sai em cima do quadro de destaque. */
+    static String calloutLabel(String kind) {
+        return switch (kind) {
+            case "verse" -> "Versículo-chave";
+            case "reflect" -> "Para refletir";
+            case "prayer" -> "Oração";
+            case "exercise" -> "Exercício";
+            case "summary" -> "Resumo";
+            case "objectives" -> "Objetivos";
+            case "quote" -> "Em destaque";
+            default -> "Importante";
+        };
     }
 
     /** Texto do nó; a menção ("@Lia") sai só com o nome, como texto comum. */

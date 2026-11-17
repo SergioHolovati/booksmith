@@ -76,9 +76,10 @@ class ExportController {
     @GetMapping("/books/{bookId}/export/print-cover")
     PrintCover.Spec printCoverSpec(@PathVariable UUID bookId, @RequestParam String profile,
                                    @RequestParam(required = false) Double spineMm,
-                                   @RequestParam(required = false) Double bleedMm) {
+                                   @RequestParam(required = false) Double bleedMm,
+                                   @RequestParam(required = false) Double flapMm) {
         AuthenticatedUser user = currentUser.get();
-        return exportService.printCoverSpec(user.id(), authorName(user), bookId, profile, spineMm, bleedMm);
+        return exportService.printCoverSpec(user.id(), authorName(user), bookId, profile, spineMm, bleedMm, flapMm);
     }
 
     /** PDF da capa aberta, a partir da imagem desenhada no aparelho. Conta no limite diário de PDFs da capa. */
@@ -88,14 +89,14 @@ class ExportController {
         ExportQuota.Use use = quota.consumeCoverPdf(user.id());
         try {
             return attachment(exportService.printCover(user.id(), authorName(user), bookId, request.profile(),
-                    request.spineMm(), request.bleedMm(), request.image()));
+                    request.spineMm(), request.bleedMm(), request.flapMm(), request.image()));
         } catch (RuntimeException e) {
             quota.refund(use);
             throw e;
         }
     }
 
-    record PrintCoverRequest(String profile, Double spineMm, Double bleedMm, String image) {
+    record PrintCoverRequest(String profile, Double spineMm, Double bleedMm, Double flapMm, String image) {
     }
 
     /** {@code format}: epub, pdf ou docx. O PDF conta no limite diário (429 {@code pdf_daily_limit}). */

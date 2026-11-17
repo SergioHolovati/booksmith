@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 public record CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
                           String subtitle, String author, String font, String titleSize, String textColor,
                           String accentColor, String backText, UUID backImageId, Integer backShade, Boolean backPhoto,
-                          String backBio, Boolean barcode) {
+                          String backBio, Boolean barcode, String flapText) {
 
     static final int MAX_BACK_TEXT = 1500;
     static final int MAX_BACK_BIO = 500;
@@ -35,7 +35,16 @@ public record CoverDesign(String template, String backgroundColor, UUID imageId,
                        String subtitle, String author, String font, String titleSize, String textColor,
                        String accentColor, String backText) {
         this(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize, textColor, accentColor,
-                backText, null, null, null, null, null);
+                backText, null, null, null, null, null, null);
+    }
+
+    /** Sem o texto da orelha da frente. */
+    public CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
+                       String subtitle, String author, String font, String titleSize, String textColor,
+                       String accentColor, String backText, UUID backImageId, Integer backShade, Boolean backPhoto,
+                       String backBio, Boolean barcode) {
+        this(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize, textColor, accentColor,
+                backText, backImageId, backShade, backPhoto, backBio, barcode, null);
     }
 
     /** Desenho sem texto de contracapa. */
@@ -87,6 +96,11 @@ public record CoverDesign(String template, String backgroundColor, UUID imageId,
             throw invalid("A mini biografia da contracapa passa de " + MAX_BACK_BIO + " caracteres.");
         }
         barcode = !Boolean.FALSE.equals(barcode);
+        // Orelha da frente (capa com orelhas): em geral, a sinopse
+        flapText = flapText == null || flapText.isBlank() ? null : flapText.replace("\r\n", "\n").replace('\r', '\n').strip();
+        if (flapText != null && flapText.length() > MAX_BACK_TEXT) {
+            throw invalid("O texto da orelha passa de " + MAX_BACK_TEXT + " caracteres.");
+        }
     }
 
     private static String option(String value, List<String> options, String message) {

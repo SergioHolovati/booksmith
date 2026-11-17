@@ -297,6 +297,15 @@ final class DocxWriter {
                     body.append(paragraph("Heading" + level, null, runs(child)));
                 }
                 case "blockquote" -> blocks(child, "Quote", body);
+                case "callout" -> {
+                    // Quadro de destaque: o nome do tipo em negrito e o conteúdo, no estilo "Destaque" (borda e fundo)
+                    String kind = child.get("attrs") == null || child.get("attrs").get("kind") == null
+                            ? "important" : child.get("attrs").get("kind").stringValue();
+                    body.append(paragraph("Destaque", "<w:keepNext/>",
+                            "<w:r><w:rPr><w:b/><w:caps/><w:sz w:val=\"18\"/></w:rPr><w:t xml:space=\"preserve\">"
+                                    + escape(BookHtml.calloutLabel(kind)) + "</w:t></w:r>"));
+                    blocks(child, "Destaque", body);
+                }
                 case "sceneBreak" -> body.append(paragraph(style, "<w:jc w:val=\"center\"/>", escapedRun("* * *")));
                 case "illustration" -> illustration(child, style, body);
                 case "bulletList", "orderedList" -> blocks(child, style, body);
@@ -471,6 +480,7 @@ final class DocxWriter {
                 <w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:jc w:val="left"/><w:outlineLvl w:val="3"/></w:pPr><w:rPr><w:b/><w:i/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:qFormat/>
                 <w:pPr><w:ind w:left="851" w:right="851"/></w:pPr><w:rPr><w:i/></w:rPr></w:style>
+                <w:style w:type="paragraph" w:styleId="Destaque"><w:name w:val="Destaque"/><w:basedOn w:val="Normal"/><w:pPr><w:pBdr><w:left w:val="single" w:sz="24" w:space="8" w:color="C8743A"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="F6EFE6"/><w:ind w:left="284" w:firstLine="0"/><w:jc w:val="left"/></w:pPr></w:style>
                 <w:style w:type="paragraph" w:styleId="FootnoteText"><w:name w:val="footnote text"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:ind w:firstLine="0"/><w:jc w:val="left"/></w:pPr><w:rPr><w:sz w:val="20"/></w:rPr></w:style>
                 <w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>
                 <w:style w:type="paragraph" w:styleId="Footer"><w:name w:val="footer"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/></w:pPr>

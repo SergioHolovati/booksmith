@@ -86,11 +86,11 @@ class BookController {
     record CoverRequest(String template, String backgroundColor, UUID imageId, Integer shade, String title,
                         String subtitle, String author, String font, String titleSize, String textColor,
                         String accentColor, String backText, UUID backImageId, Integer backShade, Boolean backPhoto,
-                        String backBio, Boolean barcode, String image) {
+                        String backBio, Boolean barcode, String flapText, String image) {
 
         CoverDesign toDesign() {
             return new CoverDesign(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize,
-                    textColor, accentColor, backText, backImageId, backShade, backPhoto, backBio, barcode);
+                    textColor, accentColor, backText, backImageId, backShade, backPhoto, backBio, barcode, flapText);
         }
     }
 

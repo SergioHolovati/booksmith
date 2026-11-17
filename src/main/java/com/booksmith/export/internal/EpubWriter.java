@@ -382,6 +382,11 @@ final class EpubWriter {
             nav ol { list-style: none; padding: 0; }
             nav ol.sections { padding-left: 1.2em; font-size: .92em; }
             a.noteref { vertical-align: super; font-size: .7em; line-height: 0; text-decoration: none; }
+            .callout { margin: 1.2em 0; padding: .7em 1em; border-left: .3em solid #c8743a; background-color: #f6efe6; }
+            .callout p { text-indent: 0; }
+            p.callout-title { font-size: .75em; font-weight: bold; letter-spacing: .05em; text-transform: uppercase; color: #8a4a1c; margin: 0 0 .4em; }
+            .callout-verse, .callout-quote { border-left-color: #3a5a8c; background-color: #eef2f8; }
+            .callout-quote p { font-style: italic; }
             .half-title { text-align: center; margin-top: 30%; font-size: 1.3em; }
             .catalog-card { margin-top: 1.5em; border: 1px solid #555; padding: .6em .8em; font-size: .75em; }
             .catalog-card p { text-indent: 0; margin: 0; text-align: left; }

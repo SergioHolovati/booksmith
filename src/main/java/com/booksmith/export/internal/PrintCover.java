@@ -88,16 +88,27 @@ public final class PrintCover {
      * @param importedTrim o tamanho do livro para o qual a capa importada foi feita, quando se sabe
      * @param importedSpineMm a lombada da capa aberta importada, quando se sabe
      * @param importedMarksMm a margem das marcas de corte da capa importada (sai no PDF entregue), quando se sabe
+     * @param flapMm       a largura de cada orelha (0 = sem orelhas): a de trás à esquerda da contracapa, a da frente
+     *                     à direita da frente
      */
     public record Spec(String profile, int pages, double trimWidthMm, double trimHeightMm, double spineMm,
                        double bleedMm, double widthMm, double heightMm, boolean spineText, List<String> warnings,
                        String imported, Double importedWidthMm, Double importedHeightMm, Boolean importedFits,
-                       String importedTrim, Double importedSpineMm, Double importedMarksMm) {
+                       String importedTrim, Double importedSpineMm, Double importedMarksMm, double flapMm) {
 
         Spec(String profile, int pages, double trimWidthMm, double trimHeightMm, double spineMm, double bleedMm,
              double widthMm, double heightMm, boolean spineText, List<String> warnings) {
             this(profile, pages, trimWidthMm, trimHeightMm, spineMm, bleedMm, widthMm, heightMm, spineText, warnings,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, 0);
+        }
+
+        Spec(String profile, int pages, double trimWidthMm, double trimHeightMm, double spineMm, double bleedMm,
+             double widthMm, double heightMm, boolean spineText, List<String> warnings, String imported,
+             Double importedWidthMm, Double importedHeightMm, Boolean importedFits, String importedTrim,
+             Double importedSpineMm, Double importedMarksMm) {
+            this(profile, pages, trimWidthMm, trimHeightMm, spineMm, bleedMm, widthMm, heightMm, spineText, warnings,
+                    imported, importedWidthMm, importedHeightMm, importedFits, importedTrim, importedSpineMm,
+                    importedMarksMm, 0);
         }
 
         /**
@@ -128,7 +139,7 @@ public final class PrintCover {
             }
             return new Spec(profile, pages, trimWidthMm, trimHeightMm, spineMm, bleedMm, widthMm, heightMm, spineText,
                     List.copyOf(notes), cover.kind(), cover.widthMm(), cover.heightMm(), fits, cover.trim(),
-                    cover.spineMm(), cover.marksMm());
+                    cover.spineMm(), cover.marksMm(), flapMm);
         }
 
         /**
@@ -207,6 +218,36 @@ public final class PrintCover {
      * @param customBleedMm sangria informada pela gráfica (só no perfil {@code CUSTOM}; null = 3 mm)
      */
     static Spec spec(Profile profile, BookLayout layout, int pages, Double customSpineMm, Double customBleedMm) {
+        return spec(profile, layout, pages, customSpineMm, customBleedMm, null);
+    }
+
+    /** Largura de cada orelha, quando a gráfica faz (o KDP não faz). */
+    static final int MIN_FLAP_MM = 50;
+    static final int MAX_FLAP_MM = 120;
+
+    /**
+     * @param flapMm orelhas (só em outra gráfica): a largura de cada uma, de {@value #MIN_FLAP_MM} a
+     *               {@value #MAX_FLAP_MM} mm; null ou 0 = sem orelhas
+     */
+    static Spec spec(Profile profile, BookLayout layout, int pages, Double customSpineMm, Double customBleedMm,
+                     Double flapMm) {
+        double flap = flapMm == null ? 0 : flapMm;
+        if (flap != 0 && (profile.kdp() || flap < MIN_FLAP_MM || flap > MAX_FLAP_MM)) {
+            throw ApiException.unprocessable("print_flap_invalid", profile.kdp()
+                    ? "O KDP não imprime capa com orelhas."
+                    : "A orelha vai de %d a %d mm.".formatted(MIN_FLAP_MM, MAX_FLAP_MM));
+        }
+        Spec base = specWithoutFlaps(profile, layout, pages, customSpineMm, customBleedMm);
+        if (flap == 0) {
+            return base;
+        }
+        return new Spec(base.profile(), base.pages(), base.trimWidthMm(), base.trimHeightMm(), base.spineMm(),
+                base.bleedMm(), round(base.widthMm() + 2 * flap), base.heightMm(), base.spineText(), base.warnings(),
+                null, null, null, null, null, null, null, flap);
+    }
+
+    private static Spec specWithoutFlaps(Profile profile, BookLayout layout, int pages, Double customSpineMm,
+                                         Double customBleedMm) {
         double spine;
         double bleed;
         List<String> warnings = new ArrayList<>();
@@ -300,7 +341,7 @@ public final class PrintCover {
             float bleed = points(spec.bleedMm());
             float trimW = points(spec.trimWidthMm());
             float trimH = points(spec.trimHeightMm());
-            float panelX = points(spec.bleedMm() + spec.trimWidthMm() + spec.spineMm());
+            float panelX = points(spec.bleedMm() + spec.flapMm() + spec.trimWidthMm() + spec.spineMm());
             // Cobre o livro mais a sangria em volta, centrado no centro do livro (não no do painel)
             float scale = Math.max((trimW + 2 * bleed) / box.getWidth(), (trimH + 2 * bleed) / box.getHeight());
             float centerX = panelX + trimW / 2;

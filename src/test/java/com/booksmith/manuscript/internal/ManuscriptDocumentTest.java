@@ -91,6 +91,19 @@ class ManuscriptDocumentTest {
     }
 
     @Test
+    void calloutHasAKnownKindAndParagraphsInside() {
+        String ok = """
+                {"type":"doc","content":[{"type":"callout","attrs":{"id":"b_c1","kind":"verse"},"content":[
+                  {"type":"paragraph","attrs":{"id":"b_p1"},"content":[{"type":"text","text":"Ore sem cessar."}]}]}]}""";
+        assertThat(ManuscriptDocument.parse(json(ok), mapper).wordCount()).isEqualTo(3);
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("\"verse\"", "\"poster\"")), mapper))
+                .isInstanceOf(ApiException.class).hasMessageContaining("destaque");
+        // Dentro do quadro, só parágrafos e listas (nada de título ou outro quadro)
+        assertThatThrownBy(() -> ManuscriptDocument.parse(json(ok.replace("\"type\":\"paragraph\"", "\"type\":\"heading\"")), mapper))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
     void illustrationSizeAndAlignAreFixedOptions() {
         String ok = """
                 {"type":"doc","content":[

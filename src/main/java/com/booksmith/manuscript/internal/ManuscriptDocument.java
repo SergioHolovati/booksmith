@@ -59,6 +59,7 @@ public final class ManuscriptDocument {
             "paragraph", Set.of("id", "indent"),
             "heading", Set.of("id", "level"),
             "blockquote", Set.of("id"),
+            "callout", Set.of("id", "kind"),
             "sceneBreak", Set.of("id"),
             "illustration", Set.of("id", "imageId", "caption", "size", "align"),
             "bulletList", Set.of("id"),
@@ -66,7 +67,15 @@ public final class ManuscriptDocument {
             "listItem", Set.of("id"));
 
     private static final Set<String> TOP_LEVEL_BLOCKS =
-            Set.of("paragraph", "heading", "blockquote", "sceneBreak", "illustration", "bulletList", "orderedList");
+            Set.of("paragraph", "heading", "blockquote", "sceneBreak", "illustration", "bulletList", "orderedList",
+                    "callout");
+    /**
+     * Bloco de destaque (versículo-chave, para refletir, oração, exercício, resumo, objetivos, importante, citação em
+     * destaque): um quadro com o tipo e parágrafos ou listas dentro.
+     */
+    public static final Set<String> CALLOUT_KINDS =
+            Set.of("verse", "reflect", "prayer", "exercise", "summary", "objectives", "important", "quote");
+    private static final Set<String> CALLOUT_BLOCKS = Set.of("paragraph", "bulletList", "orderedList");
     static final int MAX_CAPTION = 300;
     /** Onde a ilustração fica: pequena, média, largura do texto, página só dela, até a borda, página dupla. */
     static final Set<String> ILLUSTRATION_SIZES = Set.of("small", "medium", "wide", "page", "bleed", "spread");
@@ -263,6 +272,13 @@ public final class ManuscriptDocument {
                     option(attrs.get("align"), ILLUSTRATION_ALIGNS, "alinhamento da ilustração inválido");
                 }
                 case "blockquote" -> blocks(requireNonEmpty(content, type), TOP_LEVEL_BLOCKS, depth + 1);
+                case "callout" -> {
+                    JsonNode kind = node.get("attrs") == null ? null : node.get("attrs").get("kind");
+                    if (kind == null || !kind.isString() || !CALLOUT_KINDS.contains(kind.stringValue())) {
+                        throw invalid("bloco de destaque com tipo desconhecido");
+                    }
+                    blocks(requireNonEmpty(content, type), CALLOUT_BLOCKS, depth + 1);
+                }
                 case "bulletList", "orderedList" -> blocks(requireNonEmpty(content, type), Set.of("listItem"), depth + 1);
                 case "listItem" -> blocks(requireNonEmpty(content, type), LIST_ITEM_BLOCKS, depth + 1);
                 default -> throw invalid("bloco desconhecido \"%s\"".formatted(type));

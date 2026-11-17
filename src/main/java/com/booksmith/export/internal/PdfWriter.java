@@ -391,6 +391,12 @@ final class PdfWriter {
             .bleed-box img { display: block; }
             p.scene-break { text-align: center; margin: 4mm 0; letter-spacing: 2mm; }
             .chapter { counter-reset: footnote; }
+            .callout { margin: 5mm 0; padding: 3mm 4mm; border-left: 1.2mm solid #c8743a; background-color: #f6efe6; page-break-inside: avoid; }
+            .callout p { text-indent: 0; text-align: left; }
+            .callout p.callout-title { font-size: 8.5pt; font-weight: bold; letter-spacing: 0.3mm; text-transform: uppercase; color: #8a4a1c; margin: 0 0 1.5mm; }
+            .callout-verse, .callout-quote { border-left-color: #3a5a8c; background-color: #eef2f8; }
+            .callout-verse p.callout-title, .callout-quote p.callout-title { color: #2a4470; }
+            .callout-quote p { font-style: italic; font-size: 1.1em; }
             .footnote { float: footnote; font-size: 8.5pt; line-height: 1.3; text-align: left; text-indent: 0; font-style: normal; font-weight: normal; }
             ::footnote-call { content: counter(footnote); vertical-align: super; font-size: 70%; line-height: 0; }
             ::footnote-marker { content: counter(footnote) ". "; }
