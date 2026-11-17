@@ -27,10 +27,18 @@ import java.util.regex.Pattern;
  *                   cor de fundo em volta); de 0,3 a 4
  * @param imageX     onde fica o centro da ilustração, em % da largura da página (na dupla, do livro aberto); padrão 50
  * @param imageY     idem, em % da altura; padrão 50
+ * @param backdropHeight altura da névoa ou do desfoque atrás do texto: 1 (padrão) a 4 vezes, para cima e para baixo
+ * @param boxes      os blocos de texto a mais ({@link TextBox}), até {@value #MAX_BOXES}; o primeiro bloco é este
  */
 public record PageDesign(String imageId, String background, String text, String align, String size, String color,
                          Boolean band, Boolean spread, String textSide, Double x, Double y, Double w,
-                         Double zoom, Double imageX, Double imageY, String font, Boolean haze, Boolean blur) {
+                         Double zoom, Double imageX, Double imageY, String font, Boolean haze, Boolean blur,
+                         Double backdropHeight, List<TextBox> boxes) {
+
+    /** Blocos de texto a mais por página (além do primeiro). */
+    public static final int MAX_BOXES = 8;
+    public static final double MIN_BACKDROP_HEIGHT = 0.5;
+    public static final double MAX_BACKDROP_HEIGHT = 4;
 
     public static final List<String> TEXTS = List.of("top", "middle", "bottom", "free", "none");
     public static final List<String> ALIGNS = List.of("left", "center", "right");
@@ -50,6 +58,14 @@ public record PageDesign(String imageId, String background, String text, String 
     public PageDesign(String imageId, String background, String text, String align, String size, String color,
                       Boolean band, Boolean spread, String textSide, Double x, Double y, Double w) {
         this(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, null, null, null);
+    }
+
+    /** Um bloco de texto só, com a névoa ou o desfoque na altura padrão. */
+    public PageDesign(String imageId, String background, String text, String align, String size, String color,
+                      Boolean band, Boolean spread, String textSide, Double x, Double y, Double w, Double zoom,
+                      Double imageX, Double imageY, String font, Boolean haze, Boolean blur) {
+        this(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, zoom, imageX, imageY,
+                font, haze, blur, null, null);
     }
 
     /** Sem desfoque atrás do texto. */
@@ -100,6 +116,12 @@ public record PageDesign(String imageId, String background, String text, String 
         blur = Boolean.TRUE.equals(blur);
         haze = Boolean.TRUE.equals(haze) && !blur;
         band = Boolean.TRUE.equals(band) && !haze && !blur;
+        backdropHeight = backdropHeight == null || backdropHeight.isNaN() ? Double.valueOf(1)
+                : Double.valueOf(Math.round(Math.max(MIN_BACKDROP_HEIGHT, Math.min(MAX_BACKDROP_HEIGHT, backdropHeight)) * 100) / 100.0);
+        boxes = boxes == null ? List.of() : List.copyOf(boxes);
+        if (boxes.size() > MAX_BOXES) {
+            throw invalid("No máximo %d blocos de texto a mais por página.".formatted(MAX_BOXES));
+        }
         spread = Boolean.TRUE.equals(spread);
         textSide = pick(textSide, SIDES, "right", "Lado do texto desconhecido.");
         // A caixa cabe na página: largura de 15% a 100%, e a borda esquerda e o topo de 0% até onde ela ainda cabe
@@ -154,6 +176,24 @@ public record PageDesign(String imageId, String background, String text, String 
 
     public boolean hasBlur() {
         return Boolean.TRUE.equals(blur);
+    }
+
+    /** Quantos blocos de texto a página tem (o primeiro e os a mais). */
+    public int boxCount() {
+        return 1 + boxes.size();
+    }
+
+    /**
+     * O desenho do bloco {@code index} (0 = o primeiro, este): o bloco a mais herda o fundo, a ilustração e a dupla da
+     * página e fica onde o autor arrastou.
+     */
+    public PageDesign box(int index) {
+        if (index <= 0 || index > boxes.size()) {
+            return this;
+        }
+        TextBox b = boxes.get(index - 1);
+        return new PageDesign(imageId, background, "free", b.align(), b.size(), b.color(), b.band(), spread, textSide,
+                b.x(), b.y(), b.w(), zoom, imageX, imageY, b.font(), b.haze(), b.blur(), b.backdropHeight(), null);
     }
 
     private static String pick(String value, List<String> options, String fallback, String message) {

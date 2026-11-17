@@ -211,7 +211,7 @@ final class DocxWriter {
                 body.append(paragraph("Parte", null, escapedRun(chapter.partTitle())));
             }
             body.append(paragraph("Heading1", null, escapedRun(chapter.title())));
-            blocks(chapter.document(), null, body);
+            blocks(chapter.reading(), null, body);
         }
         for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author())) {
             body.append(paragraph("PosTextual", null, escapedRun(extra.title())));

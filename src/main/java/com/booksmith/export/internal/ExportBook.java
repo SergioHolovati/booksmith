@@ -78,24 +78,43 @@ record ExportBook(UUID id, String title, String author, String language, String 
             this(title, document, null);
         }
 
+        /**
+         * O texto para ler em sequência (ePub, Word): no livro ilustrado, a quebra entre os blocos de texto da página
+         * só separa os blocos no desenho; aqui ela some, e os blocos ficam um depois do outro.
+         */
+        JsonNode reading() {
+            if (page == null || !(document instanceof tools.jackson.databind.node.ObjectNode doc)
+                    || !(doc.get("content") instanceof tools.jackson.databind.node.ArrayNode content)) {
+                return document;
+            }
+            tools.jackson.databind.node.ObjectNode copy = doc.deepCopy();
+            tools.jackson.databind.node.ArrayNode kept = copy.putArray("content");
+            for (JsonNode node : content) {
+                if (!"sceneBreak".equals(node.path("type").asString(""))) {
+                    kept.add(node.deepCopy());
+                }
+            }
+            return copy;
+        }
+
         /** Corpo do capítulo em XHTML, sem o título (ePub e PDF). */
         String html() {
-            return BookHtml.body(document);
+            return BookHtml.body(reading());
         }
 
         /** Idem, com o endereço de cada ilustração ({@code src(imageId)}; null = só a legenda). */
         String html(java.util.function.Function<String, String> src) {
-            return BookHtml.body(document, src);
+            return BookHtml.body(reading(), src);
         }
 
         /** Idem, com o id {@code <idPrefix>-s<n>} em cada título interno (para o sumário). */
         String html(java.util.function.Function<String, String> src, String idPrefix) {
-            return BookHtml.body(document, src, idPrefix);
+            return BookHtml.body(reading(), src, idPrefix);
         }
 
         /** Idem, com quem desenha as ilustrações de página própria (o PDF). */
         String html(java.util.function.Function<String, String> src, String idPrefix, BookHtml.PageIllustration pages) {
-            return BookHtml.body(document, src, idPrefix, pages);
+            return BookHtml.body(reading(), src, idPrefix, pages);
         }
 
         /**

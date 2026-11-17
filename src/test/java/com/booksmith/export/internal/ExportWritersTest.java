@@ -24,6 +24,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ExportWritersTest {
 
@@ -1170,5 +1171,60 @@ class ExportWritersTest {
         // Estimativa da altura: 30 letras, 15 por linha em 60 mm a 20 pt: 2 linhas com entrelinha 1,3
         assertThat(BlurPatch.textHeightMm("<p>" + "a".repeat(30) + "</p>", 60, 20))
                 .isCloseTo(2 * 1.3 * 20 * 25.4 / 72, org.assertj.core.data.Offset.offset(0.01));
+    }
+
+    private static final String TWO_BLOCKS = "{\"type\":\"doc\",\"content\":["
+            + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Primeiro bloco.\"}]},"
+            + "{\"type\":\"sceneBreak\"},"
+            + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Segundo bloco.\"}]},"
+            + "{\"type\":\"sceneBreak\"},"
+            + "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Sobra.\"}]}]}";
+
+    @Test
+    void eachTextBlockGoesWhereTheAuthorPutIt() throws Exception {
+        var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null,
+                false, false, false);
+        var second = new com.booksmith.manuscript.api.TextBox(10.0, 70.0, 50.0, "s", "left", "light", "nunito", null,
+                true, null, 3.0);
+        var page = new com.booksmith.manuscript.api.PageDesign(null, "#336699", "top", "center", "l", "dark", null,
+                false, null, null, null, null, null, null, null, null, null, null, null, List.of(second));
+        var book = new ExportBook(UUID.randomUUID(), "Blocos", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-17T12:00:00Z"),
+                List.of(new ExportBook.Chapter("Página 1", JSON.readTree(TWO_BLOCKS), null, page)),
+                java.util.Map.of(), com.booksmith.manuscript.api.Manuscripts.BookPages.EMPTY, layout, true);
+
+        String html = PictureBookHtml.html(book);
+        assertThat(html.split("class=\"pb-text ", -1)).as("dois blocos").hasSize(3);
+        // O segundo bloco: livre, a 70% da altura (140 mm), letra P, fonte e névoa próprias, 3 vezes mais alta
+        assertThat(html).contains("top: 140.0mm").contains("font-family: 'Nunito'").contains("haze-dark")
+                .contains("padding-top: 27.0mm").contains("margin-top: -18.0mm");
+        // A sobra (mais quebras do que blocos) vai junto no último; a quebra não vira "* * *"
+        assertThat(html).contains("Segundo bloco.").contains("Sobra.").doesNotContain("* * *");
+        assertThat(html.indexOf("Sobra.")).isGreaterThan(html.indexOf("Segundo bloco."));
+        assertThat(PdfWriter.write(book)).isNotEmpty();
+
+        // No ePub e no Word, os blocos um depois do outro, sem a quebra
+        String xhtml = book.chapters().getFirst().html();
+        assertThat(xhtml).contains("Primeiro bloco.").contains("Segundo bloco.").doesNotContain("scene-break");
+        assertThat(entry(DocxWriter.write(book), "word/document.xml")).doesNotContain("* * *");
+    }
+
+    @Test
+    void textBoxesAreCheckedLikeThePage() {
+        assertThatThrownBy(() -> new com.booksmith.manuscript.api.TextBox(10.0, 10.0, 50.0, "huge", null, null, null,
+                null, null, null, null))
+                .isInstanceOfSatisfying(com.booksmith.common.error.ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("page_invalid"));
+        var box = new com.booksmith.manuscript.api.TextBox(null, null, null, null, null, null, null, true, true, true,
+                9.0);
+        assertThat(box.blur()).isTrue();
+        assertThat(box.haze()).isFalse();
+        assertThat(box.band()).isFalse();
+        assertThat(box.backdropHeight()).isEqualTo(4.0);
+        var many = java.util.Collections.nCopies(com.booksmith.manuscript.api.PageDesign.MAX_BOXES + 1, box);
+        assertThatThrownBy(() -> new com.booksmith.manuscript.api.PageDesign(null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, many))
+                .isInstanceOfSatisfying(com.booksmith.common.error.ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("page_invalid"));
     }
 }

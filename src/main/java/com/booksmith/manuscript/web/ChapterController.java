@@ -99,11 +99,24 @@ class ChapterController {
 
     record PageRequest(String imageId, String background, String text, String align, String size, String color,
                        Boolean band, Boolean spread, String textSide, Double x, Double y, Double w, Double zoom,
-                       Double imageX, Double imageY, String font, Boolean haze, Boolean blur) {
+                       Double imageX, Double imageY, String font, Boolean haze, Boolean blur, Double backdropHeight,
+                       List<BoxRequest> boxes) {
 
+        /** Conferido aqui, fora do Jackson: valor fora das opções vira 422 {@code page_invalid}, não 400. */
         PageDesign toPage() {
             return new PageDesign(imageId, background, text, align, size, color, band, spread, textSide, x, y, w, zoom,
-                    imageX, imageY, font, haze, blur);
+                    imageX, imageY, font, haze, blur, backdropHeight,
+                    boxes == null ? null : boxes.stream().map(BoxRequest::toBox).toList());
+        }
+    }
+
+    /** Um bloco de texto a mais, recebido solto. */
+    record BoxRequest(Double x, Double y, Double w, String size, String align, String color, String font, Boolean band,
+                      Boolean haze, Boolean blur, Double backdropHeight) {
+
+        com.booksmith.manuscript.api.TextBox toBox() {
+            return new com.booksmith.manuscript.api.TextBox(x, y, w, size, align, color, font, band, haze, blur,
+                    backdropHeight);
         }
     }
 

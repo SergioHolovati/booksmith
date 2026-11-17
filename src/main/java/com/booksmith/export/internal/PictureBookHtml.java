@@ -65,6 +65,70 @@ final class PictureBookHtml {
         return copy;
     }
 
+    /**
+     * O texto da página em blocos: a quebra de bloco ({@code sceneBreak}) separa um bloco do outro (no livro ilustrado
+     * não há quebra de cena). Sem quebra, um bloco só.
+     */
+    static java.util.List<JsonNode> blocks(JsonNode document) {
+        java.util.List<JsonNode> blocks = new java.util.ArrayList<>();
+        if (!(document instanceof ObjectNode doc) || !(doc.get("content") instanceof ArrayNode content)) {
+            blocks.add(document);
+            return blocks;
+        }
+        ObjectNode current = emptyLike(doc);
+        for (JsonNode node : content) {
+            if ("sceneBreak".equals(node.path("type").asString(""))) {
+                blocks.add(current);
+                current = emptyLike(doc);
+            } else {
+                ((ArrayNode) current.get("content")).add(node.deepCopy());
+            }
+        }
+        blocks.add(current);
+        return blocks;
+    }
+
+    private static ObjectNode emptyLike(ObjectNode doc) {
+        ObjectNode copy = doc.deepCopy();
+        copy.putArray("content");
+        return copy;
+    }
+
+    /** Um bloco de texto da página: o desenho dele e o HTML do texto. */
+    record Placed(PageDesign design, String text) {
+    }
+
+    /**
+     * Os blocos com texto, cada um com o seu desenho. Trecho a mais (mais quebras do que blocos desenhados) vai junto
+     * no último bloco; bloco sem texto, ou o primeiro com "sem texto", não sai.
+     */
+    static java.util.List<Placed> placed(PageDesign design, JsonNode document) {
+        java.util.List<JsonNode> parts = blocks(withoutBackground(document));
+        String[] texts = new String[design.boxCount()];
+        for (int i = 0; i < parts.size(); i++) {
+            int slot = Math.min(i, texts.length - 1);
+            String html = BookHtml.body(parts.get(i));
+            texts[slot] = texts[slot] == null ? html : texts[slot] + html;
+        }
+        java.util.List<Placed> placed = new java.util.ArrayList<>();
+        for (int i = 0; i < texts.length; i++) {
+            PageDesign box = design.box(i);
+            if (texts[i] != null && !"none".equals(box.text()) && hasText(texts[i])) {
+                placed.add(new Placed(box, texts[i]));
+            }
+        }
+        return placed;
+    }
+
+    private static boolean hasText(String html) {
+        return html.contains("<p") && !html.replace("<p class=\"blank\">&#160;</p>", "").isBlank();
+    }
+
+    /** Na dupla, se o bloco fica na página da direita (no livre, o lado onde está o meio da caixa). */
+    private static boolean onRight(PageDesign box) {
+        return "free".equals(box.text()) ? box.x() + box.w() / 2 >= 50 : "right".equals(box.textSide());
+    }
+
     static String html(ExportBook book) {
         BookLayout layout = book.layout();
         double[] page = PdfWriter.pageBoxMm(layout);
@@ -79,22 +143,20 @@ final class PictureBookHtml {
             PageDesign design = chapter.page() == null ? PageDesign.DEFAULT : chapter.page();
             String id = "page-" + (i + 1);
             bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(escape(chapter.title()), id));
-            String text = BookHtml.body(withoutBackground(chapter.document()));
-            boolean hasText = !"none".equals(design.text()) && text.contains("<p") && !text.replace("<p class=\"blank\">&#160;</p>", "").isBlank();
+            java.util.List<Placed> texts = placed(design, chapter.document());
             if (design.isSpread()) {
                 if ((last + 1) % 2 != 0) {
                     last++; // a página em branco que o motor põe antes da dupla
                 }
                 last += 2;
-                // A esquerda e a direita do livro aberto, com a mesma imagem; o texto no lado escolhido (no livre, o
-                // lado onde está o meio da caixa)
-                boolean textRight = "free".equals(design.text())
-                        ? design.x() + design.w() / 2 >= 50 : "right".equals(design.textSide());
-                pages.append(page(book, design, page, id, 0, !textRight && hasText ? text : null, true, false, last - 1));
-                pages.append(page(book, design, page, null, page[0], textRight && hasText ? text : null, false, true, last));
+                // A esquerda e a direita do livro aberto, com a mesma imagem; cada bloco no lado dele
+                pages.append(page(book, design, page, id, 0, texts.stream().filter(t -> !onRight(t.design())).toList(),
+                        true, false, last - 1));
+                pages.append(page(book, design, page, null, page[0],
+                        texts.stream().filter(t -> onRight(t.design())).toList(), false, true, last));
             } else {
                 last++;
-                pages.append(page(book, design, page, id, 0, hasText ? text : null, false, last % 2 != 0, last));
+                pages.append(page(book, design, page, id, 0, texts, false, last % 2 != 0, last));
             }
         }
         return """
@@ -153,7 +215,7 @@ final class PictureBookHtml {
      * o número da página (sai no canto de fora, se a diagramação pedir).
      */
     private static String page(ExportBook book, PageDesign design, double[] page, String id, double offsetX,
-                               String text, boolean spreadLeft, boolean right, int number) {
+                               java.util.List<Placed> texts, boolean spreadLeft, boolean right, int number) {
         StringBuilder html = new StringBuilder();
         html.append("<div class=\"pb-page%s\"%s style=\"width: %smm; height: %smm; background-color: %s\">"
                 .formatted(spreadLeft ? " spread-left" : "", id == null ? "" : " id=\"" + id + "\"", mm(page[0]),
@@ -175,14 +237,17 @@ final class PictureBookHtml {
                 art = new double[] {left, top, width, height};
             }
         }
-        if (text != null && art != null && design.hasBlur()) {
-            // O pedaço da arte atrás do texto, desfocado, entre a arte e o texto
-            html.append(BlurPatch.html(book.illustrations().get(design.imageId()).bytes(), art,
-                    textRect(book.layout(), design, page, text, right), new double[] {page[0], page[1] - 1},
-                    design.fontSizePt(), !"light".equals(design.color()), design.background()));
+        for (Placed placed : texts) {
+            PageDesign box = placed.design();
+            if (art != null && box.hasBlur()) {
+                // O pedaço da arte atrás do texto, desfocado, entre a arte e o texto
+                html.append(BlurPatch.html(book.illustrations().get(design.imageId()).bytes(), art,
+                        textRect(book.layout(), box, page, placed.text(), right), new double[] {page[0], page[1] - 1},
+                        box.fontSizePt(), !"light".equals(box.color()), design.background(), box.backdropHeight()));
+            }
         }
-        if (text != null) {
-            html.append(textBox(book.layout(), design, page, text, right));
+        for (Placed placed : texts) {
+            html.append(textBox(book.layout(), placed.design(), page, placed.text(), right));
         }
         if (book.layout().numbersPages()) {
             // Pequeno, no canto de fora, dentro da área segura (como nos livros ilustrados)
@@ -213,9 +278,9 @@ final class PictureBookHtml {
             default -> "bottom: %smm".formatted(mm(inset + 1));
         };
         String band = backdrop(design);
-        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; %s; font-size: %spt;%s\">%s</div>"
+        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; %s; font-size: %spt;%s%s\">%s</div>"
                 .formatted(design.color(), band, design.align(), mm(left), mm(width), vertical,
-                        mm(design.fontSizePt()), fontStyle(layout, design), text);
+                        mm(design.fontSizePt()), fontStyle(layout, design), hazeHeight(design), text);
     }
 
     /**
@@ -233,9 +298,31 @@ final class PictureBookHtml {
         double left = boxX + (right ? 0 : bleed);
         double top = bleed + design.y() / 100 * trimH;
         String band = backdrop(design);
-        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; top: %smm; font-size: %spt;%s\">%s</div>"
+        return "<div class=\"pb-text %s%s align-%s\" style=\"left: %smm; width: %smm; top: %smm; font-size: %spt;%s%s\">%s</div>"
                 .formatted(design.color(), band, design.align(), mm(left), mm(boxW), mm(top), mm(design.fontSizePt()),
-                        fontStyle(layout, design), text);
+                        fontStyle(layout, design), hazeHeight(design), text);
+    }
+
+    /** Folga da névoa em cima e embaixo do texto, na altura 1 (a do CSS). */
+    static final double HAZE_PAD_MM = 9;
+
+    /**
+     * Névoa mais alta: a folga em cima e embaixo cresce, e uma margem negativa do mesmo tanto mantém o texto onde
+     * estava (em cima e no livre, a margem de cima; embaixo, a de baixo; no meio, a caixa cresce igual para os dois
+     * lados e o texto fica no centro).
+     */
+    private static String hazeHeight(PageDesign design) {
+        if (!design.hasHaze() || design.backdropHeight() == 1) {
+            return "";
+        }
+        double pad = HAZE_PAD_MM * design.backdropHeight();
+        double extra = pad - HAZE_PAD_MM;
+        String margin = switch (design.text()) {
+            case "middle" -> "";
+            case "bottom" -> " margin-bottom: %smm;".formatted(mm(-extra));
+            default -> " margin-top: %smm;".formatted(mm(-extra));
+        };
+        return " padding-top: %smm; padding-bottom: %smm;%s".formatted(mm(pad), mm(pad), margin);
     }
 
     /**

@@ -65,16 +65,17 @@ final class BlurPatch {
      * @param fontPt  corpo da letra (a margem acompanha)
      * @param lightTint texto escuro: clarear; texto claro: escurecer
      * @param background a cor de fundo da página (onde a arte não cobre)
+     * @param heightFactor a altura do desfoque (1 a 4): a margem de cima e de baixo cresce
      */
     static String html(byte[] art, double[] artMm, double[] textMm, double[] pageMm, double fontPt, boolean lightTint,
-                       String background) {
+                       String background, double heightFactor) {
         BufferedImage source = read(art);
         if (source == null || textMm[2] <= 0 || textMm[3] <= 0) {
             return "";
         }
         double em = fontPt * MM_PER_PT;
         double mx = MARGIN_X_EM * em;
-        double my = MARGIN_Y_EM * em;
+        double my = MARGIN_Y_EM * em * heightFactor;
         double left = Math.max(0, textMm[0] - mx);
         double top = Math.max(0, textMm[1] - my);
         double right = Math.min(pageMm[0], textMm[0] + textMm[2] + mx);

@@ -121,7 +121,8 @@ public class ChapterService {
     }
 
     /** Uma página do livro ilustrado para a tela de organizar: o desenho e os parágrafos do texto. */
-    public record PagePreview(UUID id, String title, PageDesign page, List<String> paragraphs) {
+    public record PagePreview(UUID id, String title, PageDesign page, List<String> paragraphs,
+                              List<List<String>> blocks) {
     }
 
     static final int PREVIEW_PARAGRAPHS = 12;
@@ -132,19 +133,36 @@ public class ChapterService {
     public List<PagePreview> pages(UUID ownerId, UUID bookId) {
         bookService.require(ownerId, bookId);
         return chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId).stream()
-                .map(c -> new PagePreview(c.getId(), c.getTitle(), pageOf(c), paragraphs(c.getContent())))
+                .map(c -> {
+                    List<List<String>> blocks = blocks(c.getContent());
+                    return new PagePreview(c.getId(), c.getTitle(), pageOf(c),
+                            blocks.stream().flatMap(List::stream).toList(), blocks);
+                })
                 .toList();
     }
 
     /** O texto de cada parágrafo e título (o resto, como notas de rodapé, fica de fora da miniatura). */
     static List<String> paragraphs(String json) {
-        if (json == null || json.isBlank()) {
-            return List.of();
-        }
+        return blocks(json).stream().flatMap(List::stream).limit(PREVIEW_PARAGRAPHS).toList();
+    }
+
+    /** Os parágrafos de cada bloco de texto da página (a quebra de bloco, {@code sceneBreak}, separa os blocos). */
+    static List<List<String>> blocks(String json) {
+        List<List<String>> blocks = new java.util.ArrayList<>();
         List<String> out = new java.util.ArrayList<>();
+        blocks.add(out);
+        if (json == null || json.isBlank()) {
+            return List.of(List.of());
+        }
+        int total = 0;
         for (JsonNode block : PAGE_READER.readTree(json).path("content")) {
             String type = block.path("type").asString("");
-            if (out.size() < PREVIEW_PARAGRAPHS && ("paragraph".equals(type) || "heading".equals(type))) {
+            if ("sceneBreak".equals(type)) {
+                out = new java.util.ArrayList<>();
+                blocks.add(out);
+                continue;
+            }
+            if (total < PREVIEW_PARAGRAPHS && ("paragraph".equals(type) || "heading".equals(type))) {
                 StringBuilder text = new StringBuilder();
                 for (JsonNode inline : block.path("content")) {
                     if ("text".equals(inline.path("type").asString(""))) {
@@ -154,10 +172,11 @@ public class ChapterService {
                 String clean = text.toString().strip();
                 if (!clean.isEmpty()) {
                     out.add(clean.length() > PREVIEW_CHARS ? clean.substring(0, PREVIEW_CHARS) + "…" : clean);
+                    total++;
                 }
             }
         }
-        return out;
+        return blocks.stream().map(List::copyOf).toList();
     }
 
     /** O desenho guardado, ou o padrão. */

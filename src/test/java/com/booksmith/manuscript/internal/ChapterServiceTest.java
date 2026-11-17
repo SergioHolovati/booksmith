@@ -226,4 +226,17 @@ class ChapterServiceTest {
                                 + longText + "\"}]}]}").getFirst())
                 .hasSize(ChapterService.PREVIEW_CHARS + 1).endsWith("…");
     }
+
+    @org.junit.jupiter.api.Test
+    void pagePreviewSplitsTheTextIntoBlocks() {
+        String doc = """
+                {"type":"doc","content":[
+                  {"type":"paragraph","content":[{"type":"text","text":"Um"}]},
+                  {"type":"sceneBreak"},
+                  {"type":"paragraph","content":[{"type":"text","text":"Dois"}]},
+                  {"type":"paragraph","content":[{"type":"text","text":"Três"}]}]}""";
+        org.assertj.core.api.Assertions.assertThat(ChapterService.blocks(doc))
+                .containsExactly(java.util.List.of("Um"), java.util.List.of("Dois", "Três"));
+        org.assertj.core.api.Assertions.assertThat(ChapterService.blocks(null)).containsExactly(java.util.List.of());
+    }
 }
