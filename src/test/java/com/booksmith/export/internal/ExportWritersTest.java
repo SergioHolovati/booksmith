@@ -160,8 +160,8 @@ class ExportWritersTest {
 
     @Test
     void pdfEmbedsPngIllustrationsButNotWebp() {
-        assertThat(PdfWriter.dataUri(illustrated("image/png"), IMAGE_ID)).startsWith("data:image/png;base64,");
-        assertThat(PdfWriter.dataUri(illustrated("image/webp"), IMAGE_ID)).isNull();
+        assertThat(PdfWriter.imageUri(illustrated("image/png"), IMAGE_ID)).isEqualTo("booksmith-img:" + IMAGE_ID);
+        assertThat(PdfWriter.imageUri(illustrated("image/webp"), IMAGE_ID)).isNull();
         assertThat(PdfWriter.write(illustrated("image/png"))).isNotEmpty();
     }
 
@@ -706,7 +706,7 @@ class ExportWritersTest {
         String html = PdfWriter.html(withFullStructure());
         // Falsa folha de rosto antes dos créditos; a foto na página "sobre"; o colofão no fim
         assertThat(html.indexOf("class=\"half-title\"")).isPositive().isLessThan(html.indexOf("class=\"credits\""));
-        assertThat(html).contains("<p class=\"author-photo\"><img src=\"data:image/png;base64,");
+        assertThat(html).contains("<p class=\"author-photo\"><img src=\"booksmith-img:");
         assertThat(html.lastIndexOf("Composto em Literata.")).isGreaterThan(html.indexOf("Escreve à noite."));
         assertThat(PdfWriter.write(withFullStructure())).isNotEmpty();
     }

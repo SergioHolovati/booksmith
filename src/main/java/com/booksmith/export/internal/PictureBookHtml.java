@@ -220,7 +220,7 @@ final class PictureBookHtml {
         html.append("<div class=\"pb-page%s\"%s style=\"width: %smm; height: %smm; background-color: %s\">"
                 .formatted(spreadLeft ? " spread-left" : "", id == null ? "" : " id=\"" + id + "\"", mm(page[0]),
                         mm(page[1] - 1), design.background()));
-        String url = design.imageId() == null ? null : PdfWriter.dataUri(book, design.imageId());
+        String url = design.imageId() == null ? null : PdfWriter.imageUri(book, design.imageId());
         double[] art = null;
         if (url != null) {
             int[] px = PrintCheck.pixels(book.illustrations().get(design.imageId()).bytes());

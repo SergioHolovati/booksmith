@@ -40,6 +40,17 @@ record ExportBook(UUID id, String title, String author, String language, String 
                 BookLayout.DEFAULT);
     }
 
+    /**
+     * O mesmo livro com as ilustrações reduzidas (lado maior até {@code maxSide} px, JPEG): para a prévia, que só
+     * mostra as páginas na tela. A de impressão (o PDF baixado) usa as originais.
+     */
+    ExportBook withPreviewImages(int maxSide) {
+        java.util.Map<String, ImageData> small = new java.util.HashMap<>();
+        illustrations.forEach((id, image) -> small.put(id, PreviewImages.shrink(image, maxSide)));
+        return new ExportBook(id, title, author, language, synopsis, fandom, cover, generatedAt, chapters, small, pages,
+                layout, pictureBook);
+    }
+
     /** O mesmo livro com outra diagramação (prévia de escolhas ainda não salvas). */
     ExportBook withLayout(BookLayout other) {
         return new ExportBook(id, title, author, language, synopsis, fandom, cover, generatedAt, chapters, illustrations,

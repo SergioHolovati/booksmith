@@ -121,13 +121,16 @@ public class ExportService {
         return new ExportFile("capa-" + filename(title, ExportFormat.PDF), ExportFormat.PDF.contentType(), pdf);
     }
 
+    /** Lado maior das ilustrações na prévia (a página da prévia é uma imagem pequena; a dupla tem duas larguras). */
+    static final int PREVIEW_IMAGE_SIDE = 2000;
+
     /** O PDF do livro com uma diagramação, do cache quando nada mudou. */
     private Rendered rendered(UUID ownerId, String author, BookContent content, BookLayout layout) {
         String key = fingerprint(ownerId + "|" + author + "|" + layout + "|" + content);
         Rendered rendered = previews.get(key);
         if (rendered == null) {
             long start = System.nanoTime();
-            ExportBook book = prepare(content, author).withLayout(layout);
+            ExportBook book = prepare(content, author).withLayout(layout).withPreviewImages(PREVIEW_IMAGE_SIDE);
             byte[] pdf = PdfWriter.write(book);
             rendered = new Rendered(pdf, PdfPreview.pageCount(pdf) - (PdfWriter.hasCoverPage(book) ? 1 : 0));
             previews.put(key, rendered);

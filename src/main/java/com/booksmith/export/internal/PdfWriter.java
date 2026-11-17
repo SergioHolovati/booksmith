@@ -9,7 +9,6 @@ import org.springframework.core.io.ClassPathResource;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 
@@ -33,6 +32,9 @@ final class PdfWriter {
         try {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             fontsOf(book).forEach(font -> useFont(builder, font));
+            // As imagens vêm da memória pelo id (booksmith-img:<id>), não em base64 dentro do HTML: o HTML de um livro
+            // ilustrado com as artes em resolução de impressão passava de 1 GB de memória
+            builder.useProtocolsStreamImplementation(url -> imageStream(book, url), IMAGE_SCHEME);
             builder.withHtmlContent(book.pictureBook() ? PictureBookHtml.html(book) : html(book), null);
             builder.toStream(bytes);
             builder.run();
@@ -105,12 +107,11 @@ final class PdfWriter {
                     <section class="chapter" id="%s">
                     <h1>%s</h1>
                     %s</section>
-                    """.formatted(id, title, sceneBreaks(chapter.html(imageId -> dataUri(book, imageId), id, pages), book.layout())));
+                    """.formatted(id, title, sceneBreaks(chapter.html(imageId -> imageUri(book, imageId), id, pages), book.layout())));
         }
         String cover = "";
         if (hasCoverPage(book)) {
-            cover = "<div class=\"cover\"><img src=\"data:%s;base64,%s\" alt=\"Capa\"/></div>\n"
-                    .formatted(book.cover().contentType(), Base64.getEncoder().encodeToString(book.cover().bytes()));
+            cover = "<div class=\"cover\"><img src=\"%s:%s\" alt=\"Capa\"/></div>\n".formatted(IMAGE_SCHEME, COVER_IMAGE);
         }
         for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author(), authorPhoto(book))) {
             String title = escape(extra.title());
@@ -241,7 +242,7 @@ final class PdfWriter {
     static BookHtml.PageIllustration pageIllustrations(ExportBook book) {
         java.util.Map<String, int[]> sizes = new java.util.HashMap<>();
         return (imageId, placement, caption) -> {
-            String url = dataUri(book, imageId);
+            String url = imageUri(book, imageId);
             if (url == null) {
                 return null;
             }
@@ -299,19 +300,41 @@ final class PdfWriter {
         return COVER_TYPES.contains(contentType);
     }
 
-    /** A foto de quem escreveu, como data URI (null sem foto, ou num formato que o PDF não lê). */
+    /** A foto de quem escreveu, pelo endereço da imagem (null sem foto, ou num formato que o PDF não lê). */
     static String authorPhoto(ExportBook book) {
         var id = book.pages().authorPhotoId();
-        return id == null ? null : dataUri(book, id.toString());
+        return id == null ? null : imageUri(book, id.toString());
     }
 
     /** Ilustração como data URI; WebP o motor de PDF não lê, então sai só a legenda. */
-    static String dataUri(ExportBook book, String imageId) {
+    static String imageUri(ExportBook book, String imageId) {
         var image = book.illustrations().get(imageId);
         if (image == null || !COVER_TYPES.contains(image.contentType())) {
             return null;
         }
-        return "data:%s;base64,%s".formatted(image.contentType(), Base64.getEncoder().encodeToString(image.bytes()));
+        return IMAGE_SCHEME + ":" + imageId;
+    }
+
+    /** Endereço das imagens do livro no HTML do PDF (lidas da memória por {@link #imageStream}). */
+    static final String IMAGE_SCHEME = "booksmith-img";
+    private static final String COVER_IMAGE = "cover";
+
+    /** Os bytes da imagem {@code booksmith-img:<id>} (a capa é {@code booksmith-img:cover}). */
+    private static com.openhtmltopdf.extend.FSStream imageStream(ExportBook book, String url) {
+        String id = url.substring(IMAGE_SCHEME.length() + 1);
+        var image = COVER_IMAGE.equals(id) ? book.cover() : book.illustrations().get(id);
+        byte[] bytes = image == null ? new byte[0] : image.bytes();
+        return new com.openhtmltopdf.extend.FSStream() {
+            @Override
+            public java.io.InputStream getStream() {
+                return new java.io.ByteArrayInputStream(bytes);
+            }
+
+            @Override
+            public java.io.Reader getReader() {
+                return new java.io.InputStreamReader(getStream(), java.nio.charset.StandardCharsets.ISO_8859_1);
+            }
+        };
     }
 
     /** As fontes que o livro usa: a do livro, a de cada página ilustrada e a Literata (folha de rosto, números). */
