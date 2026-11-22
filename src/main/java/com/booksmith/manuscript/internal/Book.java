@@ -102,6 +102,15 @@ public class Book {
     @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
     private String layout = "{}";
 
+    /**
+     * Livro ilustrado (V38): onde ficam e como é o fundo das páginas que o Booksmith gera, JSON de uma lista de
+     * {@link com.booksmith.manuscript.api.ExtraPage}; "[]" = o lugar de sempre.
+     */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "jsonb")
+    @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")
+    private String extraPages = "[]";
+
     /** Desenho da capa feita no editor (V23), JSON de {@link CoverDesign}; null = capa não feita no editor. */
     @Column(columnDefinition = "jsonb")
     @org.hibernate.annotations.ColumnTransformer(write = "?::jsonb")

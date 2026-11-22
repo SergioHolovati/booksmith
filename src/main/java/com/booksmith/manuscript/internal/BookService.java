@@ -244,6 +244,59 @@ public class BookService {
         return book.getCoverDesign() == null ? null : jsonMapper.readValue(book.getCoverDesign(), CoverDesign.class);
     }
 
+    /** As páginas do livro com a organização das que o Booksmith gera no livro ilustrado (para a exportação). */
+    public Manuscripts.BookPages pagesOf(Book book) {
+        return book.pages().withExtras(storedExtras(book));
+    }
+
+    private List<com.booksmith.manuscript.api.ExtraPage> storedExtras(Book book) {
+        String json = book.getExtraPages();
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        return List.of(jsonMapper.readValue(json, com.booksmith.manuscript.api.ExtraPage[].class));
+    }
+
+    /** As páginas geradas que o livro tem, na ordem e no lugar escolhidos (as novas no lugar de sempre). */
+    @Transactional(readOnly = true)
+    public List<com.booksmith.manuscript.api.ExtraPage> extraPages(UUID ownerId, UUID bookId) {
+        Book book = require(ownerId, bookId);
+        return pagesOf(book).arrangedExtras(chapterIds(bookId));
+    }
+
+    /**
+     * Troca o lugar e o fundo das páginas geradas do livro ilustrado.
+     *
+     * @throws ApiException 422 {@code extra_page_invalid} com página repetida ou depois de uma página que não é do
+     *                      livro; {@code extra_page_image_not_found} se a ilustração não é da biblioteca do universo
+     */
+    @Transactional
+    public List<com.booksmith.manuscript.api.ExtraPage> updateExtraPages(UUID ownerId, UUID bookId,
+                                                                          List<com.booksmith.manuscript.api.ExtraPage> pages) {
+        Book book = require(ownerId, bookId);
+        List<com.booksmith.manuscript.api.ExtraPage> valid = com.booksmith.manuscript.api.ExtraPage.validated(pages);
+        java.util.Set<String> chapters = chapterIds(bookId);
+        for (var page : valid) {
+            if (page.after() != null && !com.booksmith.manuscript.api.ExtraPage.START.equals(page.after())
+                    && !com.booksmith.manuscript.api.ExtraPage.END.equals(page.after())
+                    && !chapters.contains(page.after().toLowerCase(Locale.ROOT))) {
+                throw ApiException.unprocessable("extra_page_invalid", "A página de referência não é deste livro.");
+            }
+            if (page.imageId() != null && (book.getUniverseId() == null
+                    || universes.imageUrl(book.getUniverseId(), UUID.fromString(page.imageId())).isEmpty())) {
+                throw ApiException.unprocessable("extra_page_image_not_found",
+                        "A ilustração não está na biblioteca do universo do livro.");
+            }
+        }
+        book.setExtraPages(jsonMapper.writeValueAsString(valid));
+        return pagesOf(book).arrangedExtras(chapters);
+    }
+
+    private java.util.Set<String> chapterIds(UUID bookId) {
+        return chapterRepository.findAllByBookIdAndDeletedAtIsNullOrderByPositionAsc(bookId).stream()
+                .map(chapter -> chapter.getId().toString()).collect(Collectors.toSet());
+    }
+
     /** Troca a diagramação do PDF; o que vier nulo volta ao padrão. */
     @Transactional
     public BookLayout updateLayout(UUID ownerId, UUID bookId, BookLayout layout) {

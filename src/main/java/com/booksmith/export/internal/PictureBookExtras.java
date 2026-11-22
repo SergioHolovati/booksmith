@@ -1,6 +1,7 @@
 package com.booksmith.export.internal;
 
 import com.booksmith.manuscript.api.BookLayout;
+import com.booksmith.manuscript.api.ExtraPage;
 import com.booksmith.manuscript.api.Manuscripts.BookPages;
 
 import java.time.ZoneId;
@@ -14,8 +15,8 @@ import static com.booksmith.export.internal.BookHtml.escape;
  * As páginas que o Booksmith gera no livro ilustrado, na ordem de um miolo de editora: na frente, a folha de rosto
  * ilustrada (a capa), os créditos (copyright, ficha técnica, ficha catalográfica, ISBN), a página de rosto (título e
  * autor), a dedicatória, a epígrafe e os agradecimentos; no fim, o "sobre o autor" (a foto e o nome numa página, a
- * biografia na outra), as páginas em branco que fecham o livro em múltiplo de 4 e o colofão, na última. O fundo é o
- * que o autor escolheu na diagramação (uma ilustração da biblioteca ou uma cor).
+ * biografia na outra) e o colofão. O autor pode mudá-las de lugar (entre as páginas da história) e dar a cada uma um
+ * fundo próprio; sem isso, o fundo é o da diagramação (uma ilustração da biblioteca ou uma cor).
  */
 final class PictureBookExtras {
 
@@ -28,79 +29,87 @@ final class PictureBookExtras {
     private PictureBookExtras() {
     }
 
-    /** As páginas da frente, antes da história. {@code src}: o endereço de cada imagem ("cover" = a capa). */
-    static List<Extra> front(ExportBook book, double[] page, Function<String, String> src) {
-        List<Extra> pages = new ArrayList<>();
+    /**
+     * As páginas de uma página gerada (o "sobre" com foto são duas: a foto e o nome à esquerda, a biografia à
+     * direita). {@code last}: o número da página que vem antes; com {@code fill} (o impresso), põe uma página em
+     * branco antes do "sobre" com foto se precisar, para ele abrir o livro numa dupla.
+     */
+    static List<Extra> render(ExportBook book, ExtraPage extra, double[] page, Function<String, String> src, int last,
+                              boolean fill) {
         BookPages p = book.pages();
-        String coverUrl = book.cover() != null && PdfWriter.embeds(book.cover().contentType()) ? src.apply("cover") : null;
-        if (coverUrl != null) {
-            pages.add(new Extra("Folha de rosto", sheet(book, page, src, art(coverUrl, book.cover().bytes(), page), "")));
-        } else {
-            pages.add(new Extra("Folha de rosto", sheet(book, page, src, null,
-                    block(page, 0.30, "rosto", "<p class=\"x-title\">%s</p><p class=\"x-author\">%s</p>"
-                            .formatted(escape(book.title()), escape(book.author()))))));
-        }
-        pages.add(new Extra("Créditos", sheet(book, page, src, null, block(page, 0.07, "creditos", credits(book)))));
-        pages.add(new Extra("Página de rosto", sheet(book, page, src, null, block(page, 0.36, "rosto",
-                "<p class=\"x-title\">%s</p><p class=\"x-author\">%s</p>".formatted(escape(book.title()),
-                        escape(book.author()))))));
-        if (present(p.dedication())) {
-            pages.add(new Extra("Dedicatória", sheet(book, page, src, null,
-                    block(page, 0.18, "texto", "<h2>Dedicatória</h2>" + paragraphs(p.dedication())))));
-        }
-        if (present(p.epigraph())) {
-            String source = present(p.epigraphSource()) ? "<p class=\"x-source\">%s</p>".formatted(escape(p.epigraphSource())) : "";
-            pages.add(new Extra("Epígrafe", sheet(book, page, src, null,
-                    block(page, 0.4, "epigrafe", paragraphs(p.epigraph()) + source))));
-        }
-        if (present(p.acknowledgments())) {
-            pages.add(new Extra("Agradecimentos", sheet(book, page, src, null,
-                    block(page, 0.18, "texto", "<h2>Agradecimentos</h2>" + paragraphs(p.acknowledgments())))));
+        List<Extra> pages = new ArrayList<>();
+        String rosto = "<p class=\"x-title\">%s</p><p class=\"x-author\">%s</p>".formatted(escape(book.title()),
+                escape(book.author()));
+        switch (extra.key()) {
+            case "cover" -> {
+                String coverUrl = book.cover() != null && PdfWriter.embeds(book.cover().contentType())
+                        ? src.apply("cover") : null;
+                pages.add(new Extra("Folha de rosto", coverUrl != null
+                        ? sheet(book, extra, page, src, art(coverUrl, book.cover().bytes(), page), "")
+                        : sheet(book, extra, page, src, null, block(page, 0.30, "rosto", rosto))));
+            }
+            case "credits" -> pages.add(new Extra("Créditos",
+                    sheet(book, extra, page, src, null, block(page, 0.07, "creditos", credits(book)))));
+            case "title" -> pages.add(new Extra("Página de rosto",
+                    sheet(book, extra, page, src, null, block(page, 0.36, "rosto", rosto))));
+            case "dedication" -> text(book, extra, page, src, pages, "Dedicatória", p.dedication(), 0.18, "texto",
+                    "<h2>Dedicatória</h2>");
+            case "epigraph" -> {
+                String source = present(p.epigraphSource())
+                        ? "<p class=\"x-source\">%s</p>".formatted(escape(p.epigraphSource())) : "";
+                if (present(p.epigraph())) {
+                    pages.add(new Extra("Epígrafe", sheet(book, extra, page, src, null,
+                            block(page, 0.4, "epigrafe", paragraphs(p.epigraph()) + source))));
+                }
+            }
+            case "acknowledgments" -> text(book, extra, page, src, pages, "Agradecimentos", p.acknowledgments(), 0.18,
+                    "texto", "<h2>Agradecimentos</h2>");
+            case "about" -> {
+                if (present(p.aboutAuthor())) {
+                    about(book, extra, page, src, last, fill, pages);
+                }
+            }
+            case "colophon" -> text(book, extra, page, src, pages, "Colofão", p.colophon(), 0.62, "colofao", "");
+            default -> {
+                // página desconhecida: não sai
+            }
         }
         return pages;
     }
 
-    /**
-     * As páginas do fim, depois da história, que termina na página {@code lastStoryPage}. Com {@code fill}, completa
-     * o livro com páginas em branco até um múltiplo de 4 (o colofão fica na última).
-     */
-    static List<Extra> back(ExportBook book, double[] page, Function<String, String> src, int lastStoryPage, boolean fill) {
-        List<Extra> pages = new ArrayList<>();
+    /** Uma página de texto (dedicatória, agradecimentos, colofão), se tiver texto. */
+    private static void text(ExportBook book, ExtraPage extra, double[] page, Function<String, String> src,
+                             List<Extra> pages, String title, String text, double top, String kind, String heading) {
+        if (present(text)) {
+            pages.add(new Extra(title, sheet(book, extra, page, src, null, block(page, top, kind, heading + paragraphs(text)))));
+        }
+    }
+
+    private static void about(ExportBook book, ExtraPage extra, double[] page, Function<String, String> src, int last,
+                              boolean fill, List<Extra> pages) {
         BookPages p = book.pages();
-        int last = lastStoryPage;
-        if (present(p.aboutAuthor())) {
-            String title = present(p.aboutAuthorTitle()) ? p.aboutAuthorTitle() : "Sobre o autor";
-            String photo = p.authorPhotoId() == null ? null : PdfWriter.imageUri(book, p.authorPhotoId().toString()) == null
-                    ? null : src.apply(p.authorPhotoId().toString());
-            if (photo != null) {
-                // A foto e o nome na página da esquerda, a biografia na da direita (o livro aberto)
-                if (fill && (last + 1) % 2 != 0) {
-                    pages.add(new Extra("Página em branco", blank(page)));
-                    last++;
-                }
-                pages.add(new Extra(title, sheet(book, page, src, null, block(page, 0.28, "autor",
-                        "<div class=\"x-photo\" style=\"background-image: url(%s)\"></div><p class=\"x-name\">%s</p>"
-                                .formatted(photo, escape(book.author()))))));
-                pages.add(new Extra(title + " (continuação)", sheet(book, page, src, null,
-                        block(page, 0.2, "texto", paragraphs(p.aboutAuthor())))));
-                last += 2;
-            } else {
-                pages.add(new Extra(title, sheet(book, page, src, null,
-                        block(page, 0.18, "texto", "<h2>%s</h2>".formatted(escape(title)) + paragraphs(p.aboutAuthor())))));
-                last++;
-            }
+        String title = present(p.aboutAuthorTitle()) ? p.aboutAuthorTitle() : "Sobre o autor";
+        String photo = p.authorPhotoId() == null || PdfWriter.imageUri(book, p.authorPhotoId().toString()) == null
+                ? null : src.apply(p.authorPhotoId().toString());
+        if (photo == null) {
+            pages.add(new Extra(title, sheet(book, extra, page, src, null,
+                    block(page, 0.18, "texto", "<h2>%s</h2>".formatted(escape(title)) + paragraphs(p.aboutAuthor())))));
+            return;
         }
-        boolean colophon = present(p.colophon());
-        if (fill) {
-            int total = last + (colophon ? 1 : 0);
-            for (int i = 0; i < (4 - total % 4) % 4; i++) {
-                pages.add(new Extra("Página em branco", blank(page)));
-            }
+        // A foto e o nome na página da esquerda (par), a biografia na da direita (o livro aberto)
+        if (fill && (last + 1) % 2 != 0) {
+            pages.add(blankPage(page));
         }
-        if (colophon) {
-            pages.add(new Extra("Colofão", sheet(book, page, src, null, block(page, 0.62, "colofao", paragraphs(p.colophon())))));
-        }
-        return pages;
+        pages.add(new Extra(title, sheet(book, extra, page, src, null, block(page, 0.28, "autor",
+                "<div class=\"x-photo\" style=\"background-image: url(%s)\"></div><p class=\"x-name\">%s</p>"
+                        .formatted(photo, escape(book.author()))))));
+        pages.add(new Extra(title + " (continuação)", sheet(book, extra, page, src, null,
+                block(page, 0.2, "texto", paragraphs(p.aboutAuthor())))));
+    }
+
+    /** Uma página em branco (as que fecham o livro em múltiplo de 4). */
+    static Extra blankPage(double[] page) {
+        return new Extra("Página em branco", blank(page));
     }
 
     /** Copyright, os créditos do autor (ficha técnica), a ficha catalográfica num quadro e o ISBN do impresso. */
@@ -123,16 +132,22 @@ final class PictureBookExtras {
         return html.toString();
     }
 
-    /** Uma página gerada: o fundo (a ilustração escolhida ou a cor), uma arte por cima (a capa) e o texto. */
-    private static String sheet(ExportBook book, double[] page, Function<String, String> src, String art, String body) {
+    /**
+     * Uma página gerada: o fundo, uma arte por cima (a capa) e o texto. O fundo é o que o autor escolheu só para esta
+     * página (a ilustração ou a cor); sem isso, o das páginas geradas na diagramação.
+     */
+    private static String sheet(ExportBook book, ExtraPage extra, double[] page, Function<String, String> src,
+                                String art, String body) {
         BookLayout layout = book.layout();
+        String imageId = extra.imageId() != null ? extra.imageId() : extra.color() != null ? null : layout.pagesImageId();
+        String color = extra.color() != null ? extra.color() : layout.pagesColor();
         String background = "";
-        if (art == null && layout.pagesImageId() != null && book.illustrations().containsKey(layout.pagesImageId())
-                && PdfWriter.imageUri(book, layout.pagesImageId()) != null) {
-            background = art(src.apply(layout.pagesImageId()), book.illustrations().get(layout.pagesImageId()).bytes(), page);
+        if (art == null && imageId != null && book.illustrations().containsKey(imageId)
+                && PdfWriter.imageUri(book, imageId) != null) {
+            background = art(src.apply(imageId), book.illustrations().get(imageId).bytes(), page);
         }
         return "<div class=\"pb-page x-page\" style=\"width: %smm; height: %smm\"><div class=\"pb-clip\" style=\"width: %smm; height: %smm; background-color: %s\">%s%s</div>%s</div>\n"
-                .formatted(mm(page[0]), mm(page[1] - 1), mm(page[0]), mm(page[1]), layout.pagesColor(), background,
+                .formatted(mm(page[0]), mm(page[1] - 1), mm(page[0]), mm(page[1]), color, background,
                         art == null ? "" : art, body);
     }
 

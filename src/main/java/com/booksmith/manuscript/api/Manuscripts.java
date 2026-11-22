@@ -118,7 +118,16 @@ public interface Manuscripts {
                      String acknowledgments, String aboutAuthor, String aboutAuthorTitle, Boolean halfTitle,
                      String catalogCard, String colophon, UUID authorPhotoId,
                      @com.fasterxml.jackson.annotation.JsonIgnore String isbnPrint,
-                     @com.fasterxml.jackson.annotation.JsonIgnore String isbnEbook) {
+                     @com.fasterxml.jackson.annotation.JsonIgnore String isbnEbook,
+                     @com.fasterxml.jackson.annotation.JsonIgnore List<ExtraPage> extras) {
+
+        /** Sem a organização das páginas geradas (o lugar de sempre, o fundo da diagramação). */
+        public BookPages(String credits, String dedication, String epigraph, String epigraphSource,
+                         String acknowledgments, String aboutAuthor, String aboutAuthorTitle, Boolean halfTitle,
+                         String catalogCard, String colophon, UUID authorPhotoId, String isbnPrint, String isbnEbook) {
+            this(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor, aboutAuthorTitle,
+                    halfTitle, catalogCard, colophon, authorPhotoId, isbnPrint, isbnEbook, null);
+        }
 
         public static final BookPages EMPTY = new BookPages(null, null, null, null, null, null, null);
 
@@ -167,7 +176,7 @@ public interface Manuscripts {
         public BookPages filled() {
             return new BookPages(unfilledRemoved(credits), unfilledRemoved(dedication), unfilledRemoved(epigraph), unfilledRemoved(epigraphSource),
                     unfilledRemoved(acknowledgments), unfilledRemoved(aboutAuthor), unfilledRemoved(aboutAuthorTitle), halfTitle, unfilledRemoved(catalogCard),
-                    unfilledRemoved(colophon), authorPhotoId, isbnPrint, isbnEbook);
+                    unfilledRemoved(colophon), authorPhotoId, isbnPrint, isbnEbook, extras);
         }
 
         private static String unfilledRemoved(String text) {
@@ -182,7 +191,43 @@ public interface Manuscripts {
         /** As mesmas páginas com os ISBNs do guia de publicação, que saem nos créditos. */
         public BookPages withIsbn(String print, String ebook) {
             return new BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
-                    aboutAuthorTitle, halfTitle, catalogCard, colophon, authorPhotoId, print, ebook);
+                    aboutAuthorTitle, halfTitle, catalogCard, colophon, authorPhotoId, print, ebook, extras);
+        }
+
+        /** As mesmas páginas com a organização das que o Booksmith gera no livro ilustrado. */
+        public BookPages withExtras(List<ExtraPage> pages) {
+            return new BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,
+                    aboutAuthorTitle, halfTitle, catalogCard, colophon, authorPhotoId, isbnPrint, isbnEbook, pages);
+        }
+
+        /**
+         * As páginas que o Booksmith gera no livro ilustrado ({@link ExtraPage#KEYS}) que este livro tem: a folha de
+         * rosto, os créditos e a página de rosto sempre; as outras quando têm texto (fora o modelo por completar).
+         */
+        public List<String> extraKeys() {
+            BookPages f = filled();
+            List<String> keys = new java.util.ArrayList<>(List.of("cover", "credits", "title"));
+            if (f.dedication() != null) {
+                keys.add("dedication");
+            }
+            if (f.epigraph() != null) {
+                keys.add("epigraph");
+            }
+            if (f.acknowledgments() != null) {
+                keys.add("acknowledgments");
+            }
+            if (f.aboutAuthor() != null) {
+                keys.add("about");
+            }
+            if (f.colophon() != null) {
+                keys.add("colophon");
+            }
+            return keys;
+        }
+
+        /** As páginas geradas que o livro tem, na ordem e no lugar escolhidos ({@link ExtraPage#arrange}). */
+        public List<ExtraPage> arrangedExtras(java.util.Collection<String> chapterIds) {
+            return ExtraPage.arrange(extras, extraKeys(), chapterIds);
         }
 
         public boolean hasHalfTitle() {
@@ -202,6 +247,7 @@ public interface Manuscripts {
             halfTitle = Boolean.TRUE.equals(halfTitle);
             catalogCard = clean(catalogCard);
             colophon = clean(colophon);
+            extras = extras == null ? List.of() : List.copyOf(extras);
         }
 
         private static String clean(String text) {

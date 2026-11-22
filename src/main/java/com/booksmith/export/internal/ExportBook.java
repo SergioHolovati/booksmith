@@ -78,8 +78,14 @@ record ExportBook(UUID id, String title, String author, String language, String 
      * @param document  o documento ProseMirror do capítulo (§8), já validado
      * @param partTitle o capítulo abre uma parte do livro ("Parte I — A partida"); null = continua a anterior
      * @param page      no livro ilustrado, o desenho da página (fundo, texto); null nos outros
+     * @param id        o id do capítulo (onde ficam as páginas geradas que o autor pôs no meio da história)
      */
-    record Chapter(String title, JsonNode document, String partTitle, com.booksmith.manuscript.api.PageDesign page) {
+    record Chapter(String title, JsonNode document, String partTitle, com.booksmith.manuscript.api.PageDesign page,
+                   UUID id) {
+
+        Chapter(String title, JsonNode document, String partTitle, com.booksmith.manuscript.api.PageDesign page) {
+            this(title, document, partTitle, page, null);
+        }
 
         Chapter(String title, JsonNode document, String partTitle) {
             this(title, document, partTitle, null);

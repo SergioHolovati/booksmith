@@ -190,7 +190,7 @@ public class ExportService {
             }
             chapters.add(new ExportBook.Chapter(BookHtml.chapterTitle(chapter.title(), i + 1), document,
                     chapter.partTitle() == null || chapter.partTitle().isBlank() ? null : chapter.partTitle().strip(),
-                    content.pictureBook() ? chapter.page() : null));
+                    content.pictureBook() ? chapter.page() : null, chapter.chapterId()));
         }
         String fandom = content.fanfic()
                 ? (content.fandom() == null || content.fandom().isBlank() ? "outra obra" : content.fandom().strip())
@@ -216,6 +216,11 @@ public class ExportService {
         // O fundo das páginas que o Booksmith gera no livro ilustrado (créditos, dedicatória, sobre o autor…)
         if (content.layout() != null && content.layout().pagesImageId() != null) {
             ids.add(content.layout().pagesImageId());
+        }
+        // O fundo próprio de cada página gerada, se o autor escolheu
+        if (content.pages() != null) {
+            content.pages().extras().stream().map(com.booksmith.manuscript.api.ExtraPage::imageId)
+                    .filter(java.util.Objects::nonNull).forEach(ids::add);
         }
         for (ExportBook.Chapter chapter : chapters) {
             ids.addAll(BookHtml.illustrationIds(chapter.document()));

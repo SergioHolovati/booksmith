@@ -92,24 +92,12 @@ final class PictureBookEpub {
         List<Page> pages = new ArrayList<>();
         java.util.function.Function<String, String> src = id -> "cover".equals(id) && book.cover() != null
                 ? "images/cover." + book.cover().extension() : href(book, id);
-        boolean auto = book.layout().generatesPages();
-        List<PictureBookExtras.Extra> front = auto ? PictureBookExtras.front(book, size, src) : List.of();
-        for (int i = 0; i < front.size(); i++) {
-            pages.add(new Page("front-%02d.xhtml".formatted(i + 1), front.get(i).title(), front.get(i).html(), null));
-        }
-        List<PictureBookHtml.Sheet> sheets = PictureBookHtml.sheets(book, size, src, front.size());
-        int chapter = 0;
-        for (int i = 0; i < sheets.size(); i++) {
-            PictureBookHtml.Sheet sheet = sheets.get(i);
-            String title = "right".equals(sheet.side())
-                    ? book.chapters().get(chapter - 1).title() + " (continuação)"
-                    : book.chapters().get(chapter++).title();
-            pages.add(new Page("page-%03d.xhtml".formatted(i + 1), title, sheet.html(), sheet.side()));
-        }
         // No e-book não há páginas em branco para fechar em múltiplo de 4
-        List<PictureBookExtras.Extra> back = auto ? PictureBookExtras.back(book, size, src, 0, false) : List.of();
-        for (int i = 0; i < back.size(); i++) {
-            pages.add(new Page("back-%02d.xhtml".formatted(i + 1), back.get(i).title(), back.get(i).html(), null));
+        int story = 0;
+        int extra = 0;
+        for (PictureBookHtml.Part part : PictureBookHtml.sequence(book, size, src, false).parts()) {
+            String file = part.story() ? "page-%03d.xhtml".formatted(++story) : "extra-%02d.xhtml".formatted(++extra);
+            pages.add(new Page(file, part.title(), part.html(), part.side()));
         }
         return pages;
     }

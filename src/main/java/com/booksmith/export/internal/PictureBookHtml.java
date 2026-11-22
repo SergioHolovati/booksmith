@@ -2,6 +2,7 @@ package com.booksmith.export.internal;
 
 import com.booksmith.manuscript.api.BookFont;
 import com.booksmith.manuscript.api.BookLayout;
+import com.booksmith.manuscript.api.ExtraPage;
 import com.booksmith.manuscript.api.PageDesign;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
@@ -144,29 +145,96 @@ final class PictureBookHtml {
     static java.util.List<Sheet> sheets(ExportBook book, double[] page, java.util.function.Function<String, String> src,
                                         int before) {
         java.util.List<Sheet> sheets = new java.util.ArrayList<>();
-        // A numeração das páginas, como o motor faz: a ímpar é a da direita (a sangria fica à direita), a par é a da
-        // esquerda; a dupla começa numa par, com uma página em branco antes se precisar
         int last = before;
         for (int i = 0; i < book.chapters().size(); i++) {
-            ExportBook.Chapter chapter = book.chapters().get(i);
-            PageDesign design = chapter.page() == null ? PageDesign.DEFAULT : chapter.page();
-            String id = "page-" + (i + 1);
-            java.util.List<Placed> texts = placed(design, chapter.document());
-            if (design.isSpread()) {
-                if ((last + 1) % 2 != 0) {
-                    last++; // a página em branco que o motor põe antes da dupla
-                }
-                last += 2;
-                sheets.add(new Sheet(page(book, design, page, id, 0, texts.stream().filter(t -> !onRight(t.design()))
-                        .toList(), true, false, last - 1, src), "left", last - 1));
-                sheets.add(new Sheet(page(book, design, page, null, page[0], texts.stream()
-                        .filter(t -> onRight(t.design())).toList(), false, true, last, src), "right", last));
-            } else {
-                last++;
-                sheets.add(new Sheet(page(book, design, page, id, 0, texts, false, last % 2 != 0, last, src), null, last));
-            }
+            java.util.List<Sheet> chapter = chapterSheets(book, i, page, src, last);
+            sheets.addAll(chapter);
+            last = chapter.getLast().number();
         }
         return sheets;
+    }
+
+    /**
+     * As folhas de uma página da história (a dupla são duas), depois da página {@code last}. A numeração é a do
+     * motor: a ímpar é a da direita (a sangria fica à direita), a par é a da esquerda; a dupla começa numa par, com
+     * uma página em branco antes se precisar.
+     */
+    private static java.util.List<Sheet> chapterSheets(ExportBook book, int i, double[] page,
+                                                       java.util.function.Function<String, String> src, int last) {
+        ExportBook.Chapter chapter = book.chapters().get(i);
+        PageDesign design = chapter.page() == null ? PageDesign.DEFAULT : chapter.page();
+        String id = "page-" + (i + 1);
+        java.util.List<Placed> texts = placed(design, chapter.document());
+        if (!design.isSpread()) {
+            return java.util.List.of(new Sheet(page(book, design, page, id, 0, texts, false, (last + 1) % 2 != 0,
+                    last + 1, src), null, last + 1));
+        }
+        int left = (last + 1) % 2 != 0 ? last + 2 : last + 1; // a página em branco que o motor põe antes da dupla
+        return java.util.List.of(
+                new Sheet(page(book, design, page, id, 0, texts.stream().filter(t -> !onRight(t.design())).toList(),
+                        true, false, left, src), "left", left),
+                new Sheet(page(book, design, page, null, page[0], texts.stream().filter(t -> onRight(t.design()))
+                        .toList(), false, true, left + 1, src), "right", left + 1));
+    }
+
+    /**
+     * Uma página do miolo, na ordem: uma folha da história ({@code chapter} = o índice da página da história,
+     * {@code side} na dupla) ou uma página gerada ({@code key}, a de {@link ExtraPage#KEYS}; null na página em
+     * branco).
+     */
+    record Part(String title, String html, String side, int chapter, String key) {
+
+        boolean story() {
+            return chapter >= 0;
+        }
+    }
+
+    /** O miolo inteiro e quantas páginas tem impresso (com as em branco que o motor põe antes da dupla). */
+    record Sequence(java.util.List<Part> parts, int pages) {
+    }
+
+    /**
+     * O miolo na ordem do livro: as páginas que o Booksmith gera (se a diagramação pede) no lugar que o autor escolheu
+     * entre as da história. {@code fill}: no impresso, completa com páginas em branco até um múltiplo de 4 (antes do
+     * colofão, se ele fecha o livro) e abre o "sobre" com foto numa dupla.
+     */
+    static Sequence sequence(ExportBook book, double[] page, java.util.function.Function<String, String> src,
+                             boolean fill) {
+        java.util.List<String> ids = book.chapters().stream().map(ExportBook.Chapter::id)
+                .filter(java.util.Objects::nonNull).map(id -> id.toString().toLowerCase(Locale.ROOT)).toList();
+        java.util.List<ExtraPage> extras = book.layout().generatesPages() ? book.pages().arrangedExtras(ids)
+                : java.util.List.of();
+        java.util.List<Part> parts = new java.util.ArrayList<>();
+        int[] last = {0};
+        java.util.function.Consumer<String> extrasAt = place -> extras.stream()
+                .filter(extra -> place.equalsIgnoreCase(extra.after()))
+                .forEach(extra -> PictureBookExtras.render(book, extra, page, src, last[0], fill).forEach(x -> {
+                    parts.add(new Part(x.title(), x.html(), null, -1, x.title().equals("Página em branco") ? null
+                            : extra.key()));
+                    last[0]++;
+                }));
+        extrasAt.accept(ExtraPage.START);
+        for (int i = 0; i < book.chapters().size(); i++) {
+            for (Sheet sheet : chapterSheets(book, i, page, src, last[0])) {
+                parts.add(new Part(book.chapters().get(i).title() + ("right".equals(sheet.side()) ? " (continuação)" : ""),
+                        sheet.html(), sheet.side(), i, null));
+                last[0] = sheet.number();
+            }
+            if (book.chapters().get(i).id() != null) {
+                extrasAt.accept(book.chapters().get(i).id().toString());
+            }
+        }
+        extrasAt.accept(ExtraPage.END);
+        if (fill && book.layout().generatesPages()) {
+            int blanks = (4 - last[0] % 4) % 4;
+            boolean colophonLast = !parts.isEmpty() && "colophon".equals(parts.getLast().key());
+            for (int b = 0; b < blanks; b++) {
+                var blank = PictureBookExtras.blankPage(page);
+                parts.add(colophonLast ? parts.size() - 1 : parts.size(), new Part(blank.title(), blank.html(), null, -1, null));
+            }
+            last[0] += blanks;
+        }
+        return new Sequence(parts, last[0]);
     }
 
     static String html(ExportBook book) {
@@ -175,13 +243,7 @@ final class PictureBookHtml {
 
     /** Quantas páginas o livro ilustrado tem impresso (com as que o Booksmith gera e as em branco do fim). */
     static int pageCount(ExportBook book) {
-        double[] page = PdfWriter.pageBoxMm(book.layout());
-        java.util.function.Function<String, String> src = id -> "x";
-        boolean auto = book.layout().generatesPages();
-        int front = auto ? PictureBookExtras.front(book, page, src).size() : 0;
-        java.util.List<Sheet> sheets = sheets(book, page, src, front);
-        int last = sheets.isEmpty() ? front : sheets.getLast().number();
-        return last + (auto ? PictureBookExtras.back(book, page, src, last, true).size() : 0);
+        return sequence(book, PdfWriter.pageBoxMm(book.layout()), id -> "x", true).pages();
     }
 
     /** {@code fill}: completa o livro com páginas em branco até múltiplo de 4 (no impresso; no e-book não). */
@@ -190,24 +252,14 @@ final class PictureBookHtml {
         double[] page = PdfWriter.pageBoxMm(layout);
         StringBuilder pages = new StringBuilder();
         StringBuilder bookmarks = new StringBuilder();
-        // A numeração das páginas, como o motor faz: a ímpar é a da direita (a sangria fica à direita), a par é a da
-        // esquerda; a dupla começa numa par, com uma página em branco antes se precisar
-        boolean auto = layout.generatesPages();
         for (int i = 0; i < book.chapters().size(); i++) {
             bookmarks.append("<bookmark name=\"%s\" href=\"#page-%d\"/>\n"
                     .formatted(escape(book.chapters().get(i).title()), i + 1));
         }
         java.util.function.Function<String, String> src = id -> "cover".equals(id)
                 ? PdfWriter.IMAGE_SCHEME + ":cover" : PdfWriter.imageUri(book, id);
-        // As páginas que o Booksmith gera (frente e fim), em volta da história, como num miolo de editora
-        java.util.List<PictureBookExtras.Extra> front = auto ? PictureBookExtras.front(book, page, src) : java.util.List.of();
-        java.util.List<Sheet> sheets = sheets(book, page, src, front.size());
-        int lastStory = sheets.isEmpty() ? front.size() : sheets.getLast().number();
-        java.util.List<PictureBookExtras.Extra> back = auto ? PictureBookExtras.back(book, page, src, lastStory, fill)
-                : java.util.List.of();
-        front.forEach(extra -> pages.append(extra.html()));
-        sheets.forEach(sheet -> pages.append(sheet.html()));
-        back.forEach(extra -> pages.append(extra.html()));
+        // As páginas que o Booksmith gera, no lugar escolhido entre as da história, como num miolo de editora
+        sequence(book, page, src, fill).parts().forEach(part -> pages.append(part.html()));
         return """
                 <!DOCTYPE html>
                 <html lang="%1$s">

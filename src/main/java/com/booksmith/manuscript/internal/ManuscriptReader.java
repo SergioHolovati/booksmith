@@ -51,7 +51,8 @@ class ManuscriptReader implements Manuscripts {
                 .toList();
         return new BookContent(book.getId(), book.getTitle(), book.getSynopsis(), book.getLanguage().tag(),
                 book.getKind() == BookKind.FANFIC, book.getFandom(), book.getCoverUrl(), book.getUniverseId(), chapters,
-                pagesWithIsbn(book, detail.publishing()), bookService.layoutOf(book), book.getGenre().name());
+                pagesWithIsbn(book, detail.publishing()).withExtras(bookService.pagesOf(book).extras()),
+                bookService.layoutOf(book), book.getGenre().name());
     }
 
     /** Fanfic não tem ISBN; nos outros livros, o do guia de publicação vai para os créditos. */

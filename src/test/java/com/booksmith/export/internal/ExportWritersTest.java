@@ -1322,4 +1322,50 @@ class ExportWritersTest {
             assertThat(ebook.getNumberOfPages()).isLessThanOrEqualTo(check.pageCount());
         }
     }
+
+    @Test
+    void generatedPagesGoWhereTheAuthorPutThemWithTheirOwnBackground() throws Exception {
+        ExportBook base = pictureBook();
+        // As páginas da história com id, para a dedicatória ficar depois da primeira
+        List<ExportBook.Chapter> chapters = new ArrayList<>();
+        for (var c : base.chapters()) {
+            chapters.add(new ExportBook.Chapter(c.title(), c.document(), c.partTitle(), c.page(), UUID.randomUUID()));
+        }
+        String first = chapters.getFirst().id().toString();
+        var pages = new com.booksmith.manuscript.api.Manuscripts.BookPages(null, "Para a Lia.", null, null, null, null,
+                null, false, null, "Composto em Andika.", null).withExtras(List.of(
+                new com.booksmith.manuscript.api.ExtraPage("dedication", first, null, "#123456"),
+                new com.booksmith.manuscript.api.ExtraPage("credits", "end", IMAGE_ID, null)));
+        ExportBook book = new ExportBook(base.id(), base.title(), base.author(), base.language(), null, null, null,
+                base.generatedAt(), chapters, base.illustrations(), pages, base.layout(), true);
+
+        var parts = PictureBookHtml.sequence(book, PdfWriter.pageBoxMm(book.layout()), id -> "x", true).parts();
+        List<String> titles = parts.stream().map(PictureBookHtml.Part::title).toList();
+        // Folha de rosto e página de rosto no começo; a dedicatória depois da página 1; os créditos no fim, antes das
+        // páginas em branco e do colofão, que fecha o livro
+        assertThat(titles.subList(0, 4)).containsExactly("Folha de rosto", "Página de rosto", "Página 1", "Dedicatória");
+        assertThat(titles.indexOf("Créditos")).isGreaterThan(titles.indexOf("Página 3"));
+        assertThat(titles.getLast()).isEqualTo("Colofão");
+        // O fundo próprio: a cor da dedicatória, a ilustração nos créditos
+        assertThat(parts.get(3).html()).contains("background-color: #123456").doesNotContain("pb-art");
+        assertThat(parts.get(titles.indexOf("Créditos")).html()).contains("class=\"pb-art\"");
+        // A conta das páginas bate com o PDF e fecha em múltiplo de 4
+        int count = PictureBookHtml.pageCount(book);
+        assertThat(count % 4).isZero();
+        try (PDDocument pdf = Loader.loadPDF(PdfWriter.write(book))) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(count);
+        }
+    }
+
+    @Test
+    void generatedPagesAfterAPageThatLeftTheBookGoBackToTheirPlace() {
+        var stored = List.of(new com.booksmith.manuscript.api.ExtraPage("colophon", "start", null, null),
+                new com.booksmith.manuscript.api.ExtraPage("dedication", UUID.randomUUID().toString(), null, null));
+        var arranged = com.booksmith.manuscript.api.ExtraPage.arrange(stored,
+                List.of("cover", "credits", "title", "dedication", "colophon"), List.of());
+        assertThat(arranged).extracting(com.booksmith.manuscript.api.ExtraPage::key)
+                .containsExactly("cover", "credits", "title", "colophon", "dedication");
+        assertThat(arranged).extracting(com.booksmith.manuscript.api.ExtraPage::after)
+                .containsExactly("start", "start", "start", "start", "start");
+    }
 }

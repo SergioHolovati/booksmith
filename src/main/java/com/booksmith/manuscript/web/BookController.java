@@ -4,6 +4,7 @@ import com.booksmith.common.web.PageResponse;
 import com.booksmith.identity.api.CurrentUser;
 import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.manuscript.api.CoverPdf;
+import com.booksmith.manuscript.api.ExtraPage;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.manuscript.internal.BookService;
 import com.booksmith.manuscript.internal.CoverDesign;
@@ -73,6 +74,30 @@ class BookController {
     @PutMapping("/{bookId}/pages")
     Manuscripts.BookPages updatePages(@PathVariable UUID bookId, @RequestBody @Valid BookPagesRequest request) {
         return bookService.updatePages(currentUser.id(), bookId, request.toPages());
+    }
+
+    /**
+     * Livro ilustrado: as páginas que o Booksmith gera (folha de rosto, créditos, dedicatória, sobre o autor…) que o
+     * livro tem, na ordem, com o lugar entre as páginas da história e o fundo de cada uma.
+     */
+    @GetMapping("/{bookId}/extra-pages")
+    java.util.List<ExtraPage> extraPages(@PathVariable UUID bookId) {
+        return bookService.extraPages(currentUser.id(), bookId);
+    }
+
+    /** Troca o lugar e o fundo das páginas geradas (a lista inteira, na ordem). */
+    @PutMapping("/{bookId}/extra-pages")
+    java.util.List<ExtraPage> updateExtraPages(@PathVariable UUID bookId,
+                                               @RequestBody java.util.List<ExtraPageRequest> request) {
+        // Validado aqui (e não na leitura do JSON): valor fora do formato é 422, com a mensagem
+        return bookService.updateExtraPages(currentUser.id(), bookId, request == null ? java.util.List.of()
+                : request.stream().map(ExtraPageRequest::toPage).toList());
+    }
+
+    record ExtraPageRequest(String key, String after, String imageId, String color) {
+        ExtraPage toPage() {
+            return new ExtraPage(key, after, imageId, color);
+        }
     }
 
     /** Capa feita no editor do app: a imagem desenhada vira a capa do livro e o desenho fica guardado. */
