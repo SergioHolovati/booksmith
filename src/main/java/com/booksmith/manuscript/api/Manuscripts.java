@@ -137,6 +137,48 @@ public interface Manuscripts {
                     halfTitle, catalogCard, colophon, authorPhotoId, null, null);
         }
 
+        /**
+         * Os modelos com que todo livro novo nasce: o que fica entre colchetes é para o autor completar. Linha com
+         * colchete que sobrou não sai no livro ({@link #filled()}) e a conferência para a gráfica avisa.
+         */
+        public static final BookPages TEMPLATE = new BookPages(
+                "Edição: [editora, ou edição independente]\n"
+                        + "Revisão: [nome de quem revisou]\n"
+                        + "Ilustração: [nome de quem ilustrou]\n"
+                        + "Capa: [nome de quem fez a capa]\n"
+                        + "Projeto gráfico e diagramação: [nome]\n"
+                        + "[Cidade], [ano]",
+                null, null, null, null,
+                "[Conte em poucas linhas quem você é: onde vive, o que faz, o que escreve e por que escreveu este livro.]",
+                null, null, null,
+                "Este livro foi composto em [fonte] e impresso em [papel] pela [gráfica], em [mês e ano].", null);
+
+        private static final java.util.regex.Pattern PLACEHOLDER = java.util.regex.Pattern.compile("\\[[^\\]\\n]{1,120}\\]");
+
+        /** As linhas que ainda têm um campo do modelo para completar ("[nome de quem revisou]"). */
+        public static List<String> pending(String text) {
+            if (text == null) {
+                return List.of();
+            }
+            return text.lines().map(String::strip).filter(line -> PLACEHOLDER.matcher(line).find()).toList();
+        }
+
+        /** As páginas sem as linhas do modelo que ficaram por completar (elas não saem no livro). */
+        public BookPages filled() {
+            return new BookPages(unfilledRemoved(credits), unfilledRemoved(dedication), unfilledRemoved(epigraph), unfilledRemoved(epigraphSource),
+                    unfilledRemoved(acknowledgments), unfilledRemoved(aboutAuthor), unfilledRemoved(aboutAuthorTitle), halfTitle, unfilledRemoved(catalogCard),
+                    unfilledRemoved(colophon), authorPhotoId, isbnPrint, isbnEbook);
+        }
+
+        private static String unfilledRemoved(String text) {
+            if (text == null) {
+                return null;
+            }
+            String kept = String.join("\n", text.lines().filter(line -> !PLACEHOLDER.matcher(line).find()).toList())
+                    .strip();
+            return kept.isEmpty() ? null : kept;
+        }
+
         /** As mesmas páginas com os ISBNs do guia de publicação, que saem nos créditos. */
         public BookPages withIsbn(String print, String ebook) {
             return new BookPages(credits, dedication, epigraph, epigraphSource, acknowledgments, aboutAuthor,

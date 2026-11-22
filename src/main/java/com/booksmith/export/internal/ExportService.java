@@ -72,7 +72,9 @@ public class ExportService {
      * @throws ApiException 404 se o livro não é do usuário; 422 {@code book_empty} se não há capítulos
      */
     public PrintCheck.Result printCheck(UUID ownerId, String author, UUID bookId, BookLayout layout) {
-        return PrintCheck.check(prepare(manuscripts.bookContent(ownerId, bookId), author).withLayout(layout));
+        BookContent content = manuscripts.bookContent(ownerId, bookId);
+        PrintCheck.Result result = PrintCheck.check(prepare(content, author).withLayout(layout));
+        return content.pages() == null ? result : result.withPending(content.pages());
     }
 
     /**
@@ -196,7 +198,7 @@ public class ExportService {
         var cover = content.coverUrl() == null ? null : imageStorage.read(content.coverUrl()).orElse(null);
         return new ExportBook(content.bookId(), content.title().strip(), author, content.language(),
                 content.synopsis(), fandom, cover, Instant.now(clock), chapters, illustrations(content, chapters),
-                content.pages() == null ? Manuscripts.BookPages.EMPTY : content.pages(),
+                content.pages() == null ? Manuscripts.BookPages.EMPTY : content.pages().filled(),
                 content.layout() == null ? BookLayout.DEFAULT : content.layout(), content.pictureBook());
     }
 

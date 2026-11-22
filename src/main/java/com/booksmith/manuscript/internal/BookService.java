@@ -62,6 +62,8 @@ public class BookService {
                 .language(data.language() == null ? BookLanguage.DEFAULT : data.language())
                 .build();
         apply(book, data);
+        // O livro já nasce com os créditos, o "sobre o autor" e o colofão em modelo, para completar
+        book.setPages(Manuscripts.BookPages.TEMPLATE);
         if (data.coverDataUrl() != null) {
             book.setCoverUrl(imageStorage.store(ImageCategory.BOOK_COVER, ownerId, data.coverDataUrl()).url());
         }

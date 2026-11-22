@@ -65,6 +65,28 @@ public final class PrintCheck {
      */
     public record Result(int minDpi, double textWidthMm, List<Illustration> illustrations, boolean needsBleed,
                          List<PageCheck> pages, int pageCount) {
+
+        /**
+         * Com o aviso dos campos do modelo que ficaram por completar ("[nome de quem revisou]"): essas linhas não
+         * saem no livro.
+         */
+        Result withPending(com.booksmith.manuscript.api.Manuscripts.BookPages raw) {
+            List<String> pending = new ArrayList<>();
+            for (String[] field : new String[][] {{"Créditos", raw.credits()}, {"Ficha catalográfica", raw.catalogCard()},
+                    {"Dedicatória", raw.dedication()}, {"Agradecimentos", raw.acknowledgments()},
+                    {"Sobre o autor", raw.aboutAuthor()}, {"Colofão", raw.colophon()}}) {
+                var lines = com.booksmith.manuscript.api.Manuscripts.BookPages.pending(field[1]);
+                if (!lines.isEmpty()) {
+                    pending.add(field[0] + " (" + lines.size() + (lines.size() == 1 ? " linha)" : " linhas)"));
+                }
+            }
+            List<PageCheck> checks = new ArrayList<>(pages);
+            checks.add(0, new PageCheck("template", "Campos do modelo", pending.isEmpty() ? "ok" : "warn",
+                    pending.isEmpty() ? "Tudo completado."
+                            : "Falta completar o que está entre colchetes em: " + String.join(", ", pending)
+                            + ". Até lá, essas linhas não saem no livro."));
+            return new Result(minDpi, textWidthMm, illustrations, needsBleed, List.copyOf(checks), pageCount);
+        }
     }
 
     /**
