@@ -201,6 +201,18 @@
 			<artifactId>spring-modulith-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Moderação de imagens: o classificador (ONNX) roda no próprio servidor; nenhuma imagem sai dele -->
+		<dependency>
+			<groupId>com.microsoft.onnxruntime</groupId>
+			<artifactId>onnxruntime</artifactId>
+			<version>1.31.1</version>
+		</dependency>
+		<!-- Lê WebP (o Java não lê sozinho): toda imagem aceita precisa poder ser conferida pela moderação -->
+		<dependency>
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-webp</artifactId>
+			<version>3.15.3</version>
+		</dependency>
 		<!-- Valida o ePub gerado nos testes, como as lojas fazem -->
 		<dependency>
 			<groupId>org.w3c</groupId>

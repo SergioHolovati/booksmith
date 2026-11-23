@@ -100,6 +100,7 @@ booksmith:
     mfa-failed-per-hour: ${ALERT_MFA_FAILED_PER_HOUR:10}
     server-errors-per-hour: ${ALERT_SERVER_ERRORS_PER_HOUR:10}
     quota-hits-per-hour: ${ALERT_QUOTA_HITS_PER_HOUR:20}
+    images-flagged-per-hour: ${ALERT_IMAGES_FLAGGED_PER_HOUR:1}
   # Versão em vigor dos termos de uso, termo de responsabilidade e política de privacidade (data da versão). Mudou o
   # texto? Troque a versão: quem já tem conta precisa aceitar de novo antes de seguir usando o app.
   terms:
@@ -146,6 +147,13 @@ booksmith:
     secret-key: ${MEDIA_S3_SECRET_KEY:}
     public-base-url: ${MEDIA_PUBLIC_BASE_URL:https://media.booksmith.com.br}
     max-image-size: 5MB
+  # Moderação das imagens enviadas: classificador de nudez/conteúdo sexual (ONNX) rodando no servidor. Sem modelo,
+  # desligada (desenvolvimento); em produção MODERATION_REQUIRED=true (a imagem da API traz o modelo).
+  moderation:
+    model: ${MODERATION_MODEL:}
+    required: ${MODERATION_REQUIRED:false}
+    review-at: ${MODERATION_REVIEW_AT:0.80}
+    block-at: ${MODERATION_BLOCK_AT:0.97}
 
 ---
 spring:

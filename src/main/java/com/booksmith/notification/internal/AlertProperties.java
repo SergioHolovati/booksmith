@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param mfaFailedPerHour    desafios de MFA encerrados por códigos errados
  * @param serverErrorsPerHour erros 500
  * @param quotaHitsPerHour    limites diários de PDF atingidos
+ * @param imagesFlaggedPerHour imagens que a moderação mandou para revisão ou recusou (1: avisa a cada hora com alguma)
  */
 @ConfigurationProperties("booksmith.alerts")
 public record AlertProperties(
@@ -19,6 +20,7 @@ public record AlertProperties(
         int rateLimitedPerHour,
         int mfaFailedPerHour,
         int serverErrorsPerHour,
-        int quotaHitsPerHour
+        int quotaHitsPerHour,
+        int imagesFlaggedPerHour
 ) {
 }

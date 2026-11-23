@@ -45,7 +45,7 @@ class SecurityAlertsTest {
         when(values.setIfAbsent(anyString(), anyString(), any(Duration.class)))
                 .thenAnswer(i -> store.putIfAbsent(i.getArgument(0), i.getArgument(1)) == null);
         alerts = new SecurityAlerts(redis, emailSender,
-                new AlertProperties("admin@example.com", 3, 100, 10, 10, 10),
+                new AlertProperties("admin@example.com", 3, 100, 10, 10, 10, 1),
                 Clock.fixed(Instant.parse("2026-11-13T15:10:00Z"), ZoneOffset.UTC));
     }
 
@@ -66,7 +66,7 @@ class SecurityAlertsTest {
     @Test
     void withoutAnEmailItOnlyLogs() {
         SecurityAlerts silent = new SecurityAlerts(mock(StringRedisTemplate.class, org.mockito.Mockito.RETURNS_DEEP_STUBS),
-                emailSender, new AlertProperties("", 1, 1, 1, 1, 1), Clock.systemUTC());
+                emailSender, new AlertProperties("", 1, 1, 1, 1, 1, 1), Clock.systemUTC());
         silent.check();
         verify(emailSender, never()).sendSecurityNotice(anyString(), anyString(), anyString());
     }

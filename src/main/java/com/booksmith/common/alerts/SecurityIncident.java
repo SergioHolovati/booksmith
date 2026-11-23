@@ -17,6 +17,10 @@ public record SecurityIncident(Kind kind, String detail) {
         /** Erro 500 na API. */
         SERVER_ERROR,
         /** Pessoa bateu num limite diário (PDF). */
-        QUOTA_HIT
+        QUOTA_HIT,
+        /** Imagem enviada foi para a revisão do admin (a moderação ficou em dúvida). */
+        IMAGE_FLAGGED,
+        /** Imagem enviada foi recusada pela moderação. */
+        IMAGE_BLOCKED
     }
 }

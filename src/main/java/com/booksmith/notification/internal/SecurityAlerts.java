@@ -83,6 +83,7 @@ public class SecurityAlerts {
             case MFA_FAILED -> properties.mfaFailedPerHour();
             case SERVER_ERROR -> properties.serverErrorsPerHour();
             case QUOTA_HIT -> properties.quotaHitsPerHour();
+            case IMAGE_FLAGGED, IMAGE_BLOCKED -> properties.imagesFlaggedPerHour();
         };
     }
 
@@ -93,6 +94,8 @@ public class SecurityAlerts {
             case MFA_FAILED -> "desafios de MFA encerrados por códigos errados";
             case SERVER_ERROR -> "erros 500 na API";
             case QUOTA_HIT -> "limites diários de PDF atingidos";
+            case IMAGE_FLAGGED -> "imagens para revisar (moderação em dúvida; veja Admin > Imagens)";
+            case IMAGE_BLOCKED -> "imagens recusadas pela moderação (veja Admin > Imagens)";
         };
     }
 

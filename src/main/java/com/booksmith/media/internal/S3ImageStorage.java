@@ -1,5 +1,6 @@
 package com.booksmith.media.internal;
 
+import com.booksmith.common.alerts.SecurityIncident;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.media.api.ImageCategory;
 import com.booksmith.media.api.ImageStorage;
@@ -24,6 +25,9 @@ class S3ImageStorage implements ImageStorage {
 
     private final S3Client s3Client;
     private final MediaProperties properties;
+    private final ImageModeration moderation;
+    private final ImageReviewStore reviews;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     @Override
     public StoredImage store(ImageCategory category, UUID ownerId, String dataUrl) {
@@ -39,6 +43,17 @@ class S3ImageStorage implements ImageStorage {
         // Cabeçalho legível e tamanho em pixels dentro do limite (contra "bomba de descompressão")
         ImageDimensions.require(bytes, format);
 
+        // Moderação: imprópria demais é recusada (não é guardada); em dúvida, entra e vai para a revisão do admin
+        ImageModeration.Verdict verdict = moderation.check(bytes);
+        if (verdict.decision() == ImageModeration.Decision.BLOCK) {
+            reviews.blocked(ownerId, category, verdict.score());
+            events.publishEvent(new SecurityIncident(SecurityIncident.Kind.IMAGE_BLOCKED, category.name()));
+            log.warn("Moderação: imagem recusada ({}, {}) de userId: {}", category, verdict.score(), ownerId);
+            throw ApiException.unprocessable("image_blocked",
+                    "Esta imagem não pode entrar no Booksmith: ela parece ter nudez ou conteúdo sexual. "
+                            + "Se for engano, fale com o suporte.");
+        }
+
         // Chave única por upload: evita cache desatualizado na CDN ao trocar a imagem
         String key = "%s/%s/%s.%s".formatted(category.keyPrefix(), ownerId, UUID.randomUUID(), format.extension);
 
@@ -50,7 +65,13 @@ class S3ImageStorage implements ImageStorage {
                         .build(),
                 RequestBody.fromBytes(bytes));
 
-        return new StoredImage(key, publicUrl(key), format.contentType, bytes.length);
+        String url = publicUrl(key);
+        if (verdict.decision() == ImageModeration.Decision.REVIEW) {
+            reviews.pending(ownerId, category, key, url, verdict.score());
+            events.publishEvent(new SecurityIncident(SecurityIncident.Kind.IMAGE_FLAGGED, category.name()));
+            log.warn("Moderação: imagem {} para revisão ({}) de userId: {}", key, verdict.score(), ownerId);
+        }
+        return new StoredImage(key, url, format.contentType, bytes.length);
     }
 
     @Override
