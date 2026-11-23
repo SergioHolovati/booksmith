@@ -111,14 +111,30 @@ class ExportController {
         ExportQuota.Use use = quota.consumeCoverPdf(user.id());
         try {
             return attachment(exportService.printCover(user.id(), authorName(user), bookId, request.profile(),
-                    request.spineMm(), request.bleedMm(), request.flapMm(), request.image()));
+                    request.spineMm(), request.bleedMm(), request.flapMm(), request.image(),
+                    Boolean.TRUE.equals(request.cmyk())));
         } catch (RuntimeException e) {
             quota.refund(use);
             throw e;
         }
     }
 
-    record PrintCoverRequest(String profile, Double spineMm, Double bleedMm, Double flapMm, String image) {
+    record PrintCoverRequest(String profile, Double spineMm, Double bleedMm, Double flapMm, String image, Boolean cmyk) {
+    }
+
+    /**
+     * PDF para gráfica: PDF/X-1a em CMYK (perfil FOGRA39). Conta no limite diário de PDFs, como o PDF de leitura.
+     */
+    @GetMapping("/books/{bookId}/export/pdfx")
+    ResponseEntity<byte[]> exportPrint(@PathVariable UUID bookId) {
+        AuthenticatedUser user = currentUser.get();
+        ExportQuota.Use use = quota.consumeBookPdf(user.id());
+        try {
+            return attachment(exportService.exportPrint(user.id(), authorName(user), bookId));
+        } catch (RuntimeException e) {
+            quota.refund(use);
+            throw e;
+        }
     }
 
     /** {@code format}: epub, pdf ou docx. O PDF conta no limite diário (429 {@code pdf_daily_limit}). */

@@ -87,6 +87,10 @@ booksmith:
   export:
     pdf-per-day: ${PDF_PER_DAY:2}
     cover-pdf-per-day: ${COVER_PDF_PER_DAY:5}
+    # PDF para gráfica (CMYK, PDF/X-1a): o Ghostscript. No servidor, o "gs" da imagem da API; no notebook, o de
+    # tools/gs (o iniciar.ps1 passa o caminho em GHOSTSCRIPT).
+    ghostscript: ${GHOSTSCRIPT:gs}
+    ghostscript-timeout: ${GHOSTSCRIPT_TIMEOUT:180s}
   # Alertas de segurança por e-mail ao administrador: a partir de quantos eventos por hora cada tipo dispara.
   # Sem ALERT_EMAIL, só o log.
   alerts:

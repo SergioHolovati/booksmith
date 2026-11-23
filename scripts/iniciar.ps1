@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Sobe o ambiente local inteiro do Booksmith: Docker (banco, imagens, backups), API (porta 8090) e app (porta 4200).
   Pode rodar de novo a qualquer momento: o que já está no ar é mantido.
@@ -43,6 +43,9 @@ if (Listening 8090) {
     # No local, a verificação em duas etapas é opcional (produção continua exigindo). Para testar como em
     # produção (e para os testes Robot do MFA obrigatório): $env:MFA_REQUIRED = "true" antes de rodar este script.
     if (-not $env:MFA_REQUIRED) { $env:MFA_REQUIRED = "false" }
+    # PDF para gráfica (CMYK, PDF/X-1a): o Ghostscript de tools\gs, se estiver instalado
+    $gs = Join-Path $project "tools\gs\bin\gswin64c.exe"
+    if (-not $env:GHOSTSCRIPT -and (Test-Path $gs)) { $env:GHOSTSCRIPT = $gs }
     Start-Process -FilePath (Join-Path $root "mvnw.cmd") -ArgumentList "-q", "-DskipTests", "spring-boot:run" `
         -WorkingDirectory $root -RedirectStandardOutput (Join-Path $logs "api.log") -WindowStyle Hidden
     Write-Host -NoNewline "Iniciando a API"

@@ -49,7 +49,8 @@ ls -1t "$ROOT"/releases/booksmith-*.tar 2>/dev/null | tail -n +6 | xargs -r rm -
 ls -1t "$ROOT"/releases/booksmith-web-*.tar 2>/dev/null | tail -n +6 | xargs -r rm -f
 
 echo "== 4. Build e subida"
-compose build --pull api caddy spellcheck backup-offsite
+# APT_REFRESH muda a cada dia: a camada do apt (Ghostscript) é refeita e pega as correções de segurança do Ubuntu
+compose build --pull --build-arg APT_REFRESH="$(date +%Y%m%d)" api caddy spellcheck backup-offsite
 compose up -d --remove-orphans
 
 echo "== 5. Saúde da API"
@@ -72,6 +73,25 @@ if [ "$healthy" != true ]; then
     echo "   Voltou. O banco pode ter migrações novas: se a volta não subir, restaure o backup do passo 1."
   fi
   exit 1
+fi
+
+echo "== 6. Ghostscript (PDF para gráfica): versão e falhas conhecidas (OSV)"
+gs_version=$(docker exec booksmith-api-1 dpkg-query -W -f='${Version}' ghostscript 2>/dev/null || echo "")
+ubuntu=$(docker exec booksmith-api-1 sh -c '. /etc/os-release && echo "$VERSION_ID"' 2>/dev/null || echo "")
+if [ -z "$gs_version" ]; then
+  echo "   AVISO: Ghostscript não encontrado na imagem da API (o PDF para gráfica fica indisponível)"
+else
+  query="{\"package\":{\"name\":\"ghostscript\",\"ecosystem\":\"Ubuntu:${ubuntu}:LTS\"},\"version\":\"${gs_version}\"}"
+  if answer=$(curl -fsS --max-time 20 https://api.osv.dev/v1/query -d "$query"); then
+    vulns=$(printf '%s' "$answer" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 | sort -u | paste -sd' ' -)
+    if [ -z "$vulns" ]; then
+      echo "   ghostscript $gs_version (Ubuntu $ubuntu): nenhuma falha conhecida"
+    else
+      echo "   AVISO: ghostscript $gs_version (Ubuntu $ubuntu) com falhas conhecidas sem correção: $vulns"
+    fi
+  else
+    echo "   Não deu para consultar o OSV agora (ghostscript $gs_version, Ubuntu $ubuntu)"
+  fi
 fi
 
 docker image prune -f >/dev/null

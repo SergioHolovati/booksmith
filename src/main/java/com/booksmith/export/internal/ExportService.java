@@ -30,6 +30,7 @@ public class ExportService {
     private final Universes universes;
     private final JsonMapper jsonMapper;
     private final Clock clock;
+    private final PdfX pdfx;
 
     /** PDFs das prévias mais recentes: navegar pelas páginas não gera o livro de novo. */
     private static final int PREVIEW_CACHE = 6;
@@ -137,6 +138,16 @@ public class ExportService {
     /** Idem, com orelhas. */
     public ExportFile printCover(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
                                  Double bleedMm, Double flapMm, String imageDataUrl) {
+        return printCover(ownerId, author, bookId, profile, spineMm, bleedMm, flapMm, imageDataUrl, false);
+    }
+
+    /**
+     * Idem; com {@code cmyk}, a capa sai em PDF/X-1a, CMYK (como o miolo para gráfica). Com capa importada em PDF (a
+     * frente ou a capa aberta), não há conversão: o Ghostscript só lê PDFs que a própria API gerou, e as cores são
+     * as do arquivo de quem fez.
+     */
+    public ExportFile printCover(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
+                                 Double bleedMm, Double flapMm, String imageDataUrl, boolean cmyk) {
         PrintCover.Spec spec = printCoverSpec(ownerId, author, bookId, profile, spineMm, bleedMm, flapMm);
         var imported = manuscripts.coverPdf(ownerId, bookId).orElse(null);
         byte[] pdf;
@@ -152,11 +163,34 @@ public class ExportService {
         } else {
             byte[] front = imported == null ? null : pdfStorage.read(imported.url()).orElse(null);
             pdf = PrintCover.pdf(spec, imageDataUrl, front, imported);
+            // Só a capa desenhada aqui vai para o Ghostscript: a frente importada em PDF é conteúdo do usuário (fontes
+            // e tudo), e o Ghostscript só lê o que a própria API gerou. Ela sai com as cores do arquivo de quem fez
+            if (cmyk && imported == null) {
+                pdf = pdfx.convert(withCoverBoxes(pdf, spec), manuscripts.bookContent(ownerId, bookId).title());
+            }
         }
         String title = manuscripts.bookContent(ownerId, bookId).title();
         log.info("Capa para gráfica do livro {}: {} x {} mm, {} páginas, {} KB", bookId, spec.widthMm(), spec.heightMm(),
                 spec.pages(), pdf.length / 1024);
         return new ExportFile("capa-" + filename(title, ExportFormat.PDF), ExportFormat.PDF.contentType(), pdf);
+    }
+
+    /** A capa aberta com o corte (sem a sangria) e a sangria (a página inteira), para o PDF/X. */
+    private static byte[] withCoverBoxes(byte[] pdf, PrintCover.Spec spec) {
+        try (var document = org.apache.pdfbox.Loader.loadPDF(pdf)) {
+            float points = 72f / 25.4f;
+            float bleed = (float) spec.bleedMm() * points;
+            var page = document.getPage(0);
+            var media = page.getMediaBox();
+            page.setBleedBox(media);
+            page.setTrimBox(new org.apache.pdfbox.pdmodel.common.PDRectangle(bleed, bleed,
+                    media.getWidth() - 2 * bleed, media.getHeight() - 2 * bleed));
+            var out = new java.io.ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     /** Lado maior das ilustrações na prévia (a página da prévia é uma imagem pequena; a dupla tem duas larguras). */
@@ -207,6 +241,22 @@ public class ExportService {
         log.info("Exportação {} do livro {}: {} capítulos, {} KB em {} ms", format, bookId, book.chapters().size(),
                 bytes.length / 1024, (System.nanoTime() - start) / 1_000_000);
         return new ExportFile(filename(book.title(), format), format.contentType(), bytes);
+    }
+
+    /**
+     * PDF para gráfica: o PDF do livro em PDF/X-1a, CMYK, com o perfil ISO Coated v2 (FOGRA39); o texto preto só na
+     * chapa preta. A diagramação é a mesma do PDF de leitura (com sangria, se ligada).
+     *
+     * @throws ApiException 503 {@code print_pdf_unavailable}; 500 {@code print_pdf_failed}
+     */
+    public ExportFile exportPrint(UUID ownerId, String author, UUID bookId) {
+        ExportBook book = prepare(manuscripts.bookContent(ownerId, bookId), author);
+        long start = System.nanoTime();
+        byte[] bytes = pdfx.convert(PdfWriter.write(book), book.title());
+        log.info("PDF para gráfica do livro {}: {} KB em {} ms", bookId, bytes.length / 1024,
+                (System.nanoTime() - start) / 1_000_000);
+        String name = filename(book.title(), ExportFormat.PDF).replaceFirst("\\.pdf$", "-grafica.pdf");
+        return new ExportFile(name, ExportFormat.PDF.contentType(), bytes);
     }
 
     private ExportBook prepare(BookContent content, String author) {

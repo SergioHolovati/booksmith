@@ -1,0 +1,17 @@
+% PDF/X-1a definition for Ghostscript (pdfwrite): version, title and OutputIntent with the printer profile.
+% The ICC path and the title placeholders are filled in by the API (PdfX) before running.
+[ /GTS_PDFXVersion (PDF/X-1a:2001) /Title %TITLE% /Trapped /False /DOCINFO pdfmark
+[ /_objdef {icc_PDFX} /type /stream /OBJ pdfmark
+[ {icc_PDFX} << /N 4 >> /PUT pdfmark
+[ {icc_PDFX} (%ICC%) (r) file /PUT pdfmark
+[ /_objdef {OutputIntent_PDFX} /type /dict /OBJ pdfmark
+[ {OutputIntent_PDFX} <<
+  /Type /OutputIntent
+  /S /GTS_PDFX
+  /OutputCondition (ISO Coated v2 \(ECI\))
+  /OutputConditionIdentifier (FOGRA39)
+  /Info (Coated FOGRA39 \(ISO 12647-2:2004\))
+  /RegistryName (http://www.color.org)
+  /DestOutputProfile {icc_PDFX}
+>> /PUT pdfmark
+[ {Catalog} << /OutputIntents [ {OutputIntent_PDFX} ] >> /PUT pdfmark

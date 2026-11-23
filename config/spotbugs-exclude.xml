@@ -81,4 +81,14 @@
         <Bug pattern="NP_BOOLEAN_RETURN_NULL"/>
         <Class name="com.booksmith.manuscript.internal.OdtReader$Styles"/>
     </Match>
+    <!--
+      COMMAND_INJECTION: o PdfX roda o Ghostscript com ProcessBuilder (lista de argumentos, sem shell). O programa vem
+      da configuração do servidor (booksmith.export.ghostscript); os argumentos são opções fixas e caminhos de
+      arquivos temporários criados pela própria API. Nada do usuário vai na linha de comando (o título do livro vai
+      dentro do arquivo de definição, em hexadecimal UTF-16).
+    -->
+    <Match>
+        <Bug pattern="COMMAND_INJECTION"/>
+        <Class name="com.booksmith.export.internal.PdfX"/>
+    </Match>
 </FindBugsFilter>

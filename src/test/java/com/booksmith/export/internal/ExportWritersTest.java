@@ -296,7 +296,7 @@ class ExportWritersTest {
         assertThat(PdfWriter.html(book)).contains("width: 203.2mm; height: 205.4mm");
     }
 
-    private static ExportBook pictureBook() throws Exception {
+    static ExportBook pictureBook() throws Exception {
         var layout = new com.booksmith.manuscript.api.BookLayout("20x20", null, null, null, null, null, null, null, true);
         String text = "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"%s\"}]}]}";
         var bottom = new com.booksmith.manuscript.api.PageDesign(IMAGE_ID, null, "bottom", "center", "l", "dark", true, false, null);
@@ -660,7 +660,7 @@ class ExportWritersTest {
                 base.generatedAt(), base.chapters(), java.util.Map.of(), pages);
     }
 
-    private static ExportBook withFullStructure() throws Exception {
+    static ExportBook withFullStructure() throws Exception {
         ExportBook base = withParts();
         var pages = new com.booksmith.manuscript.api.Manuscripts.BookPages("Copyright © 2026 Lia", "Para Vel.", null,
                 null, null, "Escreve à noite.", "Sobre a autora", true,
