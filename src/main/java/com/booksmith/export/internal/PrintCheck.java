@@ -71,21 +71,34 @@ public final class PrintCheck {
          * saem no livro.
          */
         Result withPending(com.booksmith.manuscript.api.Manuscripts.BookPages raw) {
+            List<String> pending = pendingIn(new String[][] {{"Créditos", raw.credits()},
+                    {"Ficha catalográfica", raw.catalogCard()}, {"Sobre o autor", raw.aboutAuthor()},
+                    {"Colofão", raw.colophon()}});
+            // As opcionais (dedicatória, epígrafe, agradecimentos) não pesam: completar ou apagar
+            List<String> optional = pendingIn(new String[][] {{"Dedicatória", raw.dedication()},
+                    {"Epígrafe", raw.epigraph()}, {"Agradecimentos", raw.acknowledgments()}});
+            String detail = pending.isEmpty() ? "Tudo completado."
+                    : "Falta completar o que está entre colchetes em: " + String.join(", ", pending)
+                    + ". Até lá, essas linhas não saem no livro.";
+            if (!optional.isEmpty()) {
+                detail += " Opcionais com o modelo (complete ou apague; assim não saem): " + String.join(", ", optional)
+                        + ".";
+            }
+            List<PageCheck> checks = new ArrayList<>(pages);
+            checks.add(0, new PageCheck("template", "Campos do modelo", pending.isEmpty() ? optional.isEmpty() ? "ok"
+                    : "info" : "warn", detail));
+            return new Result(minDpi, textWidthMm, illustrations, needsBleed, List.copyOf(checks), pageCount);
+        }
+
+        private static List<String> pendingIn(String[][] fields) {
             List<String> pending = new ArrayList<>();
-            for (String[] field : new String[][] {{"Créditos", raw.credits()}, {"Ficha catalográfica", raw.catalogCard()},
-                    {"Dedicatória", raw.dedication()}, {"Agradecimentos", raw.acknowledgments()},
-                    {"Sobre o autor", raw.aboutAuthor()}, {"Colofão", raw.colophon()}}) {
+            for (String[] field : fields) {
                 var lines = com.booksmith.manuscript.api.Manuscripts.BookPages.pending(field[1]);
                 if (!lines.isEmpty()) {
                     pending.add(field[0] + " (" + lines.size() + (lines.size() == 1 ? " linha)" : " linhas)"));
                 }
             }
-            List<PageCheck> checks = new ArrayList<>(pages);
-            checks.add(0, new PageCheck("template", "Campos do modelo", pending.isEmpty() ? "ok" : "warn",
-                    pending.isEmpty() ? "Tudo completado."
-                            : "Falta completar o que está entre colchetes em: " + String.join(", ", pending)
-                            + ". Até lá, essas linhas não saem no livro."));
-            return new Result(minDpi, textWidthMm, illustrations, needsBleed, List.copyOf(checks), pageCount);
+            return pending;
         }
     }
 

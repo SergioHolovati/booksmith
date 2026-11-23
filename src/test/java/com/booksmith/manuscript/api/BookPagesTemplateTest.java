@@ -13,6 +13,25 @@ class BookPagesTemplateTest {
         assertThat(filled.credits()).isNull();
         assertThat(filled.aboutAuthor()).isNull();
         assertThat(filled.colophon()).isNull();
+        assertThat(filled.dedication()).isNull();
+        assertThat(filled.epigraph()).isNull();
+        assertThat(filled.acknowledgments()).isNull();
+        // Na organização do livro ilustrado, as páginas do modelo já aparecem (para mudar de lugar e de fundo)
+        assertThat(Manuscripts.BookPages.TEMPLATE.extraKeys()).containsExactly("cover", "credits", "title",
+                "dedication", "epigraph", "acknowledgments", "about", "colophon");
+        assertThat(filled.extraKeys()).containsExactly("cover", "credits", "title");
+    }
+
+    @Test
+    void theBackfillOfOlderBooksUsesTheSameTemplate() throws Exception {
+        String sql = new String(getClass().getResourceAsStream("/db/migration/V39__book_pages_template_backfill.sql")
+                .readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        var t = Manuscripts.BookPages.TEMPLATE;
+        for (String text : new String[] {t.dedication(), t.epigraph(), t.epigraphSource(), t.acknowledgments(),
+                t.aboutAuthor(), t.colophon()}) {
+            assertThat(sql).contains("'" + text + "'");
+        }
+        t.credits().lines().forEach(line -> assertThat(sql).contains(line));
         assertThat(Manuscripts.BookPages.pending(Manuscripts.BookPages.TEMPLATE.credits())).hasSize(6);
     }
 

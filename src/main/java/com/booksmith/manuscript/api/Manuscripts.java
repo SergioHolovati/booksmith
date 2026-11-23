@@ -146,6 +146,13 @@ public interface Manuscripts {
                     halfTitle, catalogCard, colophon, authorPhotoId, null, null);
         }
 
+        /** Os modelos das páginas opcionais: o autor completa, ou apaga para a página sair do livro. */
+        public static final String DEDICATION_TEMPLATE = "[Para quem é este livro? Ex.: Para a Lia, que me ensinou a ver cores.]";
+        public static final String EPIGRAPH_TEMPLATE = "[Uma frase que abre o livro, de um livro, música ou pessoa]";
+        public static final String EPIGRAPH_SOURCE_TEMPLATE = "[De quem é a frase]";
+        public static final String ACKNOWLEDGMENTS_TEMPLATE =
+                "[A quem você quer agradecer: quem leu antes, revisou, ilustrou, apoiou.]";
+
         /**
          * Os modelos com que todo livro novo nasce: o que fica entre colchetes é para o autor completar. Linha com
          * colchete que sobrou não sai no livro ({@link #filled()}) e a conferência para a gráfica avisa.
@@ -157,7 +164,7 @@ public interface Manuscripts {
                         + "Capa: [nome de quem fez a capa]\n"
                         + "Projeto gráfico e diagramação: [nome]\n"
                         + "[Cidade], [ano]",
-                null, null, null, null,
+                DEDICATION_TEMPLATE, EPIGRAPH_TEMPLATE, EPIGRAPH_SOURCE_TEMPLATE, ACKNOWLEDGMENTS_TEMPLATE,
                 "[Conte em poucas linhas quem você é: onde vive, o que faz, o que escreve e por que escreveu este livro.]",
                 null, null, null,
                 "Este livro foi composto em [fonte] e impresso em [papel] pela [gráfica], em [mês e ano].", null);
@@ -202,10 +209,11 @@ public interface Manuscripts {
 
         /**
          * As páginas que o Booksmith gera no livro ilustrado ({@link ExtraPage#KEYS}) que este livro tem: a folha de
-         * rosto, os créditos e a página de rosto sempre; as outras quando têm texto (fora o modelo por completar).
+         * rosto, os créditos e a página de rosto sempre; as outras quando têm texto, mesmo o modelo por completar (na
+         * exportação, as páginas já chegam sem o modelo: a que só tinha modelo não sai).
          */
         public List<String> extraKeys() {
-            BookPages f = filled();
+            BookPages f = this;
             List<String> keys = new java.util.ArrayList<>(List.of("cover", "credits", "title"));
             if (f.dedication() != null) {
                 keys.add("dedication");
