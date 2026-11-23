@@ -32,6 +32,16 @@ class CoverDesignTest {
     }
 
     @Test
+    void theTitleIsWrittenOnTheFrontUnlessTheImageAlreadyHasIt() {
+        assertThat(new CoverDesign(null, null, null, null, "T", null, null, null, null, null, null).frontText()).isTrue();
+        var design = new CoverDesign(null, null, null, null, "T", null, null, null, null, null, null, null, null, null,
+                null, null, null, null, false);
+        assertThat(design.frontText()).isFalse();
+        // O título continua guardado: vai na lombada
+        assertThat(design.title()).isEqualTo("T");
+    }
+
+    @Test
     void backCoverOptionsHaveDefaultsAndLimits() {
         var design = new CoverDesign(null, null, null, null, "T", null, null, null, null, null, null, null, null, null,
                 null, "  Ana escreve à noite.\r\n ", null);

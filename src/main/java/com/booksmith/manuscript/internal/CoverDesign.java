@@ -19,11 +19,13 @@ import java.util.regex.Pattern;
  * @param titleSize       {@code s}, {@code m} ou {@code l}
  * @param accentColor     cor da faixa e da moldura
  * @param backText        texto da contracapa da capa para gráfica (parágrafos separados por linha); null = sem texto
+ * @param frontText       se o título, o subtítulo e o autor são escritos na frente (padrão: sim); não, quando a imagem
+ *                        de fundo já traz o título (capa feita fora do app). O título continua valendo na lombada
  */
 public record CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
                           String subtitle, String author, String font, String titleSize, String textColor,
                           String accentColor, String backText, UUID backImageId, Integer backShade, Boolean backPhoto,
-                          String backBio, Boolean barcode, String flapText) {
+                          String backBio, Boolean barcode, String flapText, Boolean frontText) {
 
     static final int MAX_BACK_TEXT = 1500;
     static final int MAX_BACK_BIO = 500;
@@ -35,7 +37,16 @@ public record CoverDesign(String template, String backgroundColor, UUID imageId,
                        String subtitle, String author, String font, String titleSize, String textColor,
                        String accentColor, String backText) {
         this(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize, textColor, accentColor,
-                backText, null, null, null, null, null, null);
+                backText, null, null, null, null, null, null, null);
+    }
+
+    /** Com o título escrito na frente (o de antes). */
+    public CoverDesign(String template, String backgroundColor, UUID imageId, Integer shade, String title,
+                       String subtitle, String author, String font, String titleSize, String textColor,
+                       String accentColor, String backText, UUID backImageId, Integer backShade, Boolean backPhoto,
+                       String backBio, Boolean barcode, String flapText) {
+        this(template, backgroundColor, imageId, shade, title, subtitle, author, font, titleSize, textColor, accentColor,
+                backText, backImageId, backShade, backPhoto, backBio, barcode, flapText, null);
     }
 
     /** Sem o texto da orelha da frente. */
@@ -96,6 +107,7 @@ public record CoverDesign(String template, String backgroundColor, UUID imageId,
             throw invalid("A mini biografia da contracapa passa de " + MAX_BACK_BIO + " caracteres.");
         }
         barcode = !Boolean.FALSE.equals(barcode);
+        frontText = !Boolean.FALSE.equals(frontText);
         // Orelha da frente (capa com orelhas): em geral, a sinopse
         flapText = flapText == null || flapText.isBlank() ? null : flapText.replace("\r\n", "\n").replace('\r', '\n').strip();
         if (flapText != null && flapText.length() > MAX_BACK_TEXT) {
