@@ -44,7 +44,14 @@ class ExportController {
         BookLayout layout = request.layout();
         return exportService.preview(user.id(), authorName(user), bookId, layout,
                 request.from() == null ? 1 : request.from(), request.count() == null ? 2 : request.count(),
-                "ebook".equals(request.target()));
+                "ebook".equals(request.target()), Boolean.TRUE.equals(request.thumbs()));
+    }
+
+    /** Livro de texto: em que página do PDF começa cada trecho (a tela de organizar), com a diagramação dada. */
+    @PostMapping("/books/{bookId}/export/page-map")
+    PdfPreview.PageMap pageMap(@PathVariable UUID bookId, @RequestBody PreviewRequest request) {
+        AuthenticatedUser user = currentUser.get();
+        return exportService.pageMap(user.id(), authorName(user), bookId, request.layout());
     }
 
     /**
@@ -63,7 +70,7 @@ class ExportController {
                           String sceneBreak, Double customWidthMm, Double customHeightMm, Boolean bleed,
                           Boolean autoPages, Boolean pageNumbers, Boolean fixedLayout, String font, String pagesImageId,
                           String pagesColor, Boolean spreadSheets, String target, Integer from,
-                          Integer count) {
+                          Integer count, Boolean thumbs) {
 
         BookLayout layout() {
             return new BookLayout(trim, fontSize, leading, margins, chapterStyle, sceneBreak, customWidthMm,

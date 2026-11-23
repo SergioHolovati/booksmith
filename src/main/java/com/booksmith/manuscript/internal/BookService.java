@@ -279,6 +279,7 @@ public class BookService {
         for (var page : valid) {
             if (page.after() != null && !com.booksmith.manuscript.api.ExtraPage.START.equals(page.after())
                     && !com.booksmith.manuscript.api.ExtraPage.END.equals(page.after())
+                    && !com.booksmith.manuscript.api.ExtraPage.FRONT.equals(page.after())
                     && !chapters.contains(page.after().toLowerCase(Locale.ROOT))) {
                 throw ApiException.unprocessable("extra_page_invalid", "A página de referência não é deste livro.");
             }

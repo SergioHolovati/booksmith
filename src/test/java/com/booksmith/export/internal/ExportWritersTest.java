@@ -1323,6 +1323,74 @@ class ExportWritersTest {
         }
     }
 
+    /** Livro de texto com dois capítulos (com id) e páginas de ilustração no começo, depois do 1º e no fim. */
+    private static ExportBook withArtPages(String... places) throws Exception {
+        List<ExportBook.Chapter> chapters = new ArrayList<>();
+        for (String title : List.of("Um", "Dois")) {
+            chapters.add(new ExportBook.Chapter(title, JSON.readTree(
+                    "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Texto.\"}]}]}"),
+                    null, null, UUID.randomUUID()));
+        }
+        List<com.booksmith.manuscript.api.ExtraPage> arts = new ArrayList<>();
+        for (int i = 0; i < places.length; i++) {
+            String place = "chapter1".equals(places[i]) ? chapters.getFirst().id().toString() : places[i];
+            arts.add(new com.booksmith.manuscript.api.ExtraPage("illustration", place, IMAGE_ID, null,
+                    "00000000-0000-0000-0000-00000000000" + (i + 1), i % 2 == 1));
+        }
+        var pages = new com.booksmith.manuscript.api.Manuscripts.BookPages(null, "Para a Lia.", null, null, null, null,
+                null).withExtras(arts);
+        return new ExportBook(UUID.randomUUID(), "Romance", "Autora", "pt-BR", null, null, null,
+                Instant.parse("2026-11-23T12:00:00Z"), chapters,
+                java.util.Map.of(IMAGE_ID, new ImageData(twoColors(1200, 1600), "image/png", "png")), pages);
+    }
+
+    @Test
+    void artPagesOfATextBookGoWhereTheAuthorPutThem() throws Exception {
+        ExportBook book = withArtPages("start", "chapter1", "end", "front");
+        String html = PdfWriter.html(book);
+        int start = html.indexOf("id=\"art-00000000-0000-0000-0000-000000000001\"");
+        int afterOne = html.indexOf("id=\"art-00000000-0000-0000-0000-000000000002\"");
+        int end = html.indexOf("id=\"art-00000000-0000-0000-0000-000000000003\"");
+        int front = html.indexOf("id=\"art-00000000-0000-0000-0000-000000000004\"");
+        // No começo antes da folha de rosto; antes do 1º capítulo depois do sumário; depois do 1º; no fim
+        assertThat(start).isPositive().isLessThan(html.indexOf("id=\"title-page\""));
+        assertThat(front).isGreaterThan(html.indexOf("id=\"toc\"")).isLessThan(html.indexOf("id=\"chapter-1\""));
+        assertThat(afterOne).isGreaterThan(html.indexOf("id=\"chapter-1\"")).isLessThan(html.indexOf("id=\"chapter-2\""));
+        assertThat(end).isGreaterThan(html.indexOf("id=\"chapter-2\""));
+        // A segunda vai até a borda; a primeira inteira dentro das margens
+        assertThat(html).contains("<div id=\"art-00000000-0000-0000-0000-000000000001\" class=\"illustration-page\"")
+                .contains("<div id=\"art-00000000-0000-0000-0000-000000000002\" class=\"bleed-page\"");
+
+        // O ePub: uma página para cada, no mesmo lugar da leitura
+        byte[] epub = EpubWriter.write(book);
+        String opf = entry(epub, "EPUB/package.opf");
+        assertThat(opf.indexOf("idref=\"art-00000000-0000-0000-0000-000000000001\"")).isLessThan(opf.indexOf("idref=\"title\""));
+        assertThat(opf.indexOf("idref=\"art-00000000-0000-0000-0000-000000000002\""))
+                .isGreaterThan(opf.indexOf("idref=\"chapter-1\"")).isLessThan(opf.indexOf("idref=\"chapter-2\""));
+        assertThat(entry(epub, "EPUB/art-00000000-0000-0000-0000-000000000003.xhtml")).contains("<img src=\"images/ill-");
+    }
+
+    @Test
+    void thePageMapSaysWhereEachPartOfATextBookStarts() throws Exception {
+        ExportBook book = withArtPages("chapter1");
+        List<PdfWriter.Block> blocks = new ArrayList<>();
+        byte[] pdf = PdfWriter.write(book, blocks);
+        PdfPreview.PageMap map = PdfPreview.map(pdf, blocks);
+        assertThat(map.blocks()).extracting(PdfPreview.Block::kind)
+                .containsExactly("title", "front", "toc", "chapter", "illustration", "chapter");
+        assertThat(map.blocks()).extracting(PdfPreview.Block::firstPage).containsExactly(1, 2, 3, 4, 5, 6);
+        assertThat(map.blocks().get(3).ref()).isEqualTo(book.chapters().getFirst().id().toString());
+        assertThat(map.blocks().stream().mapToInt(PdfPreview.Block::pageCount).sum()).isEqualTo(map.pageCount());
+        // A paginação é a mesma do PDF de verdade
+        try (PDDocument real = Loader.loadPDF(PdfWriter.write(book))) {
+            assertThat(real.getNumberOfPages()).isEqualTo(map.pageCount());
+        }
+        // As miniaturas: pequenas, em JPEG
+        PdfPreview.Preview thumbs = PdfPreview.render(pdf, 1, 30, true);
+        assertThat(thumbs.pages()).hasSize(map.pageCount());
+        assertThat(thumbs.pages().getFirst().image()).startsWith("data:image/jpeg;base64,");
+    }
+
     @Test
     void generatedPagesGoWhereTheAuthorPutThemWithTheirOwnBackground() throws Exception {
         ExportBook base = pictureBook();

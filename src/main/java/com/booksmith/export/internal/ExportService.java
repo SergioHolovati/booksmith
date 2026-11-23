@@ -43,7 +43,7 @@ public class ExportService {
             });
 
     /** PDF já gerado e quantas páginas tem o miolo (sem a página da capa). */
-    private record Rendered(byte[] pdf, int interiorPages) {
+    private record Rendered(byte[] pdf, int interiorPages, List<PdfWriter.Block> blocks) {
     }
 
     public record ExportFile(String filename, String contentType, byte[] bytes) {
@@ -62,8 +62,26 @@ public class ExportService {
     /** {@code ebook}: no livro ilustrado, as páginas como no e-book (sem sangria, sem número, sem as em branco). */
     public PdfPreview.Preview preview(UUID ownerId, String author, UUID bookId, BookLayout layout, int from, int count,
                                       boolean ebook) {
+        return preview(ownerId, author, bookId, layout, from, count, ebook, false);
+    }
+
+    /** Idem; {@code thumbs}: miniaturas pequenas (a tela de organizar o livro de texto). */
+    public PdfPreview.Preview preview(UUID ownerId, String author, UUID bookId, BookLayout layout, int from, int count,
+                                      boolean ebook, boolean thumbs) {
         return PdfPreview.render(rendered(ownerId, author, manuscripts.bookContent(ownerId, bookId), layout, ebook).pdf(),
-                from, count);
+                from, count, thumbs);
+    }
+
+    /**
+     * Livro de texto: as páginas do PDF trecho a trecho (capa, folha de rosto, créditos, sumário, cada capítulo, cada
+     * página de ilustração, as do fim), com a diagramação dada. Livro ilustrado: sem trechos.
+     *
+     * @throws ApiException 404 se o livro não é do usuário; 422 {@code book_empty} se não há capítulos
+     */
+    public PdfPreview.PageMap pageMap(UUID ownerId, String author, UUID bookId, BookLayout layout) {
+        Rendered rendered = rendered(ownerId, author, manuscripts.bookContent(ownerId, bookId), layout, false);
+        return rendered.blocks().isEmpty() ? new PdfPreview.PageMap(PdfPreview.pageCount(rendered.pdf()), List.of())
+                : PdfPreview.map(rendered.pdf(), rendered.blocks());
     }
 
     /**
@@ -139,8 +157,12 @@ public class ExportService {
         if (rendered == null) {
             long start = System.nanoTime();
             ExportBook book = prepare(content, author).withLayout(layout).withPreviewImages(PREVIEW_IMAGE_SIDE);
-            byte[] pdf = ebook && book.pictureBook() ? PdfWriter.writeEbookPreview(book) : PdfWriter.write(book);
-            rendered = new Rendered(pdf, PdfPreview.pageCount(pdf) - (PdfWriter.hasCoverPage(book) ? 1 : 0));
+            // No livro de texto, com um marcador por trecho (a paginação é a mesma): o mapa da tela de organizar
+            List<PdfWriter.Block> blocks = new ArrayList<>();
+            byte[] pdf = ebook && book.pictureBook() ? PdfWriter.writeEbookPreview(book)
+                    : PdfWriter.write(book, book.pictureBook() ? null : blocks);
+            rendered = new Rendered(pdf, PdfPreview.pageCount(pdf) - (PdfWriter.hasCoverPage(book) ? 1 : 0),
+                    List.copyOf(blocks));
             previews.put(key, rendered);
             log.info("PDF do livro {} para prévia: {} KB em {} ms", content.bookId(), pdf.length / 1024,
                     (System.nanoTime() - start) / 1_000_000);

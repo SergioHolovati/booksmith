@@ -18,8 +18,30 @@ import java.util.regex.Pattern;
  *                história que vem antes dela; null = o lugar de sempre (as da frente no começo, as do fim no fim)
  * @param imageId a ilustração de fundo só desta página (da biblioteca do universo); null = a das páginas geradas
  * @param color   a cor de fundo só desta página ({@code #rrggbb}); null = a das páginas geradas
+ * @param id      só na página de ilustração ({@link #ILLUSTRATION}): qual é (pode haver várias)
+ * @param bleed   só na página de ilustração: true = até a borda (cobre a página); senão inteira dentro das margens
  */
-public record ExtraPage(String key, String after, String imageId, String color) {
+public record ExtraPage(String key, String after, String imageId, String color, String id, Boolean bleed) {
+
+    /**
+     * Página só com uma ilustração, em qualquer livro: no livro de texto, no começo (antes da folha de rosto,
+     * {@link #START}), antes do primeiro capítulo ({@link #FRONT}), depois de um capítulo ou no fim ({@link #END}).
+     */
+    public static final String ILLUSTRATION = "illustration";
+    /** Depois do sumário, antes do primeiro capítulo (só a página de ilustração). */
+    public static final String FRONT = "front";
+    /** Páginas de ilustração por livro. */
+    public static final int MAX_ILLUSTRATIONS = 60;
+
+    /** Uma das páginas geradas ({@link #KEYS}). */
+    public ExtraPage(String key, String after, String imageId, String color) {
+        this(key, after, imageId, color, null, null);
+    }
+
+    /** É página de ilustração (e não uma das geradas). */
+    public boolean illustration() {
+        return ILLUSTRATION.equals(key);
+    }
 
     /** As páginas, na ordem de um miolo de editora. */
     public static final List<String> KEYS = List.of("cover", "credits", "title", "dedication", "epigraph",
@@ -28,7 +50,7 @@ public record ExtraPage(String key, String after, String imageId, String color) 
     private static final List<String> BACK = List.of("about", "colophon");
     public static final String START = "start";
     public static final String END = "end";
-    public static final int MAX = KEYS.size();
+    public static final int MAX = KEYS.size() + MAX_ILLUSTRATIONS;
 
     private static final Pattern UUID = Pattern.compile(
             "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -39,11 +61,13 @@ public record ExtraPage(String key, String after, String imageId, String color) 
      * @throws ApiException 422 {@code extra_page_invalid} com página, lugar, ilustração ou cor fora do formato
      */
     public ExtraPage {
-        if (key == null || !KEYS.contains(key)) {
+        if (key == null || !KEYS.contains(key) && !ILLUSTRATION.equals(key)) {
             throw invalid("Página desconhecida.");
         }
         after = blankToNull(after);
-        if (after != null && !START.equals(after) && !END.equals(after) && !UUID.matcher(after).matches()) {
+        boolean art = ILLUSTRATION.equals(key);
+        if (after != null && !START.equals(after) && !END.equals(after) && !(art && FRONT.equals(after))
+                && !UUID.matcher(after).matches()) {
             throw invalid("Lugar da página inválido.");
         }
         imageId = blankToNull(imageId);
@@ -55,6 +79,18 @@ public record ExtraPage(String key, String after, String imageId, String color) 
             throw invalid("Cor de fundo inválida (use #rrggbb).");
         }
         color = color == null ? null : color.toLowerCase(Locale.ROOT);
+        id = blankToNull(id);
+        if (art) {
+            if (id == null || !UUID.matcher(id).matches() || imageId == null) {
+                throw invalid("Página de ilustração sem a ilustração.");
+            }
+            id = id.toLowerCase(Locale.ROOT);
+            color = null;
+            bleed = Boolean.TRUE.equals(bleed);
+        } else {
+            id = null;
+            bleed = null;
+        }
     }
 
     /** O lugar de sempre desta página: as da frente antes da história, o "sobre" e o colofão depois. */
@@ -64,7 +100,7 @@ public record ExtraPage(String key, String after, String imageId, String color) 
 
     /** A mesma página em outro lugar. */
     public ExtraPage at(String place) {
-        return new ExtraPage(key, place, imageId, color);
+        return new ExtraPage(key, place, imageId, color, id, bleed);
     }
 
     /**
@@ -77,6 +113,13 @@ public record ExtraPage(String key, String after, String imageId, String color) 
         List<ExtraPage> result = new ArrayList<>();
         if (stored != null) {
             for (ExtraPage page : stored) {
+                if (page.illustration()) {
+                    // Depois de um capítulo que saiu do livro: vai para o fim
+                    boolean gone = page.after() != null && UUID.matcher(page.after()).matches()
+                            && !chapterIds.contains(page.after().toLowerCase(Locale.ROOT));
+                    result.add(page.after() == null || gone ? page.at(END) : page);
+                    continue;
+                }
                 if (present.contains(page.key()) && result.stream().noneMatch(p -> p.key().equals(page.key()))) {
                     // Depois de uma página que saiu do livro: volta ao lugar de sempre
                     boolean gone = page.after() != null && !START.equals(page.after()) && !END.equals(page.after())
@@ -125,8 +168,16 @@ public record ExtraPage(String key, String after, String imageId, String color) 
         if (pages == null) {
             return List.of();
         }
-        if (pages.size() > MAX || pages.stream().map(ExtraPage::key).distinct().count() != pages.size()) {
+        List<ExtraPage> generated = pages.stream().filter(p -> !p.illustration()).toList();
+        List<ExtraPage> art = pages.stream().filter(ExtraPage::illustration).toList();
+        if (generated.size() > KEYS.size() || generated.stream().map(ExtraPage::key).distinct().count() != generated.size()) {
             throw invalid("Cada página gerada aparece uma vez só.");
+        }
+        if (art.size() > MAX_ILLUSTRATIONS) {
+            throw invalid("No máximo " + MAX_ILLUSTRATIONS + " páginas de ilustração por livro.");
+        }
+        if (art.stream().map(ExtraPage::id).distinct().count() != art.size()) {
+            throw invalid("Página de ilustração repetida.");
         }
         return List.copyOf(pages);
     }

@@ -94,9 +94,9 @@ class BookController {
                 : request.stream().map(ExtraPageRequest::toPage).toList());
     }
 
-    record ExtraPageRequest(String key, String after, String imageId, String color) {
+    record ExtraPageRequest(String key, String after, String imageId, String color, String id, Boolean bleed) {
         ExtraPage toPage() {
-            return new ExtraPage(key, after, imageId, color);
+            return new ExtraPage(key, after, imageId, color, id, bleed);
         }
     }
 

@@ -202,7 +202,9 @@ final class PictureBookHtml {
                              boolean fill) {
         java.util.List<String> ids = book.chapters().stream().map(ExportBook.Chapter::id)
                 .filter(java.util.Objects::nonNull).map(id -> id.toString().toLowerCase(Locale.ROOT)).toList();
-        java.util.List<ExtraPage> extras = book.layout().generatesPages() ? book.pages().arrangedExtras(ids)
+        // As páginas de ilustração soltas são do livro de texto; no ilustrado, a página só de ilustração é da história
+        java.util.List<ExtraPage> extras = book.layout().generatesPages()
+                ? book.pages().arrangedExtras(ids).stream().filter(extra -> !extra.illustration()).toList()
                 : java.util.List.of();
         java.util.List<Part> parts = new java.util.ArrayList<>();
         int[] last = {0};

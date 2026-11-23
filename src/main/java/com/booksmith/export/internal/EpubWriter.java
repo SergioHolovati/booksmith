@@ -60,6 +60,8 @@ final class EpubWriter {
                         </section>
                         """.formatted(book.cover().extension(), escape(book.title()))));
             }
+            List<com.booksmith.manuscript.api.ExtraPage> arts = PdfWriter.illustrationPages(book);
+            artFiles(zip, book, arts, com.booksmith.manuscript.api.ExtraPage.START);
             text(zip, "EPUB/title.xhtml", page(book, book.title(), "titlepage", titlePage(book)));
             if (book.fanfic()) {
                 text(zip, "EPUB/fan-notice.xhtml", page(book, "Aviso", "frontmatter", fanNotice(book)));
@@ -67,6 +69,7 @@ final class EpubWriter {
             for (BookPagesHtml.Page extra : BookPagesHtml.front(book.pages(), book.pages().isbnEbook(), book.title())) {
                 text(zip, "EPUB/" + extra.id() + ".xhtml", page(book, extra.title(), "frontmatter", extra.html()));
             }
+            artFiles(zip, book, arts, com.booksmith.manuscript.api.ExtraPage.FRONT);
             for (int i = 0; i < book.chapters().size(); i++) {
                 ExportBook.Chapter chapter = book.chapters().get(i);
                 if (chapter.partTitle() != null) {
@@ -82,10 +85,14 @@ final class EpubWriter {
                         %s</section>
                         """.formatted(i + 1, escape(chapter.title()),
                         chapter.html(id -> illustrationHref(book, id), "chapter-" + (i + 1)))));
+                if (chapter.id() != null) {
+                    artFiles(zip, book, arts, chapter.id().toString());
+                }
             }
             for (BookPagesHtml.Page extra : back(book)) {
                 text(zip, "EPUB/" + extra.id() + ".xhtml", page(book, extra.title(), "backmatter", extra.html()));
             }
+            artFiles(zip, book, arts, com.booksmith.manuscript.api.ExtraPage.END);
             for (var image : book.illustrations().entrySet()) {
                 entry(zip, "EPUB/" + illustrationHref(book, image.getKey()), image.getValue().bytes());
             }
@@ -93,6 +100,32 @@ final class EpubWriter {
             throw new UncheckedIOException(e);
         }
         return bytes.toByteArray();
+    }
+
+    /** As páginas de ilustração que ficam em {@code place} (só as com a imagem), uma por arquivo. */
+    private static List<com.booksmith.manuscript.api.ExtraPage> artsAt(ExportBook book, List<com.booksmith.manuscript.api.ExtraPage> arts, String place) {
+        return arts.stream().filter(art -> place.equalsIgnoreCase(art.after()))
+                .filter(art -> illustrationHref(book, art.imageId()) != null).toList();
+    }
+
+    private static void artFiles(ZipOutputStream zip, ExportBook book, List<com.booksmith.manuscript.api.ExtraPage> arts, String place)
+            throws IOException {
+        for (var art : artsAt(book, arts, place)) {
+            text(zip, "EPUB/art-" + art.id() + ".xhtml", page(book, "Ilustração", "bodymatter", """
+                    <section class="art-page">
+                    <img src="%s" alt="Ilustração"/>
+                    </section>
+                    """.formatted(illustrationHref(book, art.imageId()))));
+        }
+    }
+
+    private static void artItems(ExportBook book, List<com.booksmith.manuscript.api.ExtraPage> arts, String place, StringBuilder manifest,
+                                 StringBuilder spine) {
+        for (var art : artsAt(book, arts, place)) {
+            manifest.append("    <item id=\"art-%1$s\" href=\"art-%1$s.xhtml\" media-type=\"application/xhtml+xml\"/>\n"
+                    .formatted(art.id()));
+            spine.append("    <itemref idref=\"art-%s\"/>\n".formatted(art.id()));
+        }
     }
 
     /** "images/ill-<id>.png", ou null se a imagem não veio. */
@@ -135,6 +168,8 @@ final class EpubWriter {
             manifest.append("    <item id=\"ill-%s\" href=\"%s\" media-type=\"%s\"/>\n"
                     .formatted(image.getKey(), illustrationHref(book, image.getKey()), image.getValue().contentType()));
         }
+        List<com.booksmith.manuscript.api.ExtraPage> arts = PdfWriter.illustrationPages(book);
+        artItems(book, arts, com.booksmith.manuscript.api.ExtraPage.START, manifest, spine);
         manifest.append("    <item id=\"title\" href=\"title.xhtml\" media-type=\"application/xhtml+xml\"/>\n");
         spine.append("    <itemref idref=\"title\"/>\n");
         if (book.fanfic()) {
@@ -142,6 +177,7 @@ final class EpubWriter {
             spine.append("    <itemref idref=\"fan-notice\"/>\n");
         }
         extras(BookPagesHtml.front(book.pages(), book.pages().isbnEbook(), book.title()), manifest, spine);
+        artItems(book, arts, com.booksmith.manuscript.api.ExtraPage.FRONT, manifest, spine);
         for (int i = 0; i < book.chapters().size(); i++) {
             if (book.chapters().get(i).partTitle() != null) {
                 manifest.append("    <item id=\"part-%d\" href=\"%s\" media-type=\"application/xhtml+xml\"/>\n"
@@ -151,8 +187,12 @@ final class EpubWriter {
             manifest.append("    <item id=\"chapter-%d\" href=\"%s\" media-type=\"application/xhtml+xml\"/>\n"
                     .formatted(i + 1, chapterFile(i)));
             spine.append("    <itemref idref=\"chapter-%d\"/>\n".formatted(i + 1));
+            if (book.chapters().get(i).id() != null) {
+                artItems(book, arts, book.chapters().get(i).id().toString(), manifest, spine);
+            }
         }
         extras(back(book), manifest, spine);
+        artItems(book, arts, com.booksmith.manuscript.api.ExtraPage.END, manifest, spine);
         String description = book.synopsis() == null || book.synopsis().isBlank()
                 ? ""
                 : "    <dc:description>" + escape(book.synopsis().strip()) + "</dc:description>\n";
@@ -418,6 +458,8 @@ final class EpubWriter {
             .part-title { font-size: 1.8em; margin: 0; font-weight: normal; letter-spacing: .03em; }
             .cover { text-align: center; margin: 0; padding: 0; }
             .cover img { max-width: 100%; max-height: 100%; }
+            .art-page { text-align: center; margin: 0; padding: 0; }
+            .art-page img { max-width: 100%; max-height: 100%; }
             .title-page { text-align: center; padding-top: 30%; }
             .book-title { font-size: 2em; margin: 0 0 1em; }
             .book-author { text-align: center; font-size: 1.2em; }

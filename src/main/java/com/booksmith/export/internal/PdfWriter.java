@@ -40,7 +40,16 @@ final class PdfWriter {
     }
 
     static byte[] write(ExportBook book) {
-        byte[] rendered = render(book, book.pictureBook() ? PictureBookHtml.html(book) : html(book));
+        return write(book, null);
+    }
+
+    /**
+     * Idem; com {@code map} (só no livro de texto), os marcadores do PDF viram um por trecho do livro, na ordem de
+     * {@code map} (que esta chamada preenche): é assim que a tela de organizar sabe em que página cada trecho começa.
+     * A paginação é a mesma do PDF de verdade.
+     */
+    static byte[] write(ExportBook book, List<Block> map) {
+        byte[] rendered = render(book, book.pictureBook() ? PictureBookHtml.html(book) : html(book, map));
         byte[] pdf = book.layout().hasBleed() ? withPrintBoxes(rendered, book.layout()) : rendered;
         // Livro ilustrado com as páginas lado a lado (o miolo como muitas gráficas pedem)
         return book.pictureBook() && book.layout().joinsSpreads() ? SpreadSheets.join(pdf) : pdf;
@@ -89,15 +98,35 @@ final class PdfWriter {
         }
     }
 
+    /**
+     * Um trecho do livro de texto, na ordem do PDF, para a tela de organizar.
+     *
+     * @param kind   {@code cover}, {@code title}, {@code front} (créditos, dedicatória…), {@code toc},
+     *               {@code chapter}, {@code illustration} ou {@code back}
+     * @param ref    a página ({@code dedication}…), o id do capítulo ou o da página de ilustração
+     * @param anchor o id do elemento no HTML (onde o trecho começa)
+     */
+    record Block(String kind, String ref, String title, String anchor) {
+    }
+
     static String html(ExportBook book) {
+        return html(book, null);
+    }
+
+    static String html(ExportBook book, List<Block> map) {
+        List<Block> blocks = new java.util.ArrayList<>();
         StringBuilder bookmarks = new StringBuilder();
         StringBuilder toc = new StringBuilder();
         StringBuilder chapters = new StringBuilder();
         BookHtml.PageIllustration pages = pageIllustrations(book);
+        List<com.booksmith.manuscript.api.ExtraPage> arts = illustrationPages(book);
+        chapters.append(artPages(book, arts, com.booksmith.manuscript.api.ExtraPage.FRONT, pages, blocks));
         for (int i = 0; i < book.chapters().size(); i++) {
             ExportBook.Chapter chapter = book.chapters().get(i);
             String id = "chapter-" + (i + 1);
             String title = escape(chapter.title());
+            blocks.add(new Block("chapter", chapter.id() == null ? null : chapter.id().toString(), chapter.title(),
+                    chapter.partTitle() != null ? "part-" + (i + 1) : id));
             if (chapter.partTitle() != null) {
                 String partId = "part-" + (i + 1);
                 String part = escape(chapter.partTitle());
@@ -128,21 +157,47 @@ final class PdfWriter {
                     <h1>%s</h1>
                     %s</section>
                     """.formatted(id, title, sceneBreaks(chapter.html(imageId -> imageUri(book, imageId), id, pages), book.layout())));
+            if (chapter.id() != null) {
+                chapters.append(artPages(book, arts, chapter.id().toString(), pages, blocks));
+            }
         }
         String cover = "";
         if (hasCoverPage(book)) {
-            cover = "<div class=\"cover\"><img src=\"%s:%s\" alt=\"Capa\"/></div>\n".formatted(IMAGE_SCHEME, COVER_IMAGE);
+            cover = "<div class=\"cover\" id=\"cover\"><img src=\"%s:%s\" alt=\"Capa\"/></div>\n".formatted(IMAGE_SCHEME, COVER_IMAGE);
         }
+        List<Block> opening = new java.util.ArrayList<>();
+        if (!cover.isEmpty()) {
+            opening.add(new Block("cover", "cover", "Capa", "cover"));
+        }
+        String start = artPages(book, arts, com.booksmith.manuscript.api.ExtraPage.START, pages, opening);
+        opening.add(new Block("title", "title", "Folha de rosto", "title-page"));
         for (BookPagesHtml.Page extra : BookPagesHtml.back(book.pages(), book.author(), authorPhoto(book))) {
             String title = escape(extra.title());
             bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n".formatted(title, extra.id()));
             toc.append("<li><a href=\"#%s\">%s</a></li>\n".formatted(extra.id(), title));
             chapters.append("<div class=\"back\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()));
+            blocks.add(new Block("back", extra.id(), extra.title(), extra.id()));
         }
-        String notice = (book.fanfic() ? "<div class=\"front\">" + EpubWriter.fanNotice(book) + "</div>\n" : "")
-                + BookPagesHtml.front(book.pages(), book.pages().isbnPrint(), book.title()).stream()
-                .map(extra -> "<div class=\"front\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()))
-                .collect(java.util.stream.Collectors.joining());
+        chapters.append(artPages(book, arts, com.booksmith.manuscript.api.ExtraPage.END, pages, blocks));
+        StringBuilder notice = new StringBuilder();
+        if (book.fanfic()) {
+            notice.append("<div class=\"front\" id=\"fan-notice\">%s</div>\n".formatted(EpubWriter.fanNotice(book)));
+            opening.add(new Block("front", "fan-notice", "Aviso", "fan-notice"));
+        }
+        for (BookPagesHtml.Page extra : BookPagesHtml.front(book.pages(), book.pages().isbnPrint(), book.title())) {
+            notice.append("<div class=\"front\" id=\"%s\">%s</div>\n".formatted(extra.id(), extra.html()));
+            opening.add(new Block("front", extra.id(), extra.title(), extra.id()));
+        }
+        opening.add(new Block("toc", "toc", "Sumário", "toc"));
+        blocks.addAll(0, opening);
+        if (map != null) {
+            // Para a tela de organizar: um marcador por trecho, na ordem, no lugar dos marcadores do leitor
+            map.clear();
+            map.addAll(blocks);
+            bookmarks.setLength(0);
+            blocks.forEach(block -> bookmarks.append("<bookmark name=\"%s\" href=\"#%s\"/>\n"
+                    .formatted(escape(block.title()), block.anchor())));
+        }
         return """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="%1$s" xml:lang="%1$s">
@@ -155,11 +210,11 @@ final class PdfWriter {
                 %5$s</bookmarks>
                 </head>
                 <body>
-                %6$s<div class="title-page">
+                %6$s%11$s<div class="title-page" id="title-page">
                 <p class="book-title">%2$s</p>
                 <p class="book-author">%3$s</p>
                 </div>
-                %7$s<div class="toc">
+                %7$s<div class="toc" id="toc">
                 <h1>Sumário</h1>
                 <ol>
                 %8$s</ol>
@@ -167,7 +222,36 @@ final class PdfWriter {
                 %9$s</body>
                 </html>
                 """.formatted(book.language(), escape(book.title()), escape(book.author()), CSS, bookmarks, cover,
-                notice, toc, chapters, layoutCss(book.layout()));
+                notice, toc, chapters, layoutCss(book.layout()), start);
+    }
+
+    /** As páginas de ilustração do livro de texto, na ordem e no lugar escolhidos. */
+    static List<com.booksmith.manuscript.api.ExtraPage> illustrationPages(ExportBook book) {
+        List<String> ids = book.chapters().stream().map(ExportBook.Chapter::id).filter(java.util.Objects::nonNull)
+                .map(id -> id.toString().toLowerCase(java.util.Locale.ROOT)).toList();
+        return book.pages().arrangedExtras(ids).stream().filter(com.booksmith.manuscript.api.ExtraPage::illustration).toList();
+    }
+
+    /**
+     * As páginas de ilustração que ficam em {@code place} (o começo, antes do primeiro capítulo, depois de um capítulo
+     * ou o fim): inteira dentro das margens ou até a borda. Imagem que não veio (ou WebP) não sai.
+     */
+    private static String artPages(ExportBook book, List<com.booksmith.manuscript.api.ExtraPage> arts, String place,
+                                   BookHtml.PageIllustration pages, List<Block> blocks) {
+        StringBuilder html = new StringBuilder();
+        for (var art : arts) {
+            if (!place.equalsIgnoreCase(art.after()) || book.illustrations().get(art.imageId()) == null) {
+                continue;
+            }
+            String page = pages.render(art.imageId(), Boolean.TRUE.equals(art.bleed()) ? Placement.BLEED : Placement.PAGE, "");
+            if (page == null) {
+                continue;
+            }
+            String anchor = "art-" + art.id();
+            html.append(page.replaceFirst("<div class=", "<div id=\"" + anchor + "\" class="));
+            blocks.add(new Block("illustration", art.id(), "Ilustração", anchor));
+        }
+        return html.toString();
     }
 
     /** O "* * *" do HTML comum vira o ornamento escolhido na diagramação. */
