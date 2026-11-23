@@ -93,6 +93,17 @@ class ExportController {
         return exportService.printCoverSpec(user.id(), authorName(user), bookId, profile, spineMm, bleedMm, flapMm);
     }
 
+    /** Modelo da capa em PDF (corte, dobras, área segura e medidas), para fazer a capa fora do app. */
+    @GetMapping("/books/{bookId}/export/print-cover/template")
+    ResponseEntity<byte[]> printCoverTemplate(@PathVariable UUID bookId, @RequestParam String profile,
+                                              @RequestParam(required = false) Double spineMm,
+                                              @RequestParam(required = false) Double bleedMm,
+                                              @RequestParam(required = false) Double flapMm) {
+        AuthenticatedUser user = currentUser.get();
+        return attachment(exportService.printCoverTemplate(user.id(), authorName(user), bookId, profile, spineMm,
+                bleedMm, flapMm));
+    }
+
     /** PDF da capa aberta, a partir da imagem desenhada no aparelho. Conta no limite diário de PDFs da capa. */
     @PostMapping("/books/{bookId}/export/print-cover")
     ResponseEntity<byte[]> printCover(@PathVariable UUID bookId, @RequestBody PrintCoverRequest request) {

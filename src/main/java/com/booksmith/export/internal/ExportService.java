@@ -116,6 +116,18 @@ public class ExportService {
                 .withImported(manuscripts.coverPdf(ownerId, bookId).orElse(null));
     }
 
+    /**
+     * Modelo da capa (gabarito em PDF) nas medidas de {@link #printCoverSpec}: para quem vai fazer a capa fora do
+     * app. Não conta no limite diário de PDFs (não desenha o livro, só as guias).
+     */
+    public ExportFile printCoverTemplate(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
+                                         Double bleedMm, Double flapMm) {
+        PrintCover.Spec spec = printCoverSpec(ownerId, author, bookId, profile, spineMm, bleedMm, flapMm);
+        String title = manuscripts.bookContent(ownerId, bookId).title();
+        byte[] pdf = PrintCoverTemplate.pdf(spec, title, PrintCover.Profile.of(profile).label());
+        return new ExportFile("modelo-capa-" + filename(title, ExportFormat.PDF), ExportFormat.PDF.contentType(), pdf);
+    }
+
     /** PDF da capa aberta, com a imagem desenhada no aparelho nas medidas de {@link #printCoverSpec}. */
     public ExportFile printCover(UUID ownerId, String author, UUID bookId, String profile, Double spineMm,
                                  Double bleedMm, String imageDataUrl) {

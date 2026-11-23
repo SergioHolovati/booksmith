@@ -66,6 +66,16 @@ public final class PrintCover {
             return this != CUSTOM;
         }
 
+        /** Como o autor vê o destino (no modelo da capa). */
+        String label() {
+            return switch (this) {
+                case KDP_WHITE -> "KDP (Amazon), papel branco";
+                case KDP_CREAM -> "KDP (Amazon), papel creme";
+                case KDP_COLOR_PREMIUM -> "KDP (Amazon), colorido premium";
+                case CUSTOM -> "Outra gráfica";
+            };
+        }
+
         /** "kdp-cream" → {@link #KDP_CREAM}. */
         public static Profile of(String value) {
             for (Profile profile : values()) {
