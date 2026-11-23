@@ -75,4 +75,15 @@ class PdfBookReaderTest {
         assertThatThrownBy(() -> PdfBookReader.read(file, page -> { }))
                 .isInstanceOf(ApiException.class).hasMessageContaining("PDF");
     }
+
+    @Test
+    void aGiantPageIsRefusedBeforeBecomingAnImage(@TempDir Path dir) throws Exception {
+        // 2 × 2 m: em 300 DPI seriam 560 milhões de pixels (a API cairia sem memória)
+        File giant = pdf(dir, new float[][] {{170, 240}, {2000, 2000}});
+        List<PdfBookReader.RenderedPage> pages = new ArrayList<>();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> PdfBookReader.read(giant, pages::add))
+                .isInstanceOf(com.booksmith.common.error.ApiException.class)
+                .hasMessageContaining("grande demais");
+        org.assertj.core.api.Assertions.assertThat(pages).isEmpty();
+    }
 }

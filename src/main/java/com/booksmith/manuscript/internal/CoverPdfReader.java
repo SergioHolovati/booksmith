@@ -34,6 +34,7 @@ import java.util.Locale;
 final class CoverPdfReader {
 
     private static final double MM_PER_POINT = 25.4 / 72;
+    private static final double MAX_RENDER_PIXELS = 60_000_000d;
 
     /** Largura da imagem da frente: perto dos 1600 px da capa de e-book. */
     private static final int FRONT_WIDTH_PX = 1600;
@@ -92,7 +93,10 @@ final class CoverPdfReader {
             Geometry geometry = geometry(first, turned, kind, width, height, layout, declared);
 
             float dpi = (float) (FRONT_WIDTH_PX / (geometry.frontW() / 25.4));
-            BufferedImage page = new PDFRenderer(document).renderImageWithDPI(0, Math.min(dpi, 400), ImageType.RGB);
+            // Teto de 60 milhões de pixels: uma página gigante (o PDF permite metros) não derruba a API
+            float maxDpi = (float) Math.sqrt(MAX_RENDER_PIXELS / ((width / 25.4) * (height / 25.4)));
+            BufferedImage page = new PDFRenderer(document).renderImageWithDPI(0, Math.min(Math.min(dpi, 400), maxDpi),
+                    ImageType.RGB);
             double pxPerMm = page.getWidth() / width;
             int x = clamp((int) Math.round(geometry.frontX() * pxPerMm), page.getWidth() - 1);
             int y = clamp((int) Math.round(geometry.frontY() * pxPerMm), page.getHeight() - 1);

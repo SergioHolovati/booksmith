@@ -35,6 +35,11 @@ final class PdfBookReader {
     /** Livro inteiro, não um panfleto: acima disso, é melhor diagramar no app. */
     static final int MAX_PAGES = 200;
     static final int DPI = 300;
+    /**
+     * Teto de pixels por página em 300 DPI (60 milhões: uma página dupla de 30 × 30 cm tem uns 25). Sem ele, um PDF
+     * com uma página gigante (o formato permite metros) viraria uma imagem de bilhões de pixels e derrubaria a API.
+     */
+    static final long MAX_PAGE_PIXELS = 60_000_000L;
     /** As imagens da biblioteca têm até 5 MB; a página sai em JPEG, com a qualidade baixando até caber. */
     static final long MAX_IMAGE_BYTES = 4_900_000;
     private static final float POINTS_PER_MM = 72f / 25.4f;
@@ -67,6 +72,14 @@ final class PdfBookReader {
             if (count > MAX_PAGES) {
                 throw ApiException.unprocessable("pdf_too_many_pages",
                         "O PDF tem %d páginas; o limite é %d.".formatted(count, MAX_PAGES));
+            }
+            for (PDPage page : document.getPages()) {
+                PDRectangle media = page.getMediaBox();
+                double pixels = (double) media.getWidth() / 72 * DPI * media.getHeight() / 72 * DPI;
+                if (!(pixels > 0) || pixels > MAX_PAGE_PIXELS) {
+                    throw ApiException.unprocessable("pdf_page_too_big",
+                            "Uma página do PDF é grande demais. Exporte no tamanho do livro (até uns 60 × 40 cm na página dupla).");
+                }
             }
             double singleAspect = singleAspect(document);
             Size size = size(document, singleAspect);
