@@ -93,6 +93,9 @@ booksmith:
     ghostscript-timeout: ${GHOSTSCRIPT_TIMEOUT:180s}
     # Em produção, o Ghostscript roda isolado no contêiner "pdfx" (sem rede para fora); vazio = o local
     pdfx-url: ${PDFX_URL:}
+  # Monitoramento do backoffice: de quanto em quanto tempo os contadores da memória vão para o Redis.
+  monitoring:
+    flush-interval: ${MONITORING_FLUSH_INTERVAL:PT30S}
   # Alertas de segurança por e-mail ao administrador: a partir de quantos eventos por hora cada tipo dispara.
   # Sem ALERT_EMAIL, só o log.
   alerts:
