@@ -2,7 +2,7 @@ package com.booksmith.support.internal;
 
 /**
  * Ferramenta de atendimento (questão em aberto, §32): cria o ticket a partir do pedido. Como os outros
- * provedores, fica atrás desta interface; a implementação escolhida substitui {@link LoggingHelpdeskGateway}.
+ * provedores, fica atrás desta interface; hoje é o próprio backoffice ({@link BackofficeHelpdeskGateway}); uma ferramenta pronta pode substituí-lo.
  */
 public interface HelpdeskGateway {
 

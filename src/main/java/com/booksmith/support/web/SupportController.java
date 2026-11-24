@@ -7,6 +7,7 @@ import com.booksmith.support.internal.SupportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,9 +39,27 @@ class SupportController {
         return supportService.mine(currentUser.id()).stream().map(SupportController::response).toList();
     }
 
+    /** O pedido com a conversa (as respostas da equipe e as da pessoa). */
+    @GetMapping("/me/support/requests/{id}")
+    ConversationResponse conversation(@PathVariable UUID id) {
+        return conversation(supportService.conversation(currentUser.id(), id));
+    }
+
+    /** A pessoa responde no pedido (volta para a equipe). */
+    @PostMapping("/me/support/requests/{id}/messages")
+    ConversationResponse reply(@PathVariable UUID id, @RequestBody ReplyRequest request) {
+        return conversation(supportService.reply(currentUser.get(), id, request.body()));
+    }
+
+    private static ConversationResponse conversation(SupportService.Conversation conversation) {
+        return new ConversationResponse(response(conversation.request()), conversation.messages().stream()
+                .map(m -> new MessageResponse(m.getId(), m.getAuthor(), m.getBody(), m.getCreatedAt()))
+                .toList());
+    }
+
     private static RequestResponse response(SupportRequest r) {
         return new RequestResponse(r.getId(), r.protocol(), r.getCategory(), r.getMessage(), r.getPriority(),
-                r.getStatus(), r.getEmail(), r.getCreatedAt());
+                r.getStatus(), r.getEmail(), r.getCreatedAt(), r.getLastActivityAt());
     }
 
     record CreateRequest(String category, String message, SupportContext context) {
@@ -48,6 +67,16 @@ class SupportController {
 
     /** {@code email}: para onde vai a resposta. */
     record RequestResponse(UUID id, String protocol, String category, String message, String priority, String status,
-                           String email, Instant createdAt) {
+                           String email, Instant createdAt, Instant lastActivityAt) {
+    }
+
+    record ReplyRequest(String body) {
+    }
+
+    /** {@code author}: user (a pessoa) ou staff (a equipe). */
+    record MessageResponse(UUID id, String author, String body, Instant createdAt) {
+    }
+
+    record ConversationResponse(RequestResponse request, List<MessageResponse> messages) {
     }
 }

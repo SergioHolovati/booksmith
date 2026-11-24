@@ -25,12 +25,14 @@ def maven(path):
     return pkgs
 
 
-def npm(path):
-    lock = json.load(open(path, encoding="utf-8"))
+def npm(paths):
+    """Um ou vários package-lock.json separados por ";" (o app e o backoffice)."""
     pkgs = set()
-    for key, info in lock.get("packages", {}).items():
-        if key and "version" in info:
-            pkgs.add(("npm", key.split("node_modules/")[-1], info["version"]))
+    for path in paths.split(";"):
+        lock = json.load(open(path, encoding="utf-8"))
+        for key, info in lock.get("packages", {}).items():
+            if key and "version" in info:
+                pkgs.add(("npm", key.split("node_modules/")[-1], info["version"]))
     return pkgs
 
 

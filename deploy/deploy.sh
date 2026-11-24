@@ -15,7 +15,7 @@ INCOMING=$ROOT/releases/incoming
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 [ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE (modelo em deploy/env.prod.example)"; exit 1; }
-[ -f "$INCOMING/booksmith.tar" ] && [ -f "$INCOMING/booksmith-web.tar" ] || { echo "Faltam os fontes em $INCOMING"; exit 1; }
+[ -f "$INCOMING/booksmith.tar" ] && [ -f "$INCOMING/booksmith-web.tar" ] && [ -f "$INCOMING/booksmith-admin.tar" ]     || { echo "Faltam os fontes em $INCOMING"; exit 1; }
 
 compose() {
   docker compose --env-file "$ENV_FILE" -f "$SRC/booksmith/deploy/compose.prod.yml" "$@"
@@ -37,16 +37,19 @@ done
 
 echo "== 3. Fontes"
 rm -rf "$SRC.new"
-mkdir -p "$SRC.new/booksmith" "$SRC.new/booksmith-web"
+mkdir -p "$SRC.new/booksmith" "$SRC.new/booksmith-web" "$SRC.new/booksmith-admin"
 tar -xf "$INCOMING/booksmith.tar" -C "$SRC.new/booksmith"
 tar -xf "$INCOMING/booksmith-web.tar" -C "$SRC.new/booksmith-web"
+tar -xf "$INCOMING/booksmith-admin.tar" -C "$SRC.new/booksmith-admin"
 rm -rf "$SRC.old"
 [ -d "$SRC" ] && mv "$SRC" "$SRC.old"
 mv "$SRC.new" "$SRC"
 cp "$INCOMING/booksmith.tar" "$ROOT/releases/booksmith-$STAMP.tar"
 cp "$INCOMING/booksmith-web.tar" "$ROOT/releases/booksmith-web-$STAMP.tar"
+cp "$INCOMING/booksmith-admin.tar" "$ROOT/releases/booksmith-admin-$STAMP.tar"
 ls -1t "$ROOT"/releases/booksmith-*.tar 2>/dev/null | tail -n +6 | xargs -r rm -f
 ls -1t "$ROOT"/releases/booksmith-web-*.tar 2>/dev/null | tail -n +6 | xargs -r rm -f
+ls -1t "$ROOT"/releases/booksmith-admin-*.tar 2>/dev/null | tail -n +6 | xargs -r rm -f
 
 echo "== 4. Build e subida"
 # APT_REFRESH muda a cada dia: a camada do apt (Ghostscript, no pdfx) é refeita e pega as correções de segurança do Ubuntu

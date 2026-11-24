@@ -26,7 +26,10 @@ class SupportServiceTest {
     private final SupportRequestRepository repository = mock(SupportRequestRepository.class);
     private final HelpdeskGateway helpdesk = mock(HelpdeskGateway.class);
     private final UserDirectory users = mock(UserDirectory.class);
-    private final SupportService service = new SupportService(repository, helpdesk, users, JsonMapper.builder().build(),
+    private final SupportMessageRepository messages = mock(SupportMessageRepository.class);
+    private final SupportMailer mailer = mock(SupportMailer.class);
+    private final SupportService service = new SupportService(repository, messages, mailer, helpdesk, users,
+            JsonMapper.builder().build(),
             Clock.fixed(Instant.parse("2026-11-10T12:00:00Z"), ZoneOffset.UTC));
 
     private final AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), "sergio", "Sérgio", "s1");

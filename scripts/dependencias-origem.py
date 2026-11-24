@@ -10,6 +10,7 @@ Confere:
      do golpe.
 
 Uso: python dependencias-origem.py <pom.xml> <package.json> <package-lock.json> <requirements.txt>
+(Vários projetos npm, como o app e o backoffice: os package.json e os package-lock.json separados por ";".)
 Sai com código 1 se algo estiver fora do esperado.
 """
 import datetime
@@ -65,8 +66,10 @@ def main():
     problems, notes = [], []
 
     # 1. npm: origem e integridade de tudo o que está no lock
-    lock = json.load(open(lock_path, encoding="utf-8"))
-    entries = [(k, v) for k, v in lock.get("packages", {}).items() if k]
+    entries = []
+    for path in lock_path.split(";"):
+        lock = json.load(open(path, encoding="utf-8"))
+        entries += [(k, v) for k, v in lock.get("packages", {}).items() if k]
     for key, info in entries:
         resolved = info.get("resolved")
         if info.get("link"):
@@ -89,8 +92,11 @@ def main():
             problems.append(f"pip: versão não fixada em '{line}'")
 
     # 4. Dependências diretas: existem, têm histórico e não são novas demais
-    pkg = json.load(open(pkg_path, encoding="utf-8"))
-    direct_npm = sorted({**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})})
+    direct = {}
+    for path in pkg_path.split(";"):
+        pkg = json.load(open(path, encoding="utf-8"))
+        direct.update({**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})})
+    direct_npm = sorted(direct)
     for name in direct_npm:
         try:
             meta = get_json(f"https://registry.npmjs.org/{name.replace('/', '%2F')}")

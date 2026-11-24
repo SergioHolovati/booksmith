@@ -30,8 +30,15 @@ public class SupportService {
     static final int MIN_MESSAGE = 10;
     /** Por pessoa, em 24 horas: mais que isso é quase sempre erro do app (envio repetido) ou abuso. */
     static final int MAX_PER_DAY = 10;
+    /** Esperando a equipe. */
+    public static final String OPEN = "open";
+    /** A equipe respondeu; esperando a pessoa. */
+    public static final String WAITING_USER = "waiting_user";
+    public static final String RESOLVED = "resolved";
 
     private final SupportRequestRepository repository;
+    private final SupportMessageRepository messages;
+    private final SupportMailer mailer;
     private final HelpdeskGateway helpdesk;
     private final UserDirectory users;
     private final JsonMapper jsonMapper;
@@ -73,5 +80,56 @@ public class SupportService {
     @Transactional(readOnly = true)
     public List<SupportRequest> mine(UUID userId) {
         return repository.findTop50ByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    /** O pedido e a conversa, como a pessoa vê (sem as notas internas). De outra pessoa: 404. */
+    @Transactional(readOnly = true)
+    public Conversation conversation(UUID userId, UUID requestId) {
+        SupportRequest request = own(userId, requestId);
+        return new Conversation(request, messages.findAllByRequestIdAndInternalFalseOrderByCreatedAtAsc(requestId));
+    }
+
+    /** A pessoa responde no pedido: volta a esperar a equipe (mesmo se estava resolvido) e a equipe é avisada. */
+    @Transactional
+    public Conversation reply(AuthenticatedUser user, UUID requestId, String body) {
+        SupportRequest request = own(user.id(), requestId);
+        String text = text(body);
+        long today = messages.findAllByRequestIdOrderByCreatedAtAsc(requestId).stream()
+                .filter(m -> SupportMessage.USER.equals(m.getAuthor()))
+                .filter(m -> m.getCreatedAt() != null && m.getCreatedAt().isAfter(Instant.now(clock).minus(Duration.ofDays(1))))
+                .count();
+        if (today >= MAX_PER_DAY) {
+            throw ApiException.unprocessable("too_many_support_requests",
+                    "Você já mandou muitas mensagens hoje neste pedido. A equipe vai responder.");
+        }
+        messages.save(SupportMessage.builder().requestId(requestId).author(SupportMessage.USER).authorId(user.id())
+                .body(text).internal(false).build());
+        request.setStatus(OPEN);
+        request.setLastActivityAt(Instant.now(clock));
+        mailer.userReplied(request);
+        return new Conversation(request, messages.findAllByRequestIdAndInternalFalseOrderByCreatedAtAsc(requestId));
+    }
+
+    private SupportRequest own(UUID userId, UUID requestId) {
+        return repository.findById(requestId)
+                .filter(r -> r.getUserId().equals(userId))
+                .orElseThrow(() -> ApiException.notFound("support_request_not_found", "Pedido não encontrado."));
+    }
+
+    /** Texto de uma mensagem da conversa: sem espaços nas pontas, de 1 a {@value #MAX_MESSAGE} caracteres. */
+    static String text(String body) {
+        String text = body == null ? "" : body.strip();
+        if (text.isEmpty()) {
+            throw ApiException.unprocessable("support_invalid", "Escreva a mensagem.");
+        }
+        if (text.length() > MAX_MESSAGE) {
+            throw ApiException.unprocessable("support_invalid",
+                    "A mensagem passou de %d caracteres.".formatted(MAX_MESSAGE));
+        }
+        return text;
+    }
+
+    /** Um pedido com a conversa. */
+    public record Conversation(SupportRequest request, List<SupportMessage> messages) {
     }
 }

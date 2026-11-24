@@ -17,6 +17,7 @@ import java.util.UUID;
 class SupportDataContributor implements PersonalDataContributor {
 
     private final SupportRequestRepository repository;
+    private final SupportMessageRepository messages;
     private final JsonMapper jsonMapper;
 
     @Override
@@ -33,11 +34,18 @@ class SupportDataContributor implements PersonalDataContributor {
         }
         archive.json("suporte/pedidos.json", requests.stream()
                 .map(r -> new RequestData(r.protocol(), r.getCategory(), r.getMessage(), r.getStatus(),
-                        jsonMapper.readTree(r.getContext()), r.getCreatedAt()))
+                        jsonMapper.readTree(r.getContext()), r.getCreatedAt(),
+                        messages.findAllByRequestIdAndInternalFalseOrderByCreatedAtAsc(r.getId()).stream()
+                                .map(m -> new MessageData(m.getAuthor(), m.getBody(), m.getCreatedAt()))
+                                .toList()))
                 .toList());
     }
 
+    /** A conversa sem as notas internas da equipe. */
     record RequestData(String protocol, String category, String message, String status, JsonNode context,
-                       Instant createdAt) {
+                       Instant createdAt, java.util.List<MessageData> messages) {
+    }
+
+    record MessageData(String author, String body, Instant createdAt) {
     }
 }

@@ -23,6 +23,7 @@ class ResendEmailSender implements EmailSender {
     private static final String EMAIL_VERIFICATION_TEMPLATE = "email-templates/email-verification.html";
     private static final String SECURITY_NOTICE_TEMPLATE = "email-templates/security-notice.html";
     private static final String MFA_CODE_TEMPLATE = "email-templates/mfa-code.html";
+    private static final String NOTICE_TEMPLATE = "email-templates/notice.html";
 
     private final MailProperties properties;
 
@@ -52,6 +53,12 @@ class ResendEmailSender implements EmailSender {
     /** O texto entra no HTML: o aparelho vem do User-Agent, que quem acessa escolhe. */
     static String escape(String text) {
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    @Override
+    public void sendNotice(String to, String title, String message) {
+        send(to, title + " | Booksmith",
+                loadTemplate(NOTICE_TEMPLATE, Map.of("title", escape(title), "message", escape(message))));
     }
 
     private void send(String to, String subject, String html) {

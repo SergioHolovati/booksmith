@@ -19,6 +19,9 @@ services:
   caddy:
     build:
       context: ../../booksmith-web
+      # O backoffice (adminbooksmith.com.br) é servido pelo mesmo Caddy
+      additional_contexts:
+        admin-src: ../../booksmith-admin
     image: booksmith-web:latest
     restart: unless-stopped
     ports:
@@ -27,6 +30,7 @@ services:
       - "443:443/udp"
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS}
+      ADMIN_ADDRESS: ${ADMIN_ADDRESS:-adminbooksmith.com.br}
       ACME_EMAIL: ${ACME_EMAIL:-}
       MEDIA_BUCKET: ${MEDIA_BUCKET:-booksmith-media}
     volumes:
@@ -63,6 +67,10 @@ services:
       MEDIA_PUBLIC_BASE_URL: https://${SITE_ADDRESS}/media
       FRONTEND_URL: https://${SITE_ADDRESS}
       CORS_ALLOWED_ORIGINS: https://${SITE_ADDRESS}
+      # Backoffice: /api/v1/admin/** só pelo endereço dele; os e-mails do suporte levam o link
+      ADMIN_HOST: ${ADMIN_ADDRESS:-adminbooksmith.com.br}
+      ADMIN_URL: https://${ADMIN_ADDRESS:-adminbooksmith.com.br}
+      SUPPORT_TEAM_EMAIL: ${SUPPORT_TEAM_EMAIL:-${ALERT_EMAIL:-}}
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1024m -XX:+UseSerialGC"
       # PDF para gráfica: o Ghostscript no contêiner isolado
       PDFX_URL: http://pdfx:8085

@@ -23,6 +23,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent          # booksmith
 $project = Split-Path $root -Parent               # booksmith-project
 $web = Join-Path $project "booksmith-web"
+$admin = Join-Path $project "booksmith-admin"
 $key = Join-Path $HOME ".ssh\booksmith_vps"
 $serverFile = Join-Path $project "booksmith-data\servidor.txt"
 
@@ -46,23 +47,25 @@ function Conferir-Repo($path, $branch) {
 Write-Host "== Conferindo os repositórios" -ForegroundColor Cyan
 $apiRev = Conferir-Repo $root "main"
 $webRev = Conferir-Repo $web "master"
-Write-Host "   API $apiRev, app $webRev"
+$adminRev = Conferir-Repo $admin "main"
+Write-Host "   API $apiRev, app $webRev, backoffice $adminRev"
 
 $tmp = Join-Path $env:TEMP "booksmith-deploy"
 New-Item -ItemType Directory -Force $tmp | Out-Null
 Write-Host "== Empacotando o código commitado" -ForegroundColor Cyan
 git -C $root archive --format=tar -o (Join-Path $tmp "booksmith.tar") HEAD
 git -C $web archive --format=tar -o (Join-Path $tmp "booksmith-web.tar") HEAD
+git -C $admin archive --format=tar -o (Join-Path $tmp "booksmith-admin.tar") HEAD
 Copy-Item (Join-Path $root "deploy\deploy.sh") (Join-Path $tmp "deploy.sh")
 
 $ssh = @("-i", $key, "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=15")
 Write-Host "== Enviando para $Server" -ForegroundColor Cyan
 & ssh @ssh $Server "mkdir -p /opt/booksmith/releases/incoming"
-& scp @ssh (Join-Path $tmp "booksmith.tar") (Join-Path $tmp "booksmith-web.tar") (Join-Path $tmp "deploy.sh") "${Server}:/opt/booksmith/releases/incoming/"
+& scp @ssh (Join-Path $tmp "booksmith.tar") (Join-Path $tmp "booksmith-web.tar") (Join-Path $tmp "booksmith-admin.tar") (Join-Path $tmp "deploy.sh") "${Server}:/opt/booksmith/releases/incoming/"
 if ($LASTEXITCODE -ne 0) { throw "Falha ao enviar os arquivos" }
 
 Write-Host "== Deploy no servidor (backup, build, subida, saúde)" -ForegroundColor Cyan
 & ssh @ssh $Server "sed -i 's/\r$//' /opt/booksmith/releases/incoming/deploy.sh && bash /opt/booksmith/releases/incoming/deploy.sh"
 if ($LASTEXITCODE -ne 0) { throw "O deploy falhou (veja a saída acima). Se houve volta atrás, o site continua na versão anterior." }
 
-Write-Host "== Pronto: API $apiRev, app $webRev no ar em $Server" -ForegroundColor Green
+Write-Host "== Pronto: API $apiRev, app $webRev, backoffice $adminRev no ar em $Server" -ForegroundColor Green

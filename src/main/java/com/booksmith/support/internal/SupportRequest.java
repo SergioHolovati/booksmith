@@ -66,6 +66,11 @@ public class SupportRequest {
     @UpdateTimestamp
     private Instant updatedAt;
 
+    /** Última mensagem ou mudança de situação (a caixa de entrada ordena por aqui). */
+    @Builder.Default
+    @Column(name = "last_activity_at", nullable = false)
+    private Instant lastActivityAt = Instant.now();
+
     /** Número curto para o usuário citar ("BS-3F9A2C71"): o fim do id, que é a parte aleatória do UUIDv7. */
     public String protocol() {
         String hex = id.toString().replace("-", "");

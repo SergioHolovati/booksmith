@@ -79,8 +79,23 @@ if (Listening 4200) {
     Write-Host " ok"
 }
 
+# 4. Backoffice da equipe (Angular) na 4300, se o projeto estiver baixado
+$admin = Join-Path $project "booksmith-admin"
+if ((Test-Path (Join-Path $admin "package.json")) -and -not (Listening 4300)) {
+    $log = Join-Path $logs "admin.log"
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx ng serve --port 4300 > `"$log`" 2>&1" `
+        -WorkingDirectory $admin -WindowStyle Hidden
+    Write-Host -NoNewline "Iniciando o backoffice"
+    for ($i = 0; $i -lt 60; $i++) {
+        if (Listening 4300) { break }
+        Write-Host -NoNewline "."
+        Start-Sleep -Seconds 3
+    }
+    Write-Host " ok"
+}
+
 Write-Host ""
-Write-Host "Pronto: http://localhost:4200 (API em http://localhost:8090; logs em $logs)"
+Write-Host "Pronto: http://localhost:4200 (API em http://localhost:8090; backoffice em http://localhost:4300; logs em $logs)"
 # No celular, no mesmo Wi-Fi: o endereço do computador na rede local
 $lan = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
     Where-Object { $_.InterfaceAlias -match "Wi-Fi|Ethernet" -and $_.IPAddress -notmatch "^(127|169\.254|172\.)" } |

@@ -93,6 +93,15 @@ booksmith:
     ghostscript-timeout: ${GHOSTSCRIPT_TIMEOUT:180s}
     # Em produção, o Ghostscript roda isolado no contêiner "pdfx" (sem rede para fora); vazio = o local
     pdfx-url: ${PDFX_URL:}
+  # Atendimento: quem da equipe recebe o aviso de pedido novo e os endereços que vão nos e-mails.
+  support:
+    team-email: ${SUPPORT_TEAM_EMAIL:${ALERT_EMAIL:}}
+    app-url: ${FRONTEND_URL:http://localhost:4200}
+    admin-url: ${ADMIN_URL:http://localhost:4300}
+  # Backoffice: com ADMIN_HOST, as rotas /api/v1/admin/** só respondem pelo endereço do backoffice
+  # (adminbooksmith.com.br); pelo do app, 404. Vazio: em qualquer endereço (desenvolvimento).
+  admin:
+    host: ${ADMIN_HOST:}
   # Monitoramento do backoffice: de quanto em quanto tempo os contadores da memória vão para o Redis.
   monitoring:
     flush-interval: ${MONITORING_FLUSH_INTERVAL:PT30S}

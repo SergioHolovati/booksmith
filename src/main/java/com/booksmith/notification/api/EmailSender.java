@@ -17,4 +17,12 @@ public interface EmailSender {
      * @param message o que aconteceu, em texto simples (escapado no HTML)
      */
     void sendSecurityNotice(String to, String title, String message);
+
+    /**
+     * Aviso simples, sem o texto de segurança (resposta do suporte, pedido novo para a equipe).
+     *
+     * @param title   título e assunto
+     * @param message o texto, simples (escapado no HTML; quebras de linha mantidas)
+     */
+    void sendNotice(String to, String title, String message);
 }

@@ -6,11 +6,11 @@
   Roda, nesta ordem:
     1. Backend  - mvnw verify: testes, ArchUnit (camadas), Spring Modulith (módulos), PMD (código limpo, bloqueia
                   prioridade 1-2), CPD (duplicação), SpotBugs + Find Security Bugs, JaCoCo (cobertura)
-    2. Frontend - ng lint (ESLint: código limpo, segurança, arquitetura) e testes (Vitest)
+    2. Frontend - ng lint (ESLint: código limpo, segurança, arquitetura) e testes (Vitest) do app e do backoffice
     3. Origem das dependências - contra pacote falso (slopsquatting/typosquatting)
     4. OSV       - dependências com falha de segurança conhecida (riscos aceitos em config/osv-aceitos.txt)
     5. Semgrep   - segurança no código Java e TypeScript (regras públicas, --metrics=off)
-    6. Gitleaks  - segredos no histórico do Git dos três repositórios e nas mudanças ainda não commitadas
+    6. Gitleaks  - segredos no histórico do Git dos quatro repositórios e nas mudanças ainda não commitadas
   Cada passo diz quanto LEU, não só quanto achou: um "zero" que não leu nada não conta como aprovado.
   Relatório em booksmith-data/saude/ (com o tempo de cada passo). Sai com código 1 se algum passo falhar.
 
@@ -33,6 +33,7 @@ $ErrorActionPreference = "Continue"
 $root = Split-Path $PSScriptRoot -Parent                 # booksmith (API)
 $project = Split-Path $root -Parent                       # booksmith-project
 $web = Join-Path $project "booksmith-web"
+$admin = Join-Path $project "booksmith-admin"
 $tests = Join-Path $project "booksmith-tests"
 $out = Join-Path $project "booksmith-data\saude"
 New-Item -ItemType Directory -Force $out | Out-Null
@@ -88,19 +89,23 @@ function Hash($paths) {
 
 # Dependências: em paralelo com o backend, a não ser que já tenham sido conferidas hoje, iguais
 $depFiles = @((Join-Path $root "pom.xml"), (Join-Path $web "package.json"), (Join-Path $web "package-lock.json"),
+    (Join-Path $admin "package.json"), (Join-Path $admin "package-lock.json"),
     (Join-Path $tests "requirements.txt"), (Join-Path $root "config\osv-aceitos.txt"))
 $depsHash = Hash $depFiles
 $depsCached = -not $full -and $state["deps"] -eq "$today|$depsHash"
 $depsJob = $null
 if (-not $depsCached) {
-    $depsJob = Start-Job -ArgumentList $root, $web, $tests, $out, $env:JAVA_HOME -ScriptBlock {
-        param($root, $web, $tests, $out, $javaHome)
+    $depsJob = Start-Job -ArgumentList $root, $web, $admin, $tests, $out, $env:JAVA_HOME -ScriptBlock {
+        param($root, $web, $admin, $tests, $out, $javaHome)
+        # O app e o backoffice: os dois projetos npm, separados por ";"
+        $packages = (Join-Path $web "package.json") + ";" + (Join-Path $admin "package.json")
+        $locks = (Join-Path $web "package-lock.json") + ";" + (Join-Path $admin "package-lock.json")
         $env:JAVA_HOME = $javaHome
         $env:PYTHONIOENCODING = "utf-8"   # sem isso, o log sai com os acentos trocados ("dependÛncias")
         [Console]::OutputEncoding = [Text.Encoding]::UTF8
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        python (Join-Path $root "scripts\dependencias-origem.py") (Join-Path $root "pom.xml") (Join-Path $web "package.json") `
-            (Join-Path $web "package-lock.json") (Join-Path $tests "requirements.txt") *> (Join-Path $out "origem.log")
+        python (Join-Path $root "scripts\dependencias-origem.py") (Join-Path $root "pom.xml") $packages `
+            $locks (Join-Path $tests "requirements.txt") *> (Join-Path $out "origem.log")
         $originOk = $LASTEXITCODE -eq 0
         $originTime = [int]$watch.Elapsed.TotalSeconds
         $watch.Restart()
@@ -108,7 +113,7 @@ if (-not $depsCached) {
         Push-Location $root
         & .\mvnw.cmd -q dependency:list "-DoutputFile=$deps" -DincludeScope=test *> $null
         Pop-Location
-        python (Join-Path $root "scripts\osv-check.py") $deps (Join-Path $web "package-lock.json") (Join-Path $tests "requirements.txt") `
+        python (Join-Path $root "scripts\osv-check.py") $deps $locks (Join-Path $tests "requirements.txt") `
             (Join-Path $root "config\osv-aceitos.txt") (Join-Path $out "osv.txt") *> $null
         @{ originOk = $originOk; originTime = $originTime; osvOk = ($LASTEXITCODE -eq 0); osvTime = [int]$watch.Elapsed.TotalSeconds }
     }
@@ -127,12 +132,17 @@ Step "Backend (testes, arquitetura, PMD, duplicação, SpotBugs)" {
     if ($ok) { "ok ($avisos avisos de complexidade para refatorar aos poucos: target/pmd.xml)" } else { "FALHOU (ver booksmith-data/saude/backend.log)" }
 }
 
-Step "Frontend (ESLint e testes)" {
+Step "Frontend (ESLint e testes do app e do backoffice)" {
     Push-Location $web
     npx ng lint *> (Join-Path $out "lint.log")
     $lint = $LASTEXITCODE -eq 0
     $test = $true
     if (-not $Rapido) { npx ng test --watch=false *> (Join-Path $out "frontend-testes.log"); $test = $LASTEXITCODE -eq 0 }
+    Pop-Location
+    Push-Location $admin
+    npx ng lint *> (Join-Path $out "lint-admin.log")
+    $lint = $lint -and $LASTEXITCODE -eq 0
+    if (-not $Rapido) { npx ng test --watch=false *> (Join-Path $out "admin-testes.log"); $test = $test -and $LASTEXITCODE -eq 0 }
     Pop-Location
     $warn = (Select-String -Path (Join-Path $out "lint.log") -Pattern "warning" -SimpleMatch).Count
     if ($lint -and $test) { "ok ($warn avisos de complexidade)" } else { "FALHOU (lint: $lint, testes: $test; ver lint.log)" }
@@ -168,11 +178,14 @@ function Changed($repo, $since, $folder) {
 
 Step "Segurança no código (Semgrep)" {
     $report = Join-Path $out "semgrep.json"
-    $heads = @{ "booksmith" = (git -C $root rev-parse HEAD); "booksmith-web" = (git -C $web rev-parse HEAD) }
-    $targets = @("booksmith/src/main", "booksmith-web/src")
+    $heads = @{ "booksmith" = (git -C $root rev-parse HEAD); "booksmith-web" = (git -C $web rev-parse HEAD);
+        "booksmith-admin" = (git -C $admin rev-parse HEAD) }
+    $targets = @("booksmith/src/main", "booksmith-web/src", "booksmith-admin/src")
     $partial = $false
     if (-not $full -and $state["semgrep"]["booksmith"] -and $state["semgrep"]["booksmith-web"]) {
         $targets = @(Changed "booksmith" $state["semgrep"]["booksmith"] "src/main") + @(Changed "booksmith-web" $state["semgrep"]["booksmith-web"] "src")
+        # Backoffice: o que mudou desde a última análise ou, na primeira vez, tudo
+        $targets += if ($state["semgrep"]["booksmith-admin"]) { @(Changed "booksmith-admin" $state["semgrep"]["booksmith-admin"] "src") } else { @("booksmith-admin/src") }
         $partial = $true
     }
     if ($partial -and $targets.Count -eq 0) {
@@ -190,6 +203,7 @@ Step "Segurança no código (Semgrep)" {
         elseif ($found -eq 0) {
             # Aprovado até o commit de agora; o que não está commitado entra de novo na próxima
             $state["semgrep"]["booksmith"] = $heads["booksmith"]; $state["semgrep"]["booksmith-web"] = $heads["booksmith-web"]
+            $state["semgrep"]["booksmith-admin"] = $heads["booksmith-admin"]
             "ok - $scanned arquivos lidos$(if ($partial) { ' (os que mudaram)' }), 0 achados"
         }
         else { "FALHOU - $found achados em $scanned arquivos (ver semgrep.json)" }
@@ -198,7 +212,7 @@ Step "Segurança no código (Semgrep)" {
 
 Step "Segredos no código e no histórico (Gitleaks)" {
     $lines = @(); $fail = $false
-    foreach ($repo in "booksmith", "booksmith-web", "booksmith-tests") {
+    foreach ($repo in "booksmith", "booksmith-web", "booksmith-admin", "booksmith-tests") {
         $dir = Join-Path $project $repo
         $head = git -C $dir rev-parse HEAD
         $since = $state["gitleaks"][$repo]
