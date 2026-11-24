@@ -33,7 +33,7 @@ class ImageReviewAdminController {
     private final CurrentUser currentUser;
 
     record ReviewView(UUID id, UUID ownerId, String ownerEmail, String category, String url, double score,
-                      String status, Instant createdAt, Instant decidedAt) {
+                      String status, String reason, Instant createdAt, Instant decidedAt) {
     }
 
     @GetMapping
@@ -41,7 +41,7 @@ class ImageReviewAdminController {
         requireAdmin();
         return reviews.list(limit).stream()
                 .map(r -> new ReviewView(r.id(), r.ownerId(), users.email(r.ownerId()).orElse(null), r.category(),
-                        r.url(), r.score(), r.status(), r.createdAt(), r.decidedAt()))
+                        r.url(), r.score(), r.status(), r.reason(), r.createdAt(), r.decidedAt()))
                 .toList();
     }
 

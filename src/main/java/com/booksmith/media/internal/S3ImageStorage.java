@@ -50,11 +50,13 @@ class S3ImageStorage implements ImageStorage {
         // Moderação: imprópria demais é recusada (não é guardada); em dúvida, entra e vai para a revisão do admin
         ImageModeration.Verdict verdict = moderation.check(bytes);
         if (verdict.decision() == ImageModeration.Decision.BLOCK) {
-            reviews.blocked(ownerId, category, verdict.score());
+            reviews.blocked(ownerId, category, verdict.score(), verdict.reason());
             events.publishEvent(new SecurityIncident(SecurityIncident.Kind.IMAGE_BLOCKED, category.name()));
-            log.warn("Moderação: imagem recusada ({}, {}) de userId: {}", category, verdict.score(), ownerId);
-            throw ApiException.unprocessable("image_blocked",
-                    "Esta imagem não pode entrar no Booksmith: ela parece ter nudez ou conteúdo sexual. "
+            log.warn("Moderação: imagem recusada ({}, {}, {}) de userId: {}", category, verdict.reason(), verdict.score(),
+                    ownerId);
+            throw ApiException.unprocessable("image_blocked", "ilegível".equals(verdict.reason())
+                    ? "Não conseguimos abrir esta imagem. Envie de novo em PNG ou JPEG."
+                    : "Esta imagem não pode entrar no Booksmith: ela parece ter nudez ou conteúdo sexual. "
                             + "Se for engano, fale com o suporte.");
         }
 
@@ -71,9 +73,10 @@ class S3ImageStorage implements ImageStorage {
 
         String url = publicUrl(key);
         if (verdict.decision() == ImageModeration.Decision.REVIEW) {
-            reviews.pending(ownerId, category, key, url, verdict.score());
+            reviews.pending(ownerId, category, key, url, verdict.score(), verdict.reason());
             events.publishEvent(new SecurityIncident(SecurityIncident.Kind.IMAGE_FLAGGED, category.name()));
-            log.warn("Moderação: imagem {} para revisão ({}) de userId: {}", key, verdict.score(), ownerId);
+            log.warn("Moderação: imagem {} para revisão ({}, {}) de userId: {}", key, verdict.reason(), verdict.score(),
+                    ownerId);
         }
         return new StoredImage(key, url, format.contentType, bytes.length);
     }

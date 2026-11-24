@@ -11,7 +11,8 @@ import java.util.UUID;
  */
 public interface ImageReviews {
 
-    record Review(UUID id, UUID ownerId, String category, String url, double score, String status,
+    /** @param reason nudez, violência, ódio ou ilegível */
+    record Review(UUID id, UUID ownerId, String category, String url, double score, String status, String reason,
                   Instant createdAt, Instant decidedAt) {
     }
 

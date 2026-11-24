@@ -161,6 +161,10 @@ booksmith:
     required: ${MODERATION_REQUIRED:false}
     review-at: ${MODERATION_REVIEW_AT:0.80}
     block-at: ${MODERATION_BLOCK_AT:0.97}
+    # Violência extrema e símbolos de ódio (CLIP): só mandam para a revisão, nunca recusam
+    clip-model: ${MODERATION_CLIP_MODEL:}
+    gore-at: ${MODERATION_GORE_AT:0.8}
+    hate-at: ${MODERATION_HATE_AT:0.9}
 
 ---
 spring:

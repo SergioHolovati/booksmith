@@ -43,19 +43,21 @@ class ImageReviewStore implements ImageReviews {
     }
 
     /** Imagem guardada que o admin precisa olhar. */
-    void pending(UUID ownerId, ImageCategory category, String key, String url, double score) {
-        insert(ownerId, category, key, url, score, "pending");
+    void pending(UUID ownerId, ImageCategory category, String key, String url, double score, String reason) {
+        insert(ownerId, category, key, url, score, "pending", reason);
     }
 
     /** Imagem recusada na hora (não foi guardada). */
-    void blocked(UUID ownerId, ImageCategory category, double score) {
-        insert(ownerId, category, null, null, score, "blocked");
+    void blocked(UUID ownerId, ImageCategory category, double score, String reason) {
+        insert(ownerId, category, null, null, score, "blocked", reason);
     }
 
-    private void insert(UUID ownerId, ImageCategory category, String key, String url, double score, String status) {
+    private void insert(UUID ownerId, ImageCategory category, String key, String url, double score, String status,
+                        String reason) {
         own.executeWithoutResult(tx -> jdbc.sql("""
-                        insert into media.image_reviews (id, owner_id, category, image_key, image_url, score, status, created_at)
-                        values (:id, :owner, :category, :key, :url, :score, :status, :at)
+                        insert into media.image_reviews
+                            (id, owner_id, category, image_key, image_url, score, status, reason, created_at)
+                        values (:id, :owner, :category, :key, :url, :score, :status, :reason, :at)
                         """)
                 .param("id", UUID.randomUUID())
                 .param("owner", ownerId)
@@ -64,6 +66,7 @@ class ImageReviewStore implements ImageReviews {
                 .param("url", url)
                 .param("score", score)
                 .param("status", status)
+                .param("reason", reason)
                 .param("at", Timestamp.from(Instant.now(clock)))
                 .update());
     }
@@ -71,7 +74,7 @@ class ImageReviewStore implements ImageReviews {
     @Override
     public List<Review> list(int limit) {
         return jdbc.sql("""
-                        select id, owner_id, category, image_url, score, status, created_at, decided_at
+                        select id, owner_id, category, image_url, score, status, reason, created_at, decided_at
                         from media.image_reviews
                         order by (status = 'pending') desc, created_at desc
                         limit :limit
@@ -79,7 +82,7 @@ class ImageReviewStore implements ImageReviews {
                 .param("limit", Math.clamp(limit, 1, 500))
                 .query((rs, row) -> new Review(rs.getObject("id", UUID.class), rs.getObject("owner_id", UUID.class),
                         rs.getString("category"), rs.getString("image_url"), rs.getDouble("score"),
-                        rs.getString("status"), rs.getTimestamp("created_at").toInstant(),
+                        rs.getString("status"), rs.getString("reason"), rs.getTimestamp("created_at").toInstant(),
                         Optional.ofNullable(rs.getTimestamp("decided_at")).map(Timestamp::toInstant).orElse(null)))
                 .list();
     }

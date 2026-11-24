@@ -20,8 +20,9 @@ class ImageModerationTest {
 
     /** O modelo baixado no notebook (tools/models); no servidor, ele vem na imagem da API. */
     private static final Path MODEL = Path.of("..", "tools", "models", "nsfw-vit-int8.onnx");
+    private static final Path CLIP = Path.of("..", "tools", "models", "clip-vision-int8.onnx");
 
-    private static final ModerationProperties LIMITS = new ModerationProperties(null, false, 0.80, 0.97);
+    private static final ModerationProperties LIMITS = new ModerationProperties(null, false, 0.80, 0.97, null, 1.1, 1.1);
 
     @Test
     void theScoreDecidesWhatHappensToTheImage() {
@@ -57,18 +58,18 @@ class ImageModerationTest {
 
     @Test
     void withoutTheModelNothingIsCheckedInDevelopmentButProductionRefusesToStart() {
-        var off = new ImageModeration(new ModerationProperties("", false, 0.8, 0.97));
+        var off = new ImageModeration(new ModerationProperties("", false, 0.8, 0.97, null, 1.1, 1.1));
         assertThat(off.enabled()).isFalse();
         assertThat(off.check(new byte[] {1, 2, 3}).decision()).isEqualTo(ImageModeration.Decision.UNCHECKED);
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
-                        new ImageModeration(new ModerationProperties("/nao/existe.onnx", true, 0.8, 0.97)))
+                        new ImageModeration(new ModerationProperties("/nao/existe.onnx", true, 0.8, 0.97, null, 1.1, 1.1)))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void ordinaryBookImagesPassAndAnUnreadableFileIsBlocked() throws Exception {
         assumeTrue(Files.exists(MODEL), "modelo de moderação não baixado em tools/models");
-        var moderation = new ImageModeration(new ModerationProperties(MODEL.toString(), true, 0.80, 0.97));
+        var moderation = new ImageModeration(new ModerationProperties(MODEL.toString(), true, 0.80, 0.97, null, 1.1, 1.1));
         assertThat(moderation.enabled()).isTrue();
         try {
             for (byte[] image : new byte[][] {gradient(), page()}) {
@@ -82,6 +83,53 @@ class ImageModerationTest {
         } finally {
             moderation.close();
         }
+    }
+
+    @Test
+    void violenceAndHateOnlyEverSendToReviewWithTheReason() {
+        var limits = new ModerationProperties(null, false, 0.80, 0.97, null, 0.5, 0.5);
+        assertThat(ImageModeration.decide(0.1, 0.1, 0.9, limits))
+                .isEqualTo(new ImageModeration.Verdict(ImageModeration.Decision.REVIEW, 0.9, "ódio"));
+        assertThat(ImageModeration.decide(0.1, 0.99, 0.0, limits))
+                .isEqualTo(new ImageModeration.Verdict(ImageModeration.Decision.REVIEW, 0.99, "violência"));
+        // Nudez acima do bloqueio vale mais que tudo; abaixo, nada passa de revisão
+        assertThat(ImageModeration.decide(0.98, 0.99, 0.99, limits).decision()).isEqualTo(ImageModeration.Decision.BLOCK);
+        assertThat(ImageModeration.decide(0.85, 0, 0, limits).reason()).isEqualTo("nudez");
+        assertThat(ImageModeration.decide(0.2, 0.2, 0.2, limits).decision()).isEqualTo(ImageModeration.Decision.OK);
+    }
+
+    @Test
+    void aHateSymbolGoesToReviewAndOrdinaryImagesPass() throws Exception {
+        assumeTrue(Files.exists(MODEL) && Files.exists(CLIP), "modelos de moderação não baixados em tools/models");
+        var moderation = new ImageModeration(new ModerationProperties(MODEL.toString(), true, 0.80, 0.97,
+                CLIP.toString(), 0.8, 0.9));
+        try {
+            ImageModeration.Verdict symbol = moderation.check(swastika());
+            assertThat(symbol.decision()).isEqualTo(ImageModeration.Decision.REVIEW);
+            assertThat(symbol.reason()).isEqualTo("ódio");
+            assertThat(moderation.check(gradient()).decision()).isEqualTo(ImageModeration.Decision.OK);
+            assertThat(moderation.check(page()).decision()).isEqualTo(ImageModeration.Decision.OK);
+        } finally {
+            moderation.close();
+        }
+    }
+
+    /** Uma suástica numa bandeira, desenhada aqui (para conferir que o símbolo de ódio vai para a revisão). */
+    private static byte[] swastika() throws Exception {
+        BufferedImage image = new BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+        g.setColor(new Color(200, 30, 30));
+        g.fillRect(0, 0, 400, 400);
+        g.setColor(Color.WHITE);
+        g.fillOval(60, 60, 280, 280);
+        g.setColor(Color.BLACK);
+        int[][] bars = {{185, 110, 30, 180}, {110, 185, 180, 30}, {185, 110, 75, 30}, {260, 185, 30, 75},
+            {140, 260, 75, 30}, {110, 140, 30, 75}};
+        for (int[] bar : bars) {
+            g.fillRect(bar[0], bar[1], bar[2], bar[3]);
+        }
+        g.dispose();
+        return png(image);
     }
 
     /** Um céu de fim de tarde (fundo de capa). */

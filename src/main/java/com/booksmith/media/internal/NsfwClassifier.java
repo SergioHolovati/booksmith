@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * O classificador de nudez e conteúdo sexual (AdamCodd/vit-base-nsfw-detector, Apache-2.0, ViT 384 × 384 em ONNX
@@ -42,23 +41,23 @@ final class NsfwClassifier implements AutoCloseable {
         this.input = session.getInputNames().iterator().next();
     }
 
-    /** A probabilidade de ser imprópria; vazio se a imagem não pôde ser lida. */
-    Optional<Double> score(byte[] bytes) throws OrtException {
-        BufferedImage image;
+    /** A imagem, ou null se o servidor não consegue abri-la. */
+    static BufferedImage decode(byte[] bytes) {
         try {
-            image = ImageIO.read(new ByteArrayInputStream(bytes));
+            return ImageIO.read(new ByteArrayInputStream(bytes));
         } catch (IOException | RuntimeException e) {
-            return Optional.empty();
+            return null;
         }
-        if (image == null) {
-            return Optional.empty();
-        }
+    }
+
+    /** A probabilidade de ser imprópria (nudez, conteúdo sexual). */
+    double score(BufferedImage image) throws OrtException {
         float[] pixels = pixels(image);
         try (OnnxTensor tensor = OnnxTensor.createTensor(environment, FloatBuffer.wrap(pixels),
                 new long[] {1, 3, SIZE, SIZE});
              OrtSession.Result result = session.run(Map.of(input, tensor))) {
             float[][] logits = (float[][]) result.get(0).getValue();
-            return Optional.of(nsfw(logits[0]));
+            return nsfw(logits[0]);
         }
     }
 

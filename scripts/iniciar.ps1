@@ -49,6 +49,8 @@ if (Listening 8090) {
     # Moderação de imagens: o modelo de tools\models, se estiver baixado (sem ele, a moderação fica desligada no local)
     $model = Join-Path $project "tools\models\nsfw-vit-int8.onnx"
     if (-not $env:MODERATION_MODEL -and (Test-Path $model)) { $env:MODERATION_MODEL = $model }
+    $clip = Join-Path $project "tools\models\clip-vision-int8.onnx"
+    if (-not $env:MODERATION_CLIP_MODEL -and (Test-Path $clip)) { $env:MODERATION_CLIP_MODEL = $clip }
     Start-Process -FilePath (Join-Path $root "mvnw.cmd") -ArgumentList "-q", "-DskipTests", "spring-boot:run" `
         -WorkingDirectory $root -RedirectStandardOutput (Join-Path $logs "api.log") -WindowStyle Hidden
     Write-Host -NoNewline "Iniciando a API"
