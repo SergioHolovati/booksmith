@@ -93,4 +93,46 @@ class PdfXTest {
         assertThat(definition).contains("/a \\(b\\)/perfil.icc) (r) file");
         assertThat(definition).contains("(PDF/X-1a:2001)", "(FOGRA39)");
     }
+
+    @Test
+    void theIsolatedServiceGetsThePreparedPdfAndItsRefusalBecomesAnError() throws Exception {
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        var titles = new java.util.concurrent.atomic.AtomicReference<String>();
+        var status = new java.util.concurrent.atomic.AtomicInteger(200);
+        byte[] answer = PdfWriter.write(ExportWritersTest.withFullStructure());
+        server.createContext("/health", exchange -> {
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.createContext("/convert", exchange -> {
+            titles.set(exchange.getRequestHeaders().getFirst("X-Title"));
+            byte[] body = exchange.getRequestBody().readAllBytes();
+            assertThat(new String(body, 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+            byte[] reply = status.get() == 200 ? answer : "{\"error\":\"not_pdfx\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(status.get(), reply.length);
+            exchange.getResponseBody().write(reply);
+            exchange.close();
+        });
+        server.start();
+        try {
+            var remote = new PdfX("gs-que-nao-existe", Duration.ofSeconds(30),
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/");
+            assertThat(remote.available()).isTrue();
+            byte[] result = remote.convert(answer, "Ação");
+            assertThat(titles.get()).isEqualTo("FEFF004100E700E3006F");
+            try (PDDocument document = Loader.loadPDF(result)) {
+                // Os cortes são gravados de novo na volta
+                assertThat(document.getPage(0).getCOSObject().containsKey(COSName.TRIM_BOX)).isTrue();
+            }
+            status.set(422);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> remote.convert(answer, "Livro"))
+                    .isInstanceOf(com.booksmith.common.error.ApiException.class)
+                    .hasMessageContaining("PDF/X");
+        } finally {
+            server.stop(0);
+        }
+        // Serviço fora do ar: indisponível (503), não erro do livro
+        var offline = new PdfX("gs", Duration.ofSeconds(5), "http://127.0.0.1:1");
+        assertThat(offline.available()).isFalse();
+    }
 }

@@ -91,6 +91,8 @@ booksmith:
     # tools/gs (o iniciar.ps1 passa o caminho em GHOSTSCRIPT).
     ghostscript: ${GHOSTSCRIPT:gs}
     ghostscript-timeout: ${GHOSTSCRIPT_TIMEOUT:180s}
+    # Em produção, o Ghostscript roda isolado no contêiner "pdfx" (sem rede para fora); vazio = o local
+    pdfx-url: ${PDFX_URL:}
   # Alertas de segurança por e-mail ao administrador: a partir de quantos eventos por hora cada tipo dispara.
   # Sem ALERT_EMAIL, só o log.
   alerts:

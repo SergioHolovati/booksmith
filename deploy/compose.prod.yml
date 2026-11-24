@@ -64,6 +64,8 @@ services:
       FRONTEND_URL: https://${SITE_ADDRESS}
       CORS_ALLOWED_ORIGINS: https://${SITE_ADDRESS}
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1024m -XX:+UseSerialGC"
+      # PDF para gráfica: o Ghostscript no contêiner isolado
+      PDFX_URL: http://pdfx:8085
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,7 +83,36 @@ services:
     deploy:
       resources:
         limits:
+          # 1 GB de heap + o resto da JVM + o classificador da moderação de imagens (ONNX, fora do heap)
+          memory: 2304m
+    networks:
+      - default
+      - pdfx
+    logging: *logging
+
+  # ---- PDF para gráfica: o Ghostscript isolado ----
+  # Só fala com a API (rede interna, sem saída para a internet); sem acesso ao banco, ao Redis nem às imagens;
+  # disco só de leitura (menos /tmp, em memória), sem privilégios e com memória e processos limitados.
+  pdfx:
+    build:
+      context: ..
+      dockerfile: docker/pdfx/Dockerfile
+    image: booksmith-pdfx:latest
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    networks:
+      - pdfx
+    deploy:
+      resources:
+        limits:
           memory: 1536m
+          cpus: "1.5"
     logging: *logging
 
   # ---- Dados ----
@@ -244,3 +275,9 @@ volumes:
   minio-data:
   caddy-data:
   caddy-config:
+
+networks:
+  default:
+  # Rede só da API com o pdfx: "internal" = sem rota para a internet
+  pdfx:
+    internal: true

@@ -42,16 +42,33 @@ public class PdfX {
 
     private final String command;
     private final Duration timeout;
+    /** O serviço isolado (contêiner "pdfx", produção); vazio = o Ghostscript local (notebook). */
+    private final String url;
+    private final java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5)).build();
     private volatile Boolean available;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public PdfX(@Value("${booksmith.export.ghostscript:gs}") String command,
-                @Value("${booksmith.export.ghostscript-timeout:180s}") Duration timeout) {
+                @Value("${booksmith.export.ghostscript-timeout:180s}") Duration timeout,
+                @Value("${booksmith.export.pdfx-url:}") String url) {
         this.command = command;
         this.timeout = timeout;
+        this.url = url == null || url.isBlank() ? null : url.replaceAll("/+$", "");
     }
 
-    /** O Ghostscript está instalado (a resposta fica guardada depois da primeira pergunta). */
+    PdfX(String command, Duration timeout) {
+        this(command, timeout, null);
+    }
+
+    /**
+     * Dá para gerar: o serviço isolado responde (perguntado a cada vez: ele pode estar reiniciando) ou o Ghostscript
+     * local está instalado (a resposta fica guardada).
+     */
     public boolean available() {
+        if (url != null) {
+            return healthy();
+        }
         Boolean known = available;
         if (known == null) {
             known = probe();
@@ -61,6 +78,20 @@ public class PdfX {
             }
         }
         return known;
+    }
+
+    private boolean healthy() {
+        try {
+            var response = http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(url + "/health"))
+                    .timeout(Duration.ofSeconds(10)).GET().build(), java.net.http.HttpResponse.BodyHandlers.discarding());
+            return response.statusCode() == 200;
+        } catch (IOException e) {
+            log.warn("Serviço do PDF para gráfica ({}) não respondeu: {}", url, e.getMessage());
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     private boolean probe() {
@@ -88,6 +119,9 @@ public class PdfX {
         }
         byte[] prepared = PrintPdf.prepare(pdf);
         List<PDRectangle[]> boxes = PrintPdf.boxesOf(prepared);
+        if (url != null) {
+            return PrintPdf.finish(remote(prepared, title), boxes);
+        }
         Path dir = null;
         try {
             dir = Files.createTempDirectory("booksmith-pdfx-");
@@ -154,14 +188,58 @@ public class PdfX {
         PdfX.log.info("PDF/X-1a em {} ms ({} KB)", (System.nanoTime() - start) / 1_000_000, Files.size(output) / 1024);
     }
 
+    /** No serviço isolado: manda o PDF preparado e recebe o PDF/X. */
+    private byte[] remote(byte[] prepared, String title) {
+        long start = System.nanoTime();
+        try {
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(url + "/convert"))
+                    .timeout(timeout)
+                    .header("Content-Type", "application/pdf")
+                    .header("X-Title", titleHex(title))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(prepared))
+                    .build();
+            var response = http.send(request, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() == 422) {
+                throw failed("O livro tem algo que o padrão da gráfica (PDF/X) não aceita. Fale com o suporte.");
+            }
+            if (response.statusCode() == 504) {
+                throw failed("O PDF para gráfica demorou demais. Tente de novo; se continuar, fale com o suporte.");
+            }
+            if (response.statusCode() != 200) {
+                log.error("Serviço do PDF para gráfica respondeu {}: {}", response.statusCode(),
+                        cut(new String(response.body(), StandardCharsets.UTF_8)));
+                throw failed("Não foi possível gerar o PDF para gráfica.");
+            }
+            log.info("PDF/X-1a (serviço isolado) em {} ms ({} KB)", (System.nanoTime() - start) / 1_000_000,
+                    response.body().length / 1024);
+            return response.body();
+        } catch (java.net.http.HttpTimeoutException e) {
+            throw failed("O PDF para gráfica demorou demais. Tente de novo; se continuar, fale com o suporte.").causedBy(e);
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "print_pdf_unavailable",
+                    "O PDF para gráfica está indisponível agora. Tente mais tarde.").causedBy(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw failed("O PDF para gráfica foi interrompido.").causedBy(e);
+        }
+    }
+
+    /** O título em UTF-16 com a marca FEFF, em hexadecimal (como o PDF pede para acentos). */
+    static String titleHex(String title) {
+        String clean = title == null || title.isBlank() ? "Livro" : title.strip();
+        if (clean.length() > 400) {
+            clean = clean.substring(0, 400);
+        }
+        return "FEFF" + HexFormat.of().withUpperCase().formatHex(clean.getBytes(StandardCharsets.UTF_16BE));
+    }
+
     /** O arquivo de definição com o caminho do perfil e o título (em UTF-16, como o PDF pede para acentos). */
     static String definition(Path icc, String title) throws IOException {
         String template;
         try (InputStream in = resource("pdfx-1a.ps")) {
             template = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
-        String clean = title == null || title.isBlank() ? "Livro" : title.strip();
-        String hex = "<FEFF" + HexFormat.of().withUpperCase().formatHex(clean.getBytes(StandardCharsets.UTF_16BE)) + ">";
+        String hex = "<" + titleHex(title) + ">";
         // O caminho vai entre parênteses no PostScript: parênteses e barras invertidas escapados
         String path = slashes(icc).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)");
         return template.replace("%ICC%", path).replace("%TITLE%", hex);
