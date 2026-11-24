@@ -98,6 +98,12 @@ booksmith:
     team-email: ${SUPPORT_TEAM_EMAIL:${ALERT_EMAIL:}}
     app-url: ${FRONTEND_URL:http://localhost:4200}
     admin-url: ${ADMIN_URL:http://localhost:4300}
+  # Equipe (backoffice): contas separadas das dos clientes. Só e-mails destes domínios entram (convite e login);
+  # com a equipe vazia, STAFF_BOOTSTRAP_EMAIL recebe o convite de administrador ao subir.
+  staff:
+    admin-url: ${ADMIN_URL:http://localhost:4300}
+    bootstrap-email: ${STAFF_BOOTSTRAP_EMAIL:}
+    email-domains: ${STAFF_EMAIL_DOMAINS:booksmith.com.br}
   # Backoffice: com ADMIN_HOST, as rotas /api/v1/admin/** só respondem pelo endereço do backoffice
   # (adminbooksmith.com.br); pelo do app, 404. Vazio: em qualquer endereço (desenvolvimento).
   admin:
@@ -115,6 +121,7 @@ booksmith:
     server-errors-per-hour: ${ALERT_SERVER_ERRORS_PER_HOUR:10}
     quota-hits-per-hour: ${ALERT_QUOTA_HITS_PER_HOUR:20}
     images-flagged-per-hour: ${ALERT_IMAGES_FLAGGED_PER_HOUR:1}
+    staff-domain-rejected-per-hour: ${ALERT_STAFF_DOMAIN_PER_HOUR:1}
   # Versão em vigor dos termos de uso, termo de responsabilidade e política de privacidade (data da versão). Mudou o
   # texto? Troque a versão: quem já tem conta precisa aceitar de novo antes de seguir usando o app.
   terms:

@@ -23,6 +23,8 @@ public record SecurityIncident(Kind kind, String detail) {
         /** Imagem enviada foi recusada pela moderação. */
         IMAGE_BLOCKED,
         /** O antivírus achou algo num arquivo enviado (que foi recusado). */
-        FILE_INFECTED
+        FILE_INFECTED,
+        /** E-mail de fora do domínio da empresa tentou entrar na equipe (convite ou login do backoffice). */
+        STAFF_DOMAIN_REJECTED
     }
 }

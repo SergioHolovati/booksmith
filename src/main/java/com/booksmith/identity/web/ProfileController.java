@@ -96,12 +96,12 @@ class ProfileController {
      */
     record UserView(UUID id, String username, String firstName, String lastName, String displayName,
                     String email, boolean emailVerified, LocalDate birthDate, boolean googleLinked,
-                    String googleEmail, boolean hasPassword, boolean admin) {
+                    String googleEmail, boolean hasPassword) {
 
         static UserView from(User user) {
             return new UserView(user.getId(), user.getUsername(), user.getFirstName(), user.getLastName(),
                     user.displayName(), user.getEmail(), user.isEmailVerified(), user.getBirthDate(),
-                    user.isGoogleLinked(), user.getGoogleEmail(), user.getPasswordHash() != null, user.isAdmin());
+                    user.isGoogleLinked(), user.getGoogleEmail(), user.getPasswordHash() != null);
         }
     }
 

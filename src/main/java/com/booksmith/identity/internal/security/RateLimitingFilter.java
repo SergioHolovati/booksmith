@@ -44,7 +44,9 @@ class RateLimitingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        boolean authRoute = request.getRequestURI().startsWith("/api/v1/auth/");
+        // Login (dos clientes e da equipe): limite mais baixo contra força bruta
+        boolean authRoute = request.getRequestURI().startsWith("/api/v1/auth/")
+                || request.getRequestURI().startsWith("/api/v1/staff/auth/");
         String key = (authRoute ? "auth:" : "api:") + request.getRemoteAddr();
         Bucket bucket = buckets.get(key, k -> newBucket(authRoute ? limits.authPerMinute() : limits.generalPerMinute()));
 

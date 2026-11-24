@@ -1,13 +1,12 @@
 package com.booksmith.support.web;
 
-import com.booksmith.common.error.ApiException;
-import com.booksmith.identity.api.CurrentUser;
-import com.booksmith.identity.api.UserDirectory;
+import com.booksmith.identity.api.CurrentStaff;
+import com.booksmith.identity.api.StaffAudit;
+import com.booksmith.identity.api.StaffRole;
 import com.booksmith.support.internal.SupportDesk;
 import com.booksmith.support.internal.SupportRequest;
 import com.booksmith.support.internal.SupportService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +24,8 @@ import java.util.UUID;
 
 /**
  * Backoffice: o atendimento. Caixa de entrada por situação, a conversa com o contexto técnico que o app mandou,
- * resposta (ou nota interna) e mudança de situação. Só administradores (403 {@code admin_only}).
+ * resposta (ou nota interna) e mudança de situação. Atendentes e administradores da equipe; cada ação vai para o
+ * registro da equipe.
  */
 @RestController
 @RequestMapping("/api/v1/admin/support")
@@ -35,8 +35,8 @@ class SupportAdminController {
     private static final int PREVIEW = 140;
 
     private final SupportDesk desk;
-    private final UserDirectory users;
-    private final CurrentUser currentUser;
+    private final CurrentStaff currentStaff;
+    private final StaffAudit audit;
     private final JsonMapper jsonMapper;
 
     /** Uma linha da caixa de entrada: o começo da mensagem, sem o contexto. */
@@ -80,14 +80,18 @@ class SupportAdminController {
     @PostMapping("/requests/{id}/messages")
     DetailResponse reply(@PathVariable UUID id, @RequestBody ReplyRequest request) {
         UUID admin = requireAdmin();
-        return detail(desk.reply(admin, id, request.body(), request.internal()));
+        DetailResponse detail = detail(desk.reply(admin, id, request.body(), request.internal()));
+        audit.record(request.internal() ? "support.note" : "support.reply", detail.protocol(), null);
+        return detail;
     }
 
     @PostMapping("/requests/{id}/status")
     DetailResponse status(@PathVariable UUID id, @RequestBody StatusRequest request) {
         UUID admin = requireAdmin();
         desk.status(admin, id, request.status());
-        return detail(desk.conversation(id));
+        DetailResponse detail = detail(desk.conversation(id));
+        audit.record("support.status", detail.protocol(), detail.status());
+        return detail;
     }
 
     private DetailResponse detail(SupportService.Conversation conversation) {
@@ -105,11 +109,6 @@ class SupportAdminController {
     }
 
     private UUID requireAdmin() {
-        UUID id = currentUser.id();
-        if (!users.isAdmin(id)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "admin_only", "Só a equipe do Booksmith atende os pedidos.",
-                    Map.of());
-        }
-        return id;
+        return currentStaff.require(StaffRole.SUPPORT).id();
     }
 }

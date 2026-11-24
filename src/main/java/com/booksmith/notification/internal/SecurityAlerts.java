@@ -84,6 +84,7 @@ public class SecurityAlerts {
             case SERVER_ERROR -> properties.serverErrorsPerHour();
             case QUOTA_HIT -> properties.quotaHitsPerHour();
             case IMAGE_FLAGGED, IMAGE_BLOCKED, FILE_INFECTED -> properties.imagesFlaggedPerHour();
+            case STAFF_DOMAIN_REJECTED -> properties.staffDomainRejectedPerHour();
         };
     }
 
@@ -97,6 +98,7 @@ public class SecurityAlerts {
             case IMAGE_FLAGGED -> "imagens para revisar (moderação em dúvida; veja Admin > Imagens)";
             case IMAGE_BLOCKED -> "imagens recusadas pela moderação (veja Admin > Imagens)";
             case FILE_INFECTED -> "arquivos recusados pelo antivírus (veja o log da API)";
+            case STAFF_DOMAIN_REJECTED -> "e-mails de fora do domínio da empresa tentando entrar na equipe (veja o backoffice)";
         };
     }
 

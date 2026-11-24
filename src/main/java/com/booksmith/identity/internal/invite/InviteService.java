@@ -1,10 +1,8 @@
 package com.booksmith.identity.internal.invite;
 
 import com.booksmith.common.error.ApiException;
-import com.booksmith.identity.internal.user.User;
 import com.booksmith.identity.internal.user.UserRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +13,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -82,7 +79,6 @@ public class InviteService {
 
     @Transactional
     public List<InviteView> create(UUID adminId, int count, int maxUses, String note, Integer expiresInDays) {
-        requireAdmin(adminId);
         if (count < 1 || count > MAX_BATCH || maxUses < 1 || maxUses > MAX_USES
                 || expiresInDays != null && (expiresInDays < 1 || expiresInDays > 365)) {
             throw ApiException.unprocessable("invite_request_invalid",
@@ -96,35 +92,24 @@ public class InviteService {
                     .expiresAt(expires).createdBy(adminId).build());
             created.add(view(invite));
         }
-        log.info("{} convites criados por userId: {}", count, adminId);
+        log.info("{} convites criados pelo funcionário {}", count, adminId);
         return created;
     }
 
     @Transactional(readOnly = true)
     public List<InviteView> list(UUID adminId) {
-        requireAdmin(adminId);
         return invites.findAllByOrderByCreatedAtDesc().stream().map(this::view).toList();
     }
 
     /** Cancela: o código deixa de valer na hora (quem já criou conta com ele continua). */
     @Transactional
     public void revoke(UUID adminId, UUID inviteId) {
-        requireAdmin(adminId);
         InviteCode invite = invites.findById(inviteId)
                 .orElseThrow(() -> ApiException.notFound("invite_not_found", "Convite não encontrado."));
         invite.setExpiresAt(Instant.now(clock));
     }
 
-    @Transactional(readOnly = true)
-    public boolean isAdmin(UUID userId) {
-        return users.findById(userId).map(User::isAdmin).orElse(false);
-    }
 
-    private void requireAdmin(UUID userId) {
-        if (!isAdmin(userId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "admin_only", "Só a equipe do Booksmith cria convites.", Map.of());
-        }
-    }
 
     private boolean active(InviteCode invite) {
         return invite.getUsedCount() < invite.getMaxUses()

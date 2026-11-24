@@ -15,7 +15,10 @@ class AdminHostFilterTest {
 
         assertThat(status(filter, "booksmith.com.br", "/api/v1/admin/monitoring")).isEqualTo(404);
         assertThat(status(filter, "AdminBooksmith.com.br", "/api/v1/admin/monitoring")).isEqualTo(200);
-        // O resto da API segue em qualquer endereço (o backoffice também faz login e lê o perfil)
+        // O login da equipe também
+        assertThat(status(filter, "booksmith.com.br", "/api/v1/staff/auth/login")).isEqualTo(404);
+        assertThat(status(filter, "adminbooksmith.com.br", "/api/v1/staff/auth/login")).isEqualTo(200);
+        // O resto da API segue em qualquer endereço
         assertThat(status(filter, "booksmith.com.br", "/api/v1/books")).isEqualTo(200);
         assertThat(status(filter, "adminbooksmith.com.br", "/api/v1/auth/login")).isEqualTo(200);
     }

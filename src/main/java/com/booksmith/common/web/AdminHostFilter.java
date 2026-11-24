@@ -14,8 +14,8 @@ import java.io.IOException;
 import java.util.Locale;
 
 /**
- * As rotas da equipe ({@code /api/v1/admin/**}) só existem pelo endereço do backoffice ({@code booksmith.admin.host},
- * ex.: adminbooksmith.com.br). Pelo endereço do app, 404 como se não existissem: o Caddy já barra, isto é a segunda
+ * As rotas da equipe ({@code /api/v1/admin/**} e o login dela, {@code /api/v1/staff/**}) só existem pelo endereço
+ * do backoffice ({@code booksmith.admin.host}, ex.: adminbooksmith.com.br). Pelo endereço do app, 404 como se não existissem: o Caddy já barra, isto é a segunda
  * porta (vale mesmo se alguém mexer no Caddy). Sem o endereço configurado (desenvolvimento), não faz nada.
  */
 @Component
@@ -23,6 +23,8 @@ import java.util.Locale;
 public class AdminHostFilter extends OncePerRequestFilter {
 
     static final String ADMIN_PATH = "/api/v1/admin/";
+    /** O login e a sessão da equipe também só existem pelo backoffice. */
+    static final String STAFF_PATH = "/api/v1/staff/";
 
     private final String adminHost;
 
@@ -32,7 +34,8 @@ public class AdminHostFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return adminHost.isEmpty() || !request.getRequestURI().startsWith(ADMIN_PATH);
+        String path = request.getRequestURI();
+        return adminHost.isEmpty() || !path.startsWith(ADMIN_PATH) && !path.startsWith(STAFF_PATH);
     }
 
     @Override

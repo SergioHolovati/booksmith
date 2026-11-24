@@ -1,6 +1,8 @@
 package com.booksmith.identity.web;
 
-import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.identity.api.CurrentStaff;
+import com.booksmith.identity.api.StaffAudit;
+import com.booksmith.identity.api.StaffRole;
 import com.booksmith.identity.internal.invite.InviteService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -18,31 +20,36 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-/** Convites do beta fechado: só para administradores (403 {@code admin_only}). */
+/** Convites do beta fechado: só administradores da equipe (conta do backoffice; 403 {@code staff_role}). */
 @RestController
 @RequestMapping("/api/v1/admin/invites")
 @RequiredArgsConstructor
 class InviteAdminController {
 
     private final InviteService invites;
-    private final CurrentUser currentUser;
+    private final CurrentStaff currentStaff;
+    private final StaffAudit audit;
 
     @GetMapping
     List<InviteService.InviteView> list() {
-        return invites.list(currentUser.id());
+        return invites.list(currentStaff.require(StaffRole.ADMIN).id());
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     List<InviteService.InviteView> create(@RequestBody @Valid CreateRequest request) {
-        return invites.create(currentUser.id(), request.count() == null ? 1 : request.count(),
-                request.maxUses() == null ? 1 : request.maxUses(), request.note(), request.expiresInDays());
+        List<InviteService.InviteView> created = invites.create(currentStaff.require(StaffRole.ADMIN).id(),
+                request.count() == null ? 1 : request.count(), request.maxUses() == null ? 1 : request.maxUses(),
+                request.note(), request.expiresInDays());
+        audit.record("invite.create", null, created.size() + " códigos");
+        return created;
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void revoke(@PathVariable UUID id) {
-        invites.revoke(currentUser.id(), id);
+        invites.revoke(currentStaff.require(StaffRole.ADMIN).id(), id);
+        audit.record("invite.revoke", id.toString(), null);
     }
 
     /** {@code count}: quantos códigos; {@code maxUses}: quantos cadastros cada um vale. */

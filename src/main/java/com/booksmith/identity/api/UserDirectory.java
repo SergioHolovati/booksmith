@@ -11,7 +11,4 @@ public interface UserDirectory {
 
     /** Nome que vai como autor nos livros exportados (o de exibição, ou o nome de usuário). */
     Optional<String> displayName(UUID userId);
-
-    /** A conta é da equipe do Booksmith (administrador). */
-    boolean isAdmin(UUID userId);
 }

@@ -71,6 +71,9 @@ services:
       ADMIN_HOST: ${ADMIN_ADDRESS:-adminbooksmith.com.br}
       ADMIN_URL: https://${ADMIN_ADDRESS:-adminbooksmith.com.br}
       SUPPORT_TEAM_EMAIL: ${SUPPORT_TEAM_EMAIL:-${ALERT_EMAIL:-}}
+      # Equipe: só e-mails destes domínios; com a equipe vazia, este e-mail recebe o convite de administrador
+      STAFF_EMAIL_DOMAINS: ${STAFF_EMAIL_DOMAINS:-booksmith.com.br}
+      STAFF_BOOTSTRAP_EMAIL: ${STAFF_BOOTSTRAP_EMAIL:-}
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1024m -XX:+UseSerialGC"
       # PDF para gráfica: o Ghostscript no contêiner isolado
       PDFX_URL: http://pdfx:8085

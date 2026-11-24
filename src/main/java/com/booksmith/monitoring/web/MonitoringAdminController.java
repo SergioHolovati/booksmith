@@ -1,12 +1,11 @@
 package com.booksmith.monitoring.web;
 
-import com.booksmith.common.error.ApiException;
-import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.identity.api.CurrentStaff;
+import com.booksmith.identity.api.StaffRole;
 import com.booksmith.identity.api.UserDirectory;
 import com.booksmith.monitoring.internal.TrafficReport;
 import com.booksmith.monitoring.internal.TrafficStore;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Backoffice: uso da API e sinais de ataque nas últimas horas. Só administradores (403 {@code admin_only}). */
+/** Backoffice: uso da API e sinais de ataque nas últimas horas. Atendentes e administradores da equipe. */
 @RestController
 @RequestMapping("/api/v1/admin/monitoring")
 @RequiredArgsConstructor
@@ -24,7 +23,7 @@ class MonitoringAdminController {
 
     private final TrafficStore store;
     private final UserDirectory users;
-    private final CurrentUser currentUser;
+    private final CurrentStaff currentStaff;
 
     /** A conta mais ativa, com o e-mail para o admin reconhecer. */
     record UserView(UUID id, String email, long requests) {
@@ -37,10 +36,7 @@ class MonitoringAdminController {
 
     @GetMapping
     ReportView report(@RequestParam(defaultValue = "24") int hours) {
-        if (!users.isAdmin(currentUser.id())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "admin_only", "Só a equipe do Booksmith vê o monitoramento.",
-                    Map.of());
-        }
+        currentStaff.require(StaffRole.SUPPORT);
         TrafficReport report = store.report(hours);
         List<UserView> active = report.users().stream()
                 .map(r -> {

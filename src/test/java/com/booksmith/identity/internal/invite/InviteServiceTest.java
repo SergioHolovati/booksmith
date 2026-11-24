@@ -52,11 +52,9 @@ class InviteServiceTest {
     }
 
     @Test
-    void onlyAdminsCreateInvitesAndCodesLookRight() {
+    void invitesHaveReadableCodesAndLimits() {
+        // Quem pode criar (administrador da equipe) é conferido no controller, pela conta do backoffice
         UUID admin = UUID.randomUUID();
-        UUID author = UUID.randomUUID();
-        when(users.findById(admin)).thenReturn(Optional.of(User.builder().id(admin).admin(true).build()));
-        when(users.findById(author)).thenReturn(Optional.of(User.builder().id(author).build()));
         when(invites.save(any())).thenAnswer(i -> i.getArgument(0));
 
         var created = service(true).create(admin, 3, 5, " Discord ", 30);
@@ -67,8 +65,6 @@ class InviteServiceTest {
             assertThat(invite.expiresAt()).isEqualTo(NOW.plusSeconds(30L * 86_400));
             assertThat(invite.active()).isTrue();
         });
-        assertThatThrownBy(() -> service(true).create(author, 1, 1, null, null))
-                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("admin_only"));
         assertThatThrownBy(() -> service(true).create(admin, 51, 1, null, null))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo("invite_request_invalid"));
     }

@@ -15,7 +15,7 @@ import java.util.OptionalLong;
  * Authenticator, o Microsoft Authenticator e o 1Password esperam. Feito aqui, sem biblioteca: são poucas linhas
  * e evitam uma dependência a mais na parte mais sensível do login.
  */
-final class Totp {
+public final class Totp {
 
     static final int STEP_SECONDS = 30;
     static final int DIGITS = 6;
@@ -29,14 +29,14 @@ final class Totp {
     }
 
     /** Segredo novo de 160 bits, em base32 (o formato que os apps leem). */
-    static String newSecret() {
+    public static String newSecret() {
         byte[] bytes = new byte[20];
         RANDOM.nextBytes(bytes);
         return base32(bytes);
     }
 
     /** O link que o app abre (e o QR code mostra): {@code otpauth://totp/Booksmith:email?secret=...&issuer=Booksmith}. */
-    static String uri(String secret, String account) {
+    public static String uri(String secret, String account) {
         String label = URLEncoder.encode("Booksmith:" + account, StandardCharsets.UTF_8).replace("+", "%20");
         return "otpauth://totp/" + label + "?secret=" + secret + "&issuer=Booksmith&algorithm=SHA1&digits="
                 + DIGITS + "&period=" + STEP_SECONDS;
@@ -51,7 +51,7 @@ final class Totp {
      *
      * @param code 6 números (espaços já tirados)
      */
-    static OptionalLong match(String secret, String code, Instant now) {
+    public static OptionalLong match(String secret, String code, Instant now) {
         if (code == null || !code.matches("\\d{" + DIGITS + "}")) {
             return OptionalLong.empty();
         }

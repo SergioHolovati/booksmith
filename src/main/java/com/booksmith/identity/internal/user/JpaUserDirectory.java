@@ -26,10 +26,4 @@ class JpaUserDirectory implements UserDirectory {
         return userRepository.findById(userId)
                 .map(user -> user.displayName() == null || user.displayName().isBlank() ? user.getUsername() : user.displayName());
     }
-
-    @Override
-    @Transactional(readOnly = true)
-    public boolean isAdmin(UUID userId) {
-        return userRepository.findById(userId).map(User::isAdmin).orElse(false);
-    }
 }

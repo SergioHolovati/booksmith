@@ -1,7 +1,9 @@
 package com.booksmith.support.web;
 
 import com.booksmith.common.error.ApiException;
-import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.identity.api.CurrentStaff;
+import com.booksmith.identity.api.StaffAudit;
+import com.booksmith.identity.api.StaffRole;
 import com.booksmith.identity.api.UserDirectory;
 import com.booksmith.media.api.ImageReviews;
 import lombok.RequiredArgsConstructor;
@@ -20,8 +22,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Backoffice: as imagens que a moderação separou (para revisar e recusadas). Só administradores (403
- * {@code admin_only}). Remover tira a imagem do armazenamento.
+ * Backoffice: as imagens que a moderação separou (para revisar e recusadas). Moderadores e administradores da
+ * equipe. Remover tira a imagem do armazenamento; cada decisão vai para o registro da equipe.
  */
 @RestController
 @RequestMapping("/api/v1/admin/image-reviews")
@@ -30,7 +32,8 @@ class ImageReviewAdminController {
 
     private final ImageReviews reviews;
     private final UserDirectory users;
-    private final CurrentUser currentUser;
+    private final CurrentStaff currentStaff;
+    private final StaffAudit audit;
 
     record ReviewView(UUID id, UUID ownerId, String ownerEmail, String category, String url, double score,
                       String status, String reason, Instant createdAt, Instant decidedAt) {
@@ -52,6 +55,7 @@ class ImageReviewAdminController {
         if (!reviews.keep(id, admin)) {
             throw notPending();
         }
+        audit.record("image.keep", id.toString(), null);
     }
 
     @PostMapping("/{id}/remove")
@@ -61,15 +65,11 @@ class ImageReviewAdminController {
         if (!reviews.remove(id, admin)) {
             throw notPending();
         }
+        audit.record("image.remove", id.toString(), null);
     }
 
     private UUID requireAdmin() {
-        UUID id = currentUser.id();
-        if (!users.isAdmin(id)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "admin_only", "Só a equipe do Booksmith revisa imagens.",
-                    Map.of());
-        }
-        return id;
+        return currentStaff.require(StaffRole.MODERATOR).id();
     }
 
     private static ApiException notPending() {
