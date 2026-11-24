@@ -21,6 +21,8 @@ public record SecurityIncident(Kind kind, String detail) {
         /** Imagem enviada foi para a revisão do admin (a moderação ficou em dúvida). */
         IMAGE_FLAGGED,
         /** Imagem enviada foi recusada pela moderação. */
-        IMAGE_BLOCKED
+        IMAGE_BLOCKED,
+        /** O antivírus achou algo num arquivo enviado (que foi recusado). */
+        FILE_INFECTED
     }
 }

@@ -83,7 +83,7 @@ public class SecurityAlerts {
             case MFA_FAILED -> properties.mfaFailedPerHour();
             case SERVER_ERROR -> properties.serverErrorsPerHour();
             case QUOTA_HIT -> properties.quotaHitsPerHour();
-            case IMAGE_FLAGGED, IMAGE_BLOCKED -> properties.imagesFlaggedPerHour();
+            case IMAGE_FLAGGED, IMAGE_BLOCKED, FILE_INFECTED -> properties.imagesFlaggedPerHour();
         };
     }
 
@@ -96,6 +96,7 @@ public class SecurityAlerts {
             case QUOTA_HIT -> "limites diários de PDF atingidos";
             case IMAGE_FLAGGED -> "imagens para revisar (moderação em dúvida; veja Admin > Imagens)";
             case IMAGE_BLOCKED -> "imagens recusadas pela moderação (veja Admin > Imagens)";
+            case FILE_INFECTED -> "arquivos recusados pelo antivírus (veja o log da API)";
         };
     }
 

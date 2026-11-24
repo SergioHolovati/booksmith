@@ -51,6 +51,8 @@ ls -1t "$ROOT"/releases/booksmith-web-*.tar 2>/dev/null | tail -n +6 | xargs -r 
 echo "== 4. Build e subida"
 # APT_REFRESH muda a cada dia: a camada do apt (Ghostscript, no pdfx) é refeita e pega as correções de segurança do Ubuntu
 compose build --pull --build-arg APT_REFRESH="$(date +%Y%m%d)" api pdfx caddy spellcheck backup-offsite
+# O antivírus vem pronto do Docker Hub (reconstruído todo dia com as assinaturas): baixa a versão do dia
+compose pull clamav || echo "   AVISO: não deu para baixar o antivírus novo; segue o que já está no servidor"
 compose up -d --remove-orphans
 
 echo "== 5. Saúde da API"

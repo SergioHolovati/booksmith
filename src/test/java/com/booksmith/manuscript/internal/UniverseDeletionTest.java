@@ -30,7 +30,7 @@ class UniverseDeletionTest {
     private final Universes universes = mock(Universes.class);
     private final BookService service = new BookService(bookRepository, mock(ChapterRepository.class),
             mock(ImageStorage.class), universes, Clock.fixed(NOW, ZoneOffset.UTC), JsonMapper.builder().build(),
-            mock(PdfStorage.class));
+            mock(PdfStorage.class), mock(com.booksmith.media.api.FileScanner.class));
 
     private final UUID ownerId = UUID.randomUUID();
     private final UUID universeId = UUID.randomUUID();

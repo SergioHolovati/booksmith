@@ -149,6 +149,11 @@ booksmith:
     secret-key: ${MEDIA_S3_SECRET_KEY:}
     public-base-url: ${MEDIA_PUBLIC_BASE_URL:https://media.booksmith.com.br}
     max-image-size: 5MB
+  # Antivírus dos arquivos enviados (contêiner "clamav" em produção); vazio = desligado (desenvolvimento)
+  antivirus:
+    host: ${CLAMAV_HOST:}
+    port: ${CLAMAV_PORT:3310}
+    timeout: ${CLAMAV_TIMEOUT:120s}
   # Moderação das imagens enviadas: classificador de nudez/conteúdo sexual (ONNX) rodando no servidor. Sem modelo,
   # desligada (desenvolvimento); em produção MODERATION_REQUIRED=true (a imagem da API traz o modelo).
   moderation:

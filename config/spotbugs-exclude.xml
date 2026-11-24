@@ -91,4 +91,12 @@
         <Bug pattern="COMMAND_INJECTION"/>
         <Class name="com.booksmith.export.internal.PdfX"/>
     </Match>
+    <!--
+      UNENCRYPTED_SOCKET: o clamd (antivírus) não tem TLS. A conexão vai da API ao contêiner "clamav" pela rede interna
+      do Docker ("scan"), na mesma máquina; nada sai do servidor.
+    -->
+    <Match>
+        <Bug pattern="UNENCRYPTED_SOCKET"/>
+        <Class name="com.booksmith.media.internal.ClamAvScanner"/>
+    </Match>
 </FindBugsFilter>

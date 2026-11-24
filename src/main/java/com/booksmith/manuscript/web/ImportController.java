@@ -31,6 +31,7 @@ class ImportController {
 
     private final ImportService importService;
     private final CurrentUser currentUser;
+    private final com.booksmith.media.api.FileScanner fileScanner;
 
     @PostMapping(path = {"", "/docx"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<ImportPlan> importFile(@PathVariable UUID bookId,
@@ -87,6 +88,10 @@ class ImportController {
             if (!isPdf(temp)) {
                 throw ApiException.unprocessable("pdf_invalid", "Este arquivo não é um PDF.");
             }
+            // Antivírus antes de o PDF ser lido (lido do disco, sem carregar os 100 MB na memória)
+            try (var in = new java.io.BufferedInputStream(new java.io.FileInputStream(temp))) {
+                fileScanner.requireClean(in);
+            }
             return importService.importPdf(currentUser.id(), bookId, temp);
         } catch (IOException e) {
             throw ApiException.unprocessable("import_failed", "Não conseguimos receber o arquivo. Tente de novo.").causedBy(e);
@@ -110,12 +115,15 @@ class ImportController {
                 "O arquivo é grande demais. O limite é de %d MB.".formatted(mb));
     }
 
-    private static byte[] read(MultipartFile file) {
+    private byte[] read(MultipartFile file) {
         if (file.getSize() > MAX_TEXT_FILE) {
             throw tooLarge(15);
         }
         try {
-            return file.getBytes();
+            byte[] bytes = file.getBytes();
+            // Antivírus antes de o arquivo ser lido (Word e LibreOffice são ZIPs com XML)
+            fileScanner.requireClean(bytes);
+            return bytes;
         } catch (IOException e) {
             throw ApiException.unprocessable("import_failed", "Não conseguimos receber o arquivo. Tente de novo.").causedBy(e);
         }

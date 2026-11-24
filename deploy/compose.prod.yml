@@ -66,6 +66,8 @@ services:
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1024m -XX:+UseSerialGC"
       # PDF para gráfica: o Ghostscript no contêiner isolado
       PDFX_URL: http://pdfx:8085
+      # Antivírus dos arquivos enviados
+      CLAMAV_HOST: clamav
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,6 +90,25 @@ services:
     networks:
       - default
       - pdfx
+      - scan
+    logging: *logging
+
+  # ---- Antivírus dos arquivos enviados ----
+  # Imagem oficial (Cisco Talos), versão de suporte longo, reconstruída todo dia com as assinaturas novas; o freshclam
+  # de dentro dela atualiza as assinaturas a cada poucas horas. Só fala com a API (rede "scan"): sem acesso ao banco,
+  # ao Redis nem às imagens. Precisa de internet para as assinaturas (por isso a rede não é "internal").
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav
+    networks:
+      - scan
+    deploy:
+      resources:
+        limits:
+          # ~1,3 GB com as assinaturas; ao recarregá-las, por alguns segundos, quase o dobro
+          memory: 3g
     logging: *logging
 
   # ---- PDF para gráfica: o Ghostscript isolado ----
@@ -275,9 +296,12 @@ volumes:
   minio-data:
   caddy-data:
   caddy-config:
+  clamav-db:
 
 networks:
   default:
   # Rede só da API com o pdfx: "internal" = sem rota para a internet
   pdfx:
     internal: true
+  # Rede só da API com o clamav
+  scan:

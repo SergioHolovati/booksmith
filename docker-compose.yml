@@ -131,6 +131,15 @@ services:
       - "127.0.0.1:8081:8081"
     mem_limit: 1536m
 
+  clamav:
+    # Antivírus dos arquivos enviados. Pesado (~1,3 GB de memória): desligado por padrão no notebook.
+    # Suba com: docker compose --profile antivirus up -d clamav  (e rode a API com CLAMAV_HOST=localhost)
+    image: clamav/clamav:1.4
+    profiles: ["antivirus"]
+    ports:
+      - "127.0.0.1:3310:3310"
+    mem_limit: 2g
+
   app:
     build: .
     profiles: ["app"]   # suba com: docker compose --profile app up --build

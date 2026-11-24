@@ -37,6 +37,7 @@ public class BookService {
     private final Clock clock;
     private final JsonMapper jsonMapper;
     private final PdfStorage pdfStorage;
+    private final com.booksmith.media.api.FileScanner fileScanner;
 
     @Transactional(readOnly = true)
     public Page<BookWithStats> list(UUID ownerId, Pageable pageable) {
@@ -176,6 +177,8 @@ public class BookService {
     public CoverPdf importCoverPdf(UUID ownerId, UUID bookId, String fileName, byte[] pdf, String trim, Double spineMm,
                                    Double bleedMm) {
         Book book = require(ownerId, bookId);
+        // Antivírus antes de o PDF ser lido
+        fileScanner.requireClean(pdf);
         CoverPdfReader.Result read = CoverPdfReader.read(pdf, layoutOf(book),
                 new CoverPdfReader.Declared(trim == null || trim.isBlank() ? null
                         : trim.strip().toLowerCase(Locale.ROOT), spineMm, bleedMm));

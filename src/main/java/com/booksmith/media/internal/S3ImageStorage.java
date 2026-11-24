@@ -26,6 +26,7 @@ class S3ImageStorage implements ImageStorage {
     private final S3Client s3Client;
     private final MediaProperties properties;
     private final ImageModeration moderation;
+    private final ClamAvScanner scanner;
     private final ImageReviewStore reviews;
     private final org.springframework.context.ApplicationEventPublisher events;
 
@@ -37,6 +38,9 @@ class S3ImageStorage implements ImageStorage {
             throw ApiException.unprocessable("image_too_large",
                     "A imagem passa do limite de %d MB.".formatted(properties.maxImageSize().toMegabytes()));
         }
+
+        // Antivírus antes de qualquer outra leitura dos bytes
+        scanner.requireClean(bytes);
 
         ImageFormat format = ImageFormat.detect(bytes).orElseThrow(() ->
                 ApiException.unprocessable("image_format_not_supported", "Envie uma imagem PNG, JPEG ou WebP."));
