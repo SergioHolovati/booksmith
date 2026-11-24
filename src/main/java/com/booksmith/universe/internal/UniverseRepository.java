@@ -12,6 +12,9 @@ public interface UniverseRepository extends JpaRepository<Universe, UUID> {
 
     List<Universe> findAllByOwnerIdOrderByNameAsc(UUID ownerId);
 
+    /** Universos fora da lixeira (o filtro da entidade esconde os excluídos). */
+    long countByOwnerId(UUID ownerId);
+
     /** Tira da lixeira (o filtro da entidade esconde o excluído, então a restauração vai direto na tabela). */
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query(value = "update universe.universes set deleted_at = null "

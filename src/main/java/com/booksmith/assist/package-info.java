@@ -7,7 +7,7 @@
  */
 @ApplicationModule(
         displayName = "Sugestões de IA",
-        allowedDependencies = {"common", "identity :: api", "manuscript :: api", "universe :: api"}
+        allowedDependencies = {"common", "identity :: api", "manuscript :: api", "universe :: api", "billing :: api"}
 )
 package com.booksmith.assist;
 

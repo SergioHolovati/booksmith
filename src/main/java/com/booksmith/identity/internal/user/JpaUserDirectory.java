@@ -26,4 +26,10 @@ class JpaUserDirectory implements UserDirectory {
         return userRepository.findById(userId)
                 .map(user -> user.displayName() == null || user.displayName().isBlank() ? user.getUsername() : user.displayName());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UUID> idByEmail(String email) {
+        return email == null ? Optional.empty() : userRepository.findByEmailIgnoreCase(email.strip()).map(User::getId);
+    }
 }

@@ -5,7 +5,7 @@
  */
 @ApplicationModule(
         displayName = "Manuscrito",
-        allowedDependencies = {"common", "identity :: api", "media :: api", "universe :: api"}
+        allowedDependencies = {"common", "identity :: api", "media :: api", "universe :: api", "billing :: api"}
 )
 package com.booksmith.manuscript;
 

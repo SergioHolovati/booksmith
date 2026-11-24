@@ -23,6 +23,9 @@ public interface BookRepository extends JpaRepository<Book, UUID> {
     /** Outros livros ativos no mesmo universo. */
     long countByUniverseIdAndIdNotAndDeletedAtIsNull(UUID universeId, UUID id);
 
+    /** Livros fora da lixeira (o limite do plano). */
+    long countByOwnerIdAndDeletedAtIsNull(UUID ownerId);
+
     /** Todos os livros de um universo, inclusive os da lixeira, passam para outro. */
     @Modifying
     @Query("update Book b set b.universeId = :into where b.universeId = :from")

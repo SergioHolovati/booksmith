@@ -85,14 +85,16 @@ public class AssistService {
     public record Result(List<Idea> suggestions, String provider, String model, boolean local, int remaining) {
     }
 
-    public record Status(boolean enabled, String provider, String model, boolean local, int dailyLimit, int remaining) {
+    /** {@code dailyLimit}: os usos na janela do plano; {@code windowHours}: 24 nos planos pagos, 168 no Grátis. */
+    public record Status(boolean enabled, String provider, String model, boolean local, int dailyLimit, int remaining,
+                         long windowHours) {
     }
 
     public Status status(UUID ownerId) {
         IdeaModel model = usage.model();
         boolean enabled = usage.enabled();
-        return new Status(enabled, model.provider(), model.model(), model.local(), usage.dailyLimit(),
-                enabled ? usage.remaining(ownerId) : 0);
+        return new Status(enabled, model.provider(), model.model(), model.local(), usage.limit(ownerId),
+                enabled ? usage.remaining(ownerId) : 0, usage.window(ownerId).toHours());
     }
 
     public Result suggest(UUID ownerId, Request request) {

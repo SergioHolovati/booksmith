@@ -48,6 +48,12 @@ public class UniverseService implements Universes {
     private final CharacterService characterService;
     private final GalleryService galleryService;
 
+    /** Quantos universos a pessoa tem (o limite do plano). */
+    @Transactional(readOnly = true)
+    public long count(UUID ownerId) {
+        return universeRepository.countByOwnerId(ownerId);
+    }
+
     @Override
     @Transactional
     public UUID create(UUID ownerId, String name) {

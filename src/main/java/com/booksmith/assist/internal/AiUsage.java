@@ -1,8 +1,10 @@
 package com.booksmith.assist.internal;
 
+import com.booksmith.billing.api.Entitlements;
 import com.booksmith.common.error.ApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -36,9 +38,18 @@ public class AiUsage {
     private final ReviewRunRepository runs;
     private final Clock clock;
     private final Semaphore gate;
+    /** O plano de cada conta (null nos testes: vale o limite do servidor). */
+    private final Entitlements entitlements;
 
     public AiUsage(IdeaModel model, AiProperties properties, SuggestionLogRepository repository,
                    ReviewRunRepository runs, Clock clock) {
+        this(model, properties, repository, runs, clock, null);
+    }
+
+    @Autowired
+    public AiUsage(IdeaModel model, AiProperties properties, SuggestionLogRepository repository,
+                   ReviewRunRepository runs, Clock clock, Entitlements entitlements) {
+        this.entitlements = entitlements;
         this.model = model;
         this.properties = properties;
         this.repository = repository;
@@ -55,8 +66,15 @@ public class AiUsage {
         return !"off".equals(model.provider());
     }
 
-    public int dailyLimit() {
-        return properties.dailyLimit();
+    /** Usos na janela, pelo plano da conta; o {@code daily-limit} do servidor é só o teto. */
+    public int limit(UUID ownerId) {
+        return entitlements == null ? properties.dailyLimit()
+                : Math.min(entitlements.limits(ownerId).aiUses(), properties.dailyLimit());
+    }
+
+    /** 24 horas nos planos pagos; 7 dias no Grátis. */
+    public Duration window(UUID ownerId) {
+        return entitlements == null ? Duration.ofDays(1) : entitlements.limits(ownerId).aiWindow();
     }
 
     /** Desligada → 503 {@code ai_disabled}; sem cota → 429 {@code ai_daily_limit}. */
@@ -66,17 +84,20 @@ public class AiUsage {
                     "As sugestões de IA estão desligadas neste servidor.");
         }
         if (remaining(ownerId) <= 0) {
+            boolean week = window(ownerId).toDays() >= 7;
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "ai_daily_limit",
-                    ("Você já usou os %d usos de IA das últimas 24 horas (revisões, ideias e perguntas). A "
-                            + "formatação e o resto do app continuam livres.").formatted(properties.dailyLimit()));
+                    ("Você já usou os %d usos de IA %s (revisões, ideias e perguntas). A "
+                            + "formatação e o resto do app continuam livres.%s").formatted(limit(ownerId),
+                            week ? "dos últimos 7 dias" : "das últimas 24 horas",
+                            week ? " Nos planos pagos, a IA renova todo dia." : ""));
         }
     }
 
     public int remaining(UUID ownerId) {
-        Instant dayAgo = Instant.now(clock).minus(Duration.ofDays(1));
-        long used = repository.countByUserIdAndKindNotAndCreatedAtAfter(ownerId, REVIEW_KIND, dayAgo)
-                + runs.countByUserIdAndCreatedAtAfter(ownerId, dayAgo);
-        return (int) Math.max(0, properties.dailyLimit() - used);
+        Instant since = Instant.now(clock).minus(window(ownerId));
+        long used = repository.countByUserIdAndKindNotAndCreatedAtAfter(ownerId, REVIEW_KIND, since)
+                + runs.countByUserIdAndCreatedAtAfter(ownerId, since);
+        return (int) Math.max(0, limit(ownerId) - used);
     }
 
     /** Abre uma revisão com IA do capítulo: gasta um uso. Desligada → 503; sem cota → 429. */

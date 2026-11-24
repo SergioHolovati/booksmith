@@ -1,11 +1,13 @@
 package com.booksmith.assist.internal.illustration;
 
+import com.booksmith.billing.api.Entitlements;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.manuscript.api.Manuscripts;
 import com.booksmith.universe.api.Universes;
 import com.booksmith.universe.api.Universes.KnownEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -47,10 +49,19 @@ public class IllustrationService {
     private final Universes universes;
     private final Manuscripts manuscripts;
     private final Clock clock;
+    /** O plano de cada conta (null nos testes: vale o limite do servidor). */
+    private final Entitlements entitlements;
     private final Semaphore gate;
 
     IllustrationService(ImageModel model, IllustrationProperties properties, ImageGenerationRepository generations,
                         Universes universes, Manuscripts manuscripts, Clock clock) {
+        this(model, properties, generations, universes, manuscripts, clock, null);
+    }
+
+    @Autowired
+    IllustrationService(ImageModel model, IllustrationProperties properties, ImageGenerationRepository generations,
+                        Universes universes, Manuscripts manuscripts, Clock clock, Entitlements entitlements) {
+        this.entitlements = entitlements;
         this.model = model;
         this.properties = properties;
         this.generations = generations;
@@ -80,6 +91,10 @@ public class IllustrationService {
 
     /** {@code nextAt}: quando volta a haver vaga, se o limite acabou. */
     public record Status(boolean enabled, int weeklyLimit, int remaining, Instant nextAt) {
+
+        int limit() {
+            return weeklyLimit;
+        }
     }
 
     public record Result(UUID imageId, String url, String caption, boolean portrait, int remaining) {
@@ -89,11 +104,18 @@ public class IllustrationService {
         Instant weekAgo = Instant.now(clock).minus(WINDOW);
         List<ImageGeneration> counted = generations.findAllByUserIdAndStatusAndCreatedAtAfterOrderByCreatedAtAsc(
                 ownerId, ImageGeneration.READY, weekAgo);
-        int remaining = Math.max(0, properties.weeklyLimit() - counted.size());
+        int limit = weeklyLimit(ownerId);
+        int remaining = Math.max(0, limit - counted.size());
         Instant oldest = counted.isEmpty() ? null : counted.getFirst().getCreatedAt();
         Instant nextAt = remaining > 0 || counted.isEmpty() ? null
                 : (oldest == null ? Instant.now(clock) : oldest).plus(WINDOW);
-        return new Status(enabled(), properties.weeklyLimit(), remaining, nextAt);
+        return new Status(enabled(), limit, remaining, nextAt);
+    }
+
+    /** Ilustrações por semana, pelo plano da conta; o {@code weekly-limit} do servidor é só o teto. */
+    int weeklyLimit(UUID ownerId) {
+        return entitlements == null ? properties.weeklyLimit()
+                : Math.min(entitlements.limits(ownerId).illustrationsPerWeek(), properties.weeklyLimit());
     }
 
     /**
@@ -128,10 +150,14 @@ public class IllustrationService {
         };
         // O formulário é conferido antes da cota: um pedido inválido diz o que está errado, não "limite da semana"
         Status status = status(ownerId);
+        if (status.limit() == 0) {
+            throw new ApiException(HttpStatus.PAYMENT_REQUIRED, "plan_feature",
+                    "As ilustrações com IA fazem parte dos planos pagos. Veja os planos para liberar.", Map.of());
+        }
         if (status.remaining() <= 0) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "illustration_weekly_limit",
                     "Você já criou as %d ilustrações com IA desta semana. A próxima vaga abre em 7 dias contados da mais antiga."
-                            .formatted(properties.weeklyLimit()),
+                            .formatted(status.limit()),
                     status.nextAt() == null ? Map.of() : Map.of("nextAt", status.nextAt().toString()));
         }
         return run(ownerId, universeId, plan);

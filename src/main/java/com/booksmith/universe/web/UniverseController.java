@@ -5,6 +5,7 @@ import com.booksmith.universe.internal.Universe;
 import com.booksmith.universe.internal.UniverseForm;
 import com.booksmith.universe.internal.UniverseService;
 import com.booksmith.universe.internal.UniverseService.UniverseWithCounts;
+import com.booksmith.billing.api.Entitlements;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -40,6 +41,7 @@ class UniverseController {
     private final UniverseService universeService;
     private final UniverseForm universeForm;
     private final CurrentUser currentUser;
+    private final Entitlements entitlements;
 
     /** Passos, campos, opções e coleções do construtor. O app monta a tela a partir disto. */
     @GetMapping("/forms/universe-builder")
@@ -56,7 +58,11 @@ class UniverseController {
     @PostMapping("/universes")
     @ResponseStatus(HttpStatus.CREATED)
     UniverseResponse create(@RequestBody @Valid NameRequest request) {
-        UUID id = universeService.create(currentUser.id(), request.name());
+        UUID userId = currentUser.id();
+        // O universo que nasce com um livro conta no limite de livros; este é o criado à parte
+        entitlements.requireRoom(userId, universeService.count(userId), entitlements.limits(userId).universes(),
+                "universos");
+        UUID id = universeService.create(userId, request.name());
         return response(universeService.get(currentUser.id(), id));
     }
 

@@ -9,6 +9,7 @@ import com.booksmith.manuscript.api.BookLayout;
 import com.booksmith.export.internal.ExportService;
 import com.booksmith.identity.api.AuthenticatedUser;
 import com.booksmith.identity.api.CurrentUser;
+import com.booksmith.billing.api.Entitlements;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -33,6 +34,7 @@ class ExportController {
 
     private final ExportService exportService;
     private final ExportQuota quota;
+    private final Entitlements entitlements;
     private final CurrentUser currentUser;
 
     /**
@@ -108,6 +110,7 @@ class ExportController {
     @PostMapping("/books/{bookId}/export/print-cover")
     ResponseEntity<byte[]> printCover(@PathVariable UUID bookId, @RequestBody PrintCoverRequest request) {
         AuthenticatedUser user = currentUser.get();
+        entitlements.requireFeature(user.id(), entitlements.limits(user.id()).print(), "a capa para gráfica");
         ExportQuota.Use use = quota.consumeCoverPdf(user.id());
         try {
             return attachment(exportService.printCover(user.id(), authorName(user), bookId, request.profile(),
@@ -128,6 +131,7 @@ class ExportController {
     @GetMapping("/books/{bookId}/export/pdfx")
     ResponseEntity<byte[]> exportPrint(@PathVariable UUID bookId) {
         AuthenticatedUser user = currentUser.get();
+        entitlements.requireFeature(user.id(), entitlements.limits(user.id()).print(), "o PDF para gráfica");
         ExportQuota.Use use = quota.consumeBookPdf(user.id());
         try {
             return attachment(exportService.exportPrint(user.id(), authorName(user), bookId));
@@ -142,6 +146,9 @@ class ExportController {
     ResponseEntity<byte[]> export(@PathVariable UUID bookId, @PathVariable String format) {
         AuthenticatedUser user = currentUser.get();
         ExportFormat exportFormat = ExportFormat.fromExtension(format);
+        if (exportFormat == ExportFormat.EPUB) {
+            entitlements.requireFeature(user.id(), entitlements.limits(user.id()).epub(), "o ePub");
+        }
         ExportQuota.Use use = exportFormat == ExportFormat.PDF ? quota.consumeBookPdf(user.id()) : null;
         try {
             return attachment(exportService.export(user.id(), authorName(user), bookId, exportFormat));

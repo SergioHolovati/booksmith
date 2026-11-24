@@ -54,6 +54,12 @@ public class BookService {
                 layoutOf(book), coverDesignOf(book), coverPdfOf(book), publishingOf(book));
     }
 
+    /** Quantos livros a pessoa tem fora da lixeira (o limite do plano). */
+    @Transactional(readOnly = true)
+    public long count(UUID ownerId) {
+        return bookRepository.countByOwnerIdAndDeletedAtIsNull(ownerId);
+    }
+
     @Transactional
     public Book create(UUID ownerId, BookData data) {
         validate(data);

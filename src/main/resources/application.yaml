@@ -98,6 +98,11 @@ booksmith:
     team-email: ${SUPPORT_TEAM_EMAIL:${ALERT_EMAIL:}}
     app-url: ${FRONTEND_URL:http://localhost:4200}
     admin-url: ${ADMIN_URL:http://localhost:4300}
+  # Planos: o de quem não tem um concedido. AUTOR durante o beta (ninguém perde o que já usa); GRATIS quando o
+  # cadastro abrir ao público. PLANS_URL: onde a pessoa vê os planos e assina (o link da oferta de fundador).
+  billing:
+    default-plan: ${BILLING_DEFAULT_PLAN:AUTOR}
+    plans-url: ${PLANS_URL:}
   # Equipe (backoffice): contas separadas das dos clientes. Só e-mails destes domínios entram (convite e login);
   # com a equipe vazia, STAFF_BOOTSTRAP_EMAIL recebe o convite de administrador ao subir.
   staff:
@@ -137,7 +142,8 @@ booksmith:
   ai:
     provider: ${AI_PROVIDER:anthropic}
     # Usos de IA por pessoa a cada 24 horas: uma revisão completa, um pedido de ideias ou uma pergunta conta um
-    daily-limit: ${AI_DAILY_LIMIT:3}
+    # Teto do servidor: o limite de cada pessoa vem do plano (Grátis 3 por semana, Escritor 3 e Autor 10 por dia)
+    daily-limit: ${AI_DAILY_LIMIT:10}
     concurrency: ${AI_CONCURRENCY:4}
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}
@@ -147,7 +153,8 @@ booksmith:
   # Sem BFL_API_KEY, o flux fica desligado. Cerca de US$ 0,03 por retrato e US$ 0,045 por cena com referência.
   illustrations:
     provider: ${ILLUSTRATIONS_PROVIDER:flux}
-    weekly-limit: ${ILLUSTRATIONS_WEEKLY_LIMIT:3}
+    # Teto do servidor: o limite de cada pessoa vem do plano (Grátis 0, Escritor 4 e Autor 12 por semana)
+    weekly-limit: ${ILLUSTRATIONS_WEEKLY_LIMIT:12}
     concurrency: ${ILLUSTRATIONS_CONCURRENCY:2}
     timeout: PT120S
     flux:

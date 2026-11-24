@@ -11,4 +11,7 @@ public interface UserDirectory {
 
     /** Nome que vai como autor nos livros exportados (o de exibição, ou o nome de usuário). */
     Optional<String> displayName(UUID userId);
+
+    /** A conta de um e-mail (o backoffice concede planos pelo e-mail do cliente). */
+    Optional<UUID> idByEmail(String email);
 }

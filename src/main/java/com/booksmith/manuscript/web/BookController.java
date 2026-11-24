@@ -12,6 +12,7 @@ import com.booksmith.manuscript.web.ManuscriptDtos.BookDetailResponse;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookPagesRequest;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookRequest;
 import com.booksmith.manuscript.web.ManuscriptDtos.BookSummary;
+import com.booksmith.billing.api.Entitlements;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ class BookController {
 
     private final BookService bookService;
     private final CurrentUser currentUser;
+    private final Entitlements entitlements;
 
     @GetMapping
     PageResponse<BookSummary> list(@RequestParam(defaultValue = "0") int page,
@@ -55,7 +57,9 @@ class BookController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     BookDetailResponse create(@RequestBody @Valid BookRequest request) {
-        var book = bookService.create(currentUser.id(), request.toData());
+        var userId = currentUser.id();
+        entitlements.requireRoom(userId, bookService.count(userId), entitlements.limits(userId).books(), "livros");
+        var book = bookService.create(userId, request.toData());
         return BookDetailResponse.from(new BookService.BookDetail(book, java.util.List.of()));
     }
 

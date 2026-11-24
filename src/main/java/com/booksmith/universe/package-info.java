@@ -4,7 +4,7 @@
  */
 @ApplicationModule(
         displayName = "Universo",
-        allowedDependencies = {"common", "identity :: api", "media :: api"}
+        allowedDependencies = {"common", "identity :: api", "media :: api", "billing :: api"}
 )
 package com.booksmith.universe;
 

@@ -8,6 +8,7 @@ import com.booksmith.universe.internal.AppearanceForm;
 import com.booksmith.universe.internal.CharacterService;
 import com.booksmith.universe.internal.CharacterService.CharacterData;
 import com.booksmith.universe.internal.UniverseEntity;
+import com.booksmith.billing.api.Entitlements;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -38,6 +39,7 @@ import java.util.UUID;
 class CharacterController {
 
     private final CharacterService characterService;
+    private final Entitlements entitlements;
     private final GalleryService galleryService;
     private final AppearanceForm appearanceForm;
     private final CurrentUser currentUser;
@@ -60,7 +62,10 @@ class CharacterController {
     @PostMapping("/universes/{universeId}/characters")
     @ResponseStatus(HttpStatus.CREATED)
     CharacterResponse create(@PathVariable UUID universeId, @RequestBody @Valid CreateCharacterRequest request) {
-        return response(characterService.create(currentUser.id(), universeId, request.name()));
+        UUID userId = currentUser.id();
+        entitlements.requireRoom(userId, characterService.count(userId, universeId),
+                entitlements.limits(userId).charactersPerUniverse(), "personagens em cada universo");
+        return response(characterService.create(userId, universeId, request.name()));
     }
 
     @GetMapping("/characters/{characterId}")

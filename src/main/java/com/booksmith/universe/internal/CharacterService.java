@@ -38,6 +38,12 @@ public class CharacterService {
                 universeId, UniverseEntity.CHARACTER);
     }
 
+    /** Quantos personagens há no universo (o limite do plano). */
+    @Transactional(readOnly = true)
+    public long count(UUID ownerId, UUID universeId) {
+        return list(ownerId, universeId).size();
+    }
+
     @Transactional
     public UniverseEntity create(UUID ownerId, UUID universeId, String name) {
         requireUniverse(ownerId, universeId);

@@ -5,7 +5,7 @@
  */
 @ApplicationModule(
         displayName = "Exportação",
-        allowedDependencies = {"common", "identity :: api", "manuscript :: api", "media :: api", "universe :: api"}
+        allowedDependencies = {"common", "identity :: api", "manuscript :: api", "media :: api", "universe :: api", "billing :: api"}
 )
 package com.booksmith.export;
 
