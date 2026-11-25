@@ -50,9 +50,17 @@ public class ShelfReading {
                            long likes, Instant updatedAt) {
     }
 
-    /** Filtros da vitrine; todos opcionais. {@code maxRating}: até essa classificação (ex.: "12"). */
+    /**
+     * Filtros da vitrine; todos opcionais. {@code maxRating}: até essa classificação (ex.: "12").
+     * {@code excludeTags}: esconde obras com qualquer uma dessas tags. {@code sort}: "recent" (padrão) ou "popular"
+     * (mais curtidas nos últimos 7 dias).
+     */
     public record Filter(String query, String genre, Boolean fanfic, String tag, String maxRating, String status,
-                         int page) {
+                         int page, List<String> excludeTags, String sort) {
+
+        public Filter(String query, String genre, Boolean fanfic, String tag, String maxRating, String status, int page) {
+            this(query, genre, fanfic, tag, maxRating, status, page, List.of(), "recent");
+        }
     }
 
     public record ChapterRef(int number, String title, int words, Instant updatedAt) {
@@ -104,12 +112,24 @@ public class ShelfReading {
             where.append(" and w.status = :status");
             params.put("status", filter.status());
         }
+        List<String> hidden = filter.excludeTags() == null ? List.of() : filter.excludeTags().stream()
+                .filter(t -> t != null && !t.isBlank()).map(t -> t.strip().toLowerCase(java.util.Locale.ROOT))
+                .limit(20).toList();
+        if (!hidden.isEmpty()) {
+            where.append(" and not (w.tags && :hidden::text[])");
+            params.put("hidden", hidden.toArray(String[]::new));
+        }
         params.put("limit", PAGE_SIZE);
         params.put("offset", Math.max(0, filter.page()) * PAGE_SIZE);
         // Só obras com pelo menos um capítulo publicado
         where.append(" and exists (select 1 from shelf.chapters c where c.work_id = w.id)");
+        String order = "popular".equals(filter.sort())
+                ? """
+                  (select count(*) from shelf.likes l join shelf.chapters c on c.id = l.chapter_id
+                    where c.work_id = w.id and l.created_at > now() - interval '7 days') desc, w.updated_at desc"""
+                : "w.updated_at desc";
         return cards("select " + CARD_COLUMNS + " from shelf.works w where " + where
-                + " order by w.updated_at desc limit :limit offset :offset", params);
+                + " order by " + order + " limit :limit offset :offset", params);
     }
 
     @Transactional(readOnly = true)

@@ -46,8 +46,11 @@ class ShelfController {
                                        @RequestParam(required = false) String tag,
                                        @RequestParam(required = false) String maxRating,
                                        @RequestParam(required = false) String status,
-                                       @RequestParam(defaultValue = "0") int page) {
-        return reading.browse(new ShelfReading.Filter(q, genre, fanfic, tag, maxRating, status, page));
+                                       @RequestParam(defaultValue = "0") int page,
+                                       @RequestParam(required = false) List<String> excludeTags,
+                                       @RequestParam(defaultValue = "recent") String sort) {
+        return reading.browse(new ShelfReading.Filter(q, genre, fanfic, tag, maxRating, status, page, excludeTags,
+                sort));
     }
 
     @GetMapping("/works/{slug}")
