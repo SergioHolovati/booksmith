@@ -34,6 +34,8 @@ import java.util.UUID;
 class ShelfController {
 
     private final ShelfReading reading;
+    private final com.booksmith.shelf.internal.ShelfShare share;
+    private final com.booksmith.shelf.internal.ShelfNotifier notifier;
     private final ShelfSocial social;
     private final CurrentUser currentUser;
 
@@ -66,6 +68,14 @@ class ShelfController {
     @GetMapping("/authors/{authorId}")
     ShelfReading.AuthorPage author(@PathVariable UUID authorId) {
         return reading.author(authorId, reader());
+    }
+
+    /** Prévia para WhatsApp, redes e buscadores (o Caddy manda só os robôs para cá). */
+    @GetMapping(value = "/share", produces = "text/html;charset=UTF-8")
+    org.springframework.http.ResponseEntity<String> share(@RequestParam String path) {
+        return org.springframework.http.ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofMinutes(5)).cachePublic())
+                .body(share.page(path));
     }
 
     // ===== Com conta =====
@@ -127,6 +137,21 @@ class ShelfController {
     @GetMapping("/me/following")
     List<ShelfReading.WorkCard> following() {
         return reading.following(currentUser.id());
+    }
+
+    /** {@code chapterEmails}: e-mail de capítulo novo de quem a pessoa segue (ligado por padrão). */
+    record Preferences(boolean chapterEmails) {
+    }
+
+    @GetMapping("/me/preferences")
+    Preferences preferences() {
+        return new Preferences(notifier.chapterEmails(currentUser.id()));
+    }
+
+    @PutMapping("/me/preferences")
+    Preferences savePreferences(@RequestBody Preferences request) {
+        notifier.setChapterEmails(currentUser.id(), request.chapterEmails());
+        return request;
     }
 
     @PutMapping("/authors/{authorId}/follow")

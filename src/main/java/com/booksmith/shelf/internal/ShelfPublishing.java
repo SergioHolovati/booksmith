@@ -40,12 +40,14 @@ public class ShelfPublishing {
     private final JdbcClient jdbc;
     private final Manuscripts manuscripts;
     private final com.booksmith.identity.api.UserDirectory users;
+    private final ShelfNotifier notifier;
     private final ReadingHtml readingHtml;
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
     ShelfPublishing(JdbcClient jdbc, Manuscripts manuscripts, com.booksmith.identity.api.UserDirectory users,
-                    ReadingHtml readingHtml, JsonMapper jsonMapper, Clock clock) {
+                    ReadingHtml readingHtml, JsonMapper jsonMapper, Clock clock, ShelfNotifier notifier) {
+        this.notifier = notifier;
         this.jdbc = jdbc;
         this.manuscripts = manuscripts;
         this.users = users;
@@ -132,11 +134,43 @@ public class ShelfPublishing {
                     .param("visibility", visibility).param("now", java.sql.Timestamp.from(now))
                     .update();
         }
+        Set<UUID> before = new HashSet<>(publishedSources(workId));
         for (Manuscripts.ChapterContent chapter : chosen) {
             publishChapter(workId, chapter, now);
         }
+        announce(ownerId, workId, book.title(), before);
         log.info("Obra publicada/atualizada na Estante: workId {} ({} capítulos agora)", workId, chosen.size());
         return publication(work(bookId).orElseThrow());
+    }
+
+    /** Os capítulos que entraram agora (não os republicados) viram aviso para quem segue o autor. */
+    private void announce(UUID ownerId, UUID workId, String title, Set<UUID> before) {
+        List<UUID> sources = publishedSources(workId);
+        int first = -1;
+        int count = 0;
+        for (int i = 0; i < sources.size(); i++) {
+            if (!before.contains(sources.get(i))) {
+                count++;
+                first = first < 0 ? i : first;
+            }
+        }
+        if (count == 0) {
+            return;
+        }
+        WorkRow work = work(bookIdOf(workId)).orElseThrow();
+        String chapterTitle = jdbc.sql("select title from shelf.chapters where work_id = :work and source_chapter_id = :source")
+                .param("work", workId).param("source", sources.get(first)).query(String.class).single();
+        notifier.chaptersAdded(ownerId, new ShelfNotifier.NewChapters(workId, work.slug(), title,
+                users.publicName(ownerId).orElse("Autor"), first + 1, chapterTitle, count));
+    }
+
+    private List<UUID> publishedSources(UUID workId) {
+        return jdbc.sql("select source_chapter_id from shelf.chapters where work_id = :work order by position")
+                .param("work", workId).query(UUID.class).list();
+    }
+
+    private UUID bookIdOf(UUID workId) {
+        return jdbc.sql("select book_id from shelf.works where id = :id").param("id", workId).query(UUID.class).single();
     }
 
     /** Tira a obra inteira da Estante: comentários, curtidas e o lugar nas bibliotecas vão junto. */
