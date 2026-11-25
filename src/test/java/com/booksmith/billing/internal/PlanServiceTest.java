@@ -77,6 +77,19 @@ class PlanServiceTest {
         assertThatCode(() -> free.requireFeature(lia, true, "o ePub")).doesNotThrowAnyException();
     }
 
+    @Test
+    void onlyOffersWithAPaymentLinkHaveAButton() {
+        var offers = service(Plan.AUTOR, Optional.empty()).offers();
+        assertThat(offers).extracting(Offer::key)
+                .containsExactly("escritor-fundador", "autor-fundador", "escritor-mensal", "autor-mensal");
+        assertThat(offers).filteredOn(o -> o.url() != null).extracting(Offer::key)
+                .containsExactly("escritor-fundador", "escritor-mensal");
+        assertThat(offers.getFirst().founder()).isTrue();
+        assertThat(offers.getFirst().price()).isEqualTo("R$ 149");
+        // Quem bate num limite vai para Meu plano
+        assertThat(service(Plan.GRATIS, Optional.empty()).plansUrl()).isEqualTo("/plano");
+    }
+
     private PlanService.Subscription granted(Plan plan, Instant expiresAt) {
         return new PlanService.Subscription(lia, plan, "founder", true, expiresAt, null, null, NOW.minusSeconds(60));
     }
@@ -86,7 +99,8 @@ class PlanServiceTest {
         JdbcClient jdbc = mock(JdbcClient.class, RETURNS_DEEP_STUBS);
         when(jdbc.sql(anyString()).param(anyString(), any()).query(any(RowMapper.class)).optional())
                 .thenAnswer(invocation -> subscription);
-        return new PlanService(jdbc, new BillingProperties(defaultPlan, "https://exemplo.com/planos"),
+        return new PlanService(jdbc, new BillingProperties(defaultPlan, null,
+                new BillingProperties.Offers("https://asaas/escritor-mensal", null, "https://asaas/escritor-fundador", "")),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 }

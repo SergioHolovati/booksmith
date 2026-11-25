@@ -2,6 +2,7 @@ package com.booksmith.billing.web;
 
 import com.booksmith.billing.api.Plan;
 import com.booksmith.billing.api.PlanLimits;
+import com.booksmith.billing.internal.Offer;
 import com.booksmith.billing.internal.PlanService;
 import com.booksmith.identity.api.CurrentUser;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +46,7 @@ class PlanController {
      * @param expiresAt null = sem prazo
      */
     record MyPlan(String plan, String label, String source, boolean founder, Instant expiresAt, LimitsView limits,
-                  List<PlanView> plans, String plansUrl) {
+                  List<PlanView> plans, List<Offer> offers) {
     }
 
     @GetMapping
@@ -58,6 +59,6 @@ class PlanController {
                 subscription.map(PlanService.Subscription::founder).orElse(false),
                 subscription.map(PlanService.Subscription::expiresAt).orElse(null), LimitsView.of(plan.limits()),
                 Arrays.stream(Plan.values()).map(p -> new PlanView(p.name(), p.label(), LimitsView.of(p.limits()))).toList(),
-                plans.plansUrl());
+                plans.offers());
     }
 }

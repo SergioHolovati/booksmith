@@ -107,6 +107,11 @@ public class PlanService implements Entitlements {
         return properties.plansUrl();
     }
 
+    /** As ofertas exibidas em Meu plano (fundador anual e mensal), com o link de pagamento de cada uma. */
+    public java.util.List<Offer> offers() {
+        return Offer.all(properties.offers());
+    }
+
     private Optional<Subscription> active(UUID userId) {
         Instant now = Instant.now(clock);
         return subscription(userId).filter(s -> s.expiresAt() == null || s.expiresAt().isAfter(now));

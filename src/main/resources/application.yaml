@@ -99,10 +99,15 @@ booksmith:
     app-url: ${FRONTEND_URL:http://localhost:4200}
     admin-url: ${ADMIN_URL:http://localhost:4300}
   # Planos: o de quem não tem um concedido. AUTOR durante o beta (ninguém perde o que já usa); GRATIS quando o
-  # cadastro abrir ao público. PLANS_URL: onde a pessoa vê os planos e assina (o link da oferta de fundador).
+  # cadastro abrir ao público. OFFER_*: os links de pagamento do Asaas de cada oferta exibida em Meu plano (vazio =
+  # o botão não aparece). O anual normal fica criado no Asaas, mas não é exibido.
   billing:
     default-plan: ${BILLING_DEFAULT_PLAN:AUTOR}
-    plans-url: ${PLANS_URL:}
+    offers:
+      escritor-fundador: ${OFFER_ESCRITOR_FUNDADOR:}
+      autor-fundador: ${OFFER_AUTOR_FUNDADOR:}
+      escritor-mensal: ${OFFER_ESCRITOR_MENSAL:}
+      autor-mensal: ${OFFER_AUTOR_MENSAL:}
   # Equipe (backoffice): contas separadas das dos clientes. Só e-mails destes domínios entram (convite e login);
   # com a equipe vazia, STAFF_BOOTSTRAP_EMAIL recebe o convite de administrador ao subir.
   staff:
