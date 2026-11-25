@@ -88,6 +88,8 @@ class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        // Estante: ler é público (sem conta); com o token, a resposta traz o que é da pessoa
+                        .requestMatchers(HttpMethod.GET, "/api/v1/shelf/works/**", "/api/v1/shelf/authors/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new RateLimitingFilter(rateLimits, events), UsernamePasswordAuthenticationFilter.class)

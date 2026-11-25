@@ -11,6 +11,13 @@ import org.springframework.stereotype.Component;
 class SecurityContextCurrentUser implements CurrentUser {
 
     @Override
+    public java.util.Optional<AuthenticatedUser> find() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser user
+                ? java.util.Optional.of(user) : java.util.Optional.empty();
+    }
+
+    @Override
     public AuthenticatedUser get() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser user) {

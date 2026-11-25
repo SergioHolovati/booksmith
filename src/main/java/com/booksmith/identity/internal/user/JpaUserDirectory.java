@@ -13,6 +13,7 @@ import java.util.UUID;
 class JpaUserDirectory implements UserDirectory {
 
     private final UserRepository userRepository;
+    private final com.booksmith.identity.internal.author.AuthorProfileRepository authorProfiles;
 
     @Override
     @Transactional(readOnly = true)
@@ -25,6 +26,14 @@ class JpaUserDirectory implements UserDirectory {
     public Optional<String> displayName(UUID userId) {
         return userRepository.findById(userId)
                 .map(user -> user.displayName() == null || user.displayName().isBlank() ? user.getUsername() : user.displayName());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> publicName(UUID userId) {
+        return authorProfiles.findById(userId)
+                .map(com.booksmith.identity.internal.author.AuthorProfile::getPenName)
+                .filter(name -> !name.isBlank());
     }
 
     @Override
