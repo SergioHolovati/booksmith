@@ -83,14 +83,15 @@ class ShelfController {
 
     // ===== Com conta =====
 
-    record CommentRequest(@NotBlank @Size(max = 2000) String body) {
+    /** {@code blockId}: o parágrafo comentado (opcional; sem ele, comentário do capítulo). */
+    record CommentRequest(@NotBlank @Size(max = 2000) String body, @Size(max = 64) String blockId) {
     }
 
     @PostMapping("/works/{slug}/chapters/{number}/comments")
     @ResponseStatus(HttpStatus.CREATED)
     ShelfSocial.Comment comment(@PathVariable String slug, @PathVariable int number,
                                 @RequestBody @Valid CommentRequest request) {
-        return social.comment(currentUser.id(), slug, number, request.body());
+        return social.comment(currentUser.id(), slug, number, request.body(), request.blockId());
     }
 
     @DeleteMapping("/comments/{commentId}")

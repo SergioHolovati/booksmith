@@ -37,7 +37,9 @@ public class ShelfSocial {
     }
 
     /** {@code authorName}: o nome de autor; null para quem não tem perfil de autor (o app mostra "Leitor"). */
-    public record Comment(UUID id, UUID authorId, String authorName, String body, Instant createdAt, boolean mine) {
+    /** {@code blockId}: o parágrafo comentado (classe {@code blk-<blockId>} no HTML); null = comentário do capítulo. */
+    public record Comment(UUID id, UUID authorId, String authorName, String body, Instant createdAt, boolean mine,
+                          String blockId) {
     }
 
     @Transactional
@@ -110,7 +112,7 @@ public class ShelfSocial {
         UUID chapter = reading.chapterId(slug, number);
         Map<UUID, String> names = new HashMap<>();
         return jdbc.sql("""
-                        select id, user_id, body, created_at from shelf.comments
+                        select id, user_id, body, created_at, block_id from shelf.comments
                          where chapter_id = :chapter and deleted_at is null and hidden_at is null
                          order by created_at limit 500
                         """)
@@ -119,22 +121,41 @@ public class ShelfSocial {
                     UUID author = rs.getObject("user_id", UUID.class);
                     return new Comment(rs.getObject("id", UUID.class), author,
                             names.computeIfAbsent(author, id -> users.publicName(id).orElse(null)),
-                            rs.getString("body"), instant(rs, "created_at"), author.equals(readerId));
+                            rs.getString("body"), instant(rs, "created_at"), author.equals(readerId),
+                            rs.getString("block_id"));
                 })
                 .list();
     }
 
     @Transactional
     public Comment comment(UUID userId, String slug, int number, String body) {
+        return comment(userId, slug, number, body, null);
+    }
+
+    /** {@code blockId}: o parágrafo comentado; precisa existir no capítulo publicado (422 {@code shelf_paragraph_not_found}). */
+    @Transactional
+    public Comment comment(UUID userId, String slug, int number, String body, String blockId) {
         UUID chapter = reading.chapterId(slug, number);
         String text = ShelfRules.comment(body);
+        String block = blockId == null || blockId.isBlank() ? null : blockId.strip();
+        if (block != null) {
+            String html = jdbc.sql("select html from shelf.chapters where id = :id").param("id", chapter)
+                    .query(String.class).single();
+            if (!block.matches("[A-Za-z0-9_-]{1,64}") || !html.contains(" blk-" + block + "\"")) {
+                throw ApiException.unprocessable("shelf_paragraph_not_found",
+                        "Esse trecho não está mais no capítulo publicado.");
+            }
+        }
         UUID id = UUID.randomUUID();
         Instant now = Instant.now(clock);
-        jdbc.sql("insert into shelf.comments (id, chapter_id, user_id, body, created_at) values (:id, :chapter, :user, :body, :now)")
-                .param("id", id).param("chapter", chapter).param("user", userId).param("body", text)
+        jdbc.sql("""
+                        insert into shelf.comments (id, chapter_id, user_id, body, created_at, block_id)
+                        values (:id, :chapter, :user, :body, :now, :block)
+                        """)
+                .param("id", id).param("chapter", chapter).param("user", userId).param("body", text).param("block", block)
                 .param("now", java.sql.Timestamp.from(now))
                 .update();
-        return new Comment(id, userId, users.publicName(userId).orElse(null), text, now, true);
+        return new Comment(id, userId, users.publicName(userId).orElse(null), text, now, true, block);
     }
 
     /** Quem escreveu apaga o próprio comentário; o autor da obra também pode apagar os comentários dela. */

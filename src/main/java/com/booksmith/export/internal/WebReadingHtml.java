@@ -10,6 +10,6 @@ class WebReadingHtml implements ReadingHtml {
 
     @Override
     public String chapter(JsonNode document, java.util.function.Function<String, String> imageSrc) {
-        return BookHtml.body(document, imageSrc, "c");
+        return BookHtml.webBody(document, imageSrc);
     }
 }

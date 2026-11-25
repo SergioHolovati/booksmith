@@ -111,6 +111,19 @@ final class BookHtml {
         }
     }
     private static final ThreadLocal<String> SECTION_PREFIX = new ThreadLocal<>();
+    /** Na leitura da Estante, cada parágrafo leva o id do bloco (classe {@code blk-<id>}) para os comentários por parágrafo. */
+    private static final ThreadLocal<Boolean> BLOCK_IDS = new ThreadLocal<>();
+    private static final java.util.regex.Pattern BLOCK_ID = java.util.regex.Pattern.compile("[A-Za-z0-9_-]{1,64}");
+
+    /** O corpo para ler na web: como {@link #body(JsonNode, java.util.function.Function, String)}, com o id de cada parágrafo. */
+    static String webBody(JsonNode document, java.util.function.Function<String, String> src) {
+        BLOCK_IDS.set(true);
+        try {
+            return body(document, src, "c");
+        } finally {
+            BLOCK_IDS.remove();
+        }
+    }
     private static final ThreadLocal<int[]> SECTION_COUNT = new ThreadLocal<>();
 
     /** Um título interno do capítulo (o subcapítulo): {@code number} conta os títulos na ordem, a partir de 1. */
@@ -277,7 +290,11 @@ final class BookHtml {
         }
         JsonNode attrs = node.get("attrs");
         boolean indent = attrs != null && attrs.get("indent") != null && attrs.get("indent").asBoolean(false);
-        html.append(indent ? "<p class=\"indent\">" : "<p>");
+        String id = attrs == null || attrs.get("id") == null ? null : attrs.get("id").asString("");
+        boolean block = Boolean.TRUE.equals(BLOCK_IDS.get()) && id != null && BLOCK_ID.matcher(id).matches();
+        // Na leitura web, o bloco vai na classe (o sanitizador do Angular tira id e data-*, mas mantém class)
+        String classes = (indent ? "indent " : "") + (block ? "blk blk-" + id : "");
+        html.append(classes.isBlank() ? "<p>" : "<p class=\"" + classes.strip() + "\">");
         inline(node, html);
         html.append("</p>\n");
     }
