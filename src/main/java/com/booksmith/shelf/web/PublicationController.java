@@ -23,6 +23,7 @@ import java.util.UUID;
 class PublicationController {
 
     private final ShelfPublishing publishing;
+    private final com.booksmith.shelf.internal.ShelfFeedback feedback;
     private final CurrentUser currentUser;
 
     /** 204 quando o livro ainda não foi publicado. */
@@ -31,6 +32,12 @@ class PublicationController {
         return publishing.publication(currentUser.id(), bookId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Os comentários mais recentes dos leitores na obra inteira. */
+    @GetMapping("/comments")
+    java.util.List<com.booksmith.shelf.internal.ShelfFeedback.ReaderComment> comments(@PathVariable UUID bookId) {
+        return feedback.recent(currentUser.id(), bookId);
     }
 
     @PutMapping
