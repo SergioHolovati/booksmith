@@ -9,7 +9,7 @@ import tools.jackson.databind.JsonNode;
 class WebReadingHtml implements ReadingHtml {
 
     @Override
-    public String chapter(JsonNode document) {
-        return BookHtml.body(document, id -> null, "c");
+    public String chapter(JsonNode document, java.util.function.Function<String, String> imageSrc) {
+        return BookHtml.body(document, imageSrc, "c");
     }
 }

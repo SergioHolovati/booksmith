@@ -8,6 +8,14 @@ import tools.jackson.databind.JsonNode;
  */
 public interface ReadingHtml {
 
-    /** O corpo do capítulo, sem o título. Ilustrações saem só com a legenda (as imagens ficam para depois). */
-    String chapter(JsonNode document);
+    /** O corpo do capítulo, sem o título. Ilustrações saem só com a legenda. */
+    default String chapter(JsonNode document) {
+        return chapter(document, id -> null);
+    }
+
+    /**
+     * Idem, com a imagem de cada ilustração: {@code imageSrc(imageId)} devolve o endereço público, ou null para sair
+     * só a legenda (imagem que não existe mais ou de outra pessoa).
+     */
+    String chapter(JsonNode document, java.util.function.Function<String, String> imageSrc);
 }

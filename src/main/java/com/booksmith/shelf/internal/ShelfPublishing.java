@@ -41,13 +41,16 @@ public class ShelfPublishing {
     private final Manuscripts manuscripts;
     private final com.booksmith.identity.api.UserDirectory users;
     private final ShelfNotifier notifier;
+    private final com.booksmith.universe.api.Universes universes;
     private final ReadingHtml readingHtml;
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
     ShelfPublishing(JdbcClient jdbc, Manuscripts manuscripts, com.booksmith.identity.api.UserDirectory users,
-                    ReadingHtml readingHtml, JsonMapper jsonMapper, Clock clock, ShelfNotifier notifier) {
+                    ReadingHtml readingHtml, JsonMapper jsonMapper, Clock clock, ShelfNotifier notifier,
+                    com.booksmith.universe.api.Universes universes) {
         this.notifier = notifier;
+        this.universes = universes;
         this.jdbc = jdbc;
         this.manuscripts = manuscripts;
         this.users = users;
@@ -135,8 +138,9 @@ public class ShelfPublishing {
                     .update();
         }
         Set<UUID> before = new HashSet<>(publishedSources(workId));
+        java.util.function.Function<String, String> images = imageSource(book.universeId());
         for (Manuscripts.ChapterContent chapter : chosen) {
-            publishChapter(workId, chapter, now);
+            publishChapter(workId, chapter, now, images);
         }
         announce(ownerId, workId, book.title(), before);
         log.info("Obra publicada/atualizada na Estante: workId {} ({} capítulos agora)", workId, chosen.size());
@@ -215,8 +219,23 @@ public class ShelfPublishing {
         return chosen;
     }
 
-    private void publishChapter(UUID workId, Manuscripts.ChapterContent chapter, Instant now) {
-        String html = readingHtml.chapter(jsonMapper.readTree(chapter.document()));
+    /** O endereço público de cada ilustração: só imagens da biblioteca do universo do livro (fora da lixeira). */
+    private java.util.function.Function<String, String> imageSource(UUID universeId) {
+        return id -> {
+            if (universeId == null || id == null) {
+                return null;
+            }
+            try {
+                return universes.imageUrl(universeId, UUID.fromString(id)).orElse(null);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        };
+    }
+
+    private void publishChapter(UUID workId, Manuscripts.ChapterContent chapter, Instant now,
+                                java.util.function.Function<String, String> images) {
+        String html = readingHtml.chapter(jsonMapper.readTree(chapter.document()), images);
         int words = ShelfRules.words(html);
         if (words == 0) {
             throw ApiException.unprocessable("shelf_empty_chapter",

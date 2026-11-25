@@ -6,7 +6,7 @@
  */
 @ApplicationModule(
         displayName = "Estante",
-        allowedDependencies = {"common", "identity :: api", "manuscript :: api", "export :: api", "notification :: api"}
+        allowedDependencies = {"common", "identity :: api", "manuscript :: api", "export :: api", "notification :: api", "universe :: api"}
 )
 package com.booksmith.shelf;
 
