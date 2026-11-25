@@ -99,4 +99,12 @@
         <Bug pattern="UNENCRYPTED_SOCKET"/>
         <Class name="com.booksmith.media.internal.ClamAvScanner"/>
     </Match>
+    <!--
+      WEAK_MESSAGE_DIGEST_SHA1: o protocolo do Have I Been Pwned (Pwned Passwords) é em SHA-1; só os 5 primeiros
+      caracteres saem do servidor (k-anonimato). Não guarda senha: as senhas continuam em bcrypt.
+    -->
+    <Match>
+        <Bug pattern="WEAK_MESSAGE_DIGEST_SHA1"/>
+        <Class name="com.booksmith.identity.internal.security.BreachedPasswords"/>
+    </Match>
 </FindBugsFilter>

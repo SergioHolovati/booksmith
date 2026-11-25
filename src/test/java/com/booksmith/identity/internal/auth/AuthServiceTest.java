@@ -55,12 +55,16 @@ class AuthServiceTest {
     private final com.booksmith.identity.internal.terms.TermsService termsService =
             mock(com.booksmith.identity.internal.terms.TermsService.class);
 
+    private final Turnstile turnstile = mock(Turnstile.class);
+    private final com.booksmith.identity.internal.security.BreachedPasswords breachedPasswords =
+            mock(com.booksmith.identity.internal.security.BreachedPasswords.class);
+
     private final AuthService service = new AuthService(userRepository, resetTokens, passwordEncoder, tokenProvider,
             sessionRegistry, emailSender,
             new SecurityProperties("test-secret-with-at-least-32-characters!!", Duration.ofHours(1),
                     Duration.ofDays(30), "http://app.test", List.of()),
             new IdentityProperties(13),
-            loginGuard, loginCodes, mfaService, inviteService, termsService,
+            loginGuard, loginCodes, mfaService, inviteService, termsService, turnstile, breachedPasswords,
             Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -303,5 +307,31 @@ class AuthServiceTest {
 
     private static AuthService.Registration registration(LocalDate birthDate) {
         return new AuthService.Registration("Lia", "Souza", "lia", "lia@example.com", "Senha@123", birthDate);
+    }
+
+    @Test
+    void afterThreeWrongPasswordsTheChallengeComesBeforeThePassword() {
+        when(loginGuard.needsCaptcha("lia@example.com")).thenReturn(true);
+        org.mockito.Mockito.doThrow(new com.booksmith.common.error.ApiException(org.springframework.http.HttpStatus.FORBIDDEN,
+                        "captcha_required", "robô?"))
+                .when(turnstile).require(null);
+
+        assertThatThrownBy(() -> service.login("lia@example.com", "Senha@123", "Firefox"))
+                .isInstanceOfSatisfying(com.booksmith.common.error.ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("captcha_required"));
+        // Sem o desafio, a senha nem é conferida (e o erro não conta)
+        verify(userRepository, org.mockito.Mockito.never()).findByEmailIgnoreCase(any());
+        verify(loginGuard, org.mockito.Mockito.never()).recordFailure(any(), any());
+    }
+
+    @Test
+    void aLeakedPasswordIsRefusedOnSignUpAndOnReset() {
+        org.mockito.Mockito.doThrow(com.booksmith.common.error.ApiException.unprocessable("password_breached", "vazada"))
+                .when(breachedPasswords).requireNotBreached(any());
+
+        assertThatThrownBy(() -> service.register(registration(LocalDate.of(1990, 1, 1))))
+                .isInstanceOfSatisfying(com.booksmith.common.error.ApiException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("password_breached"));
+        verify(userRepository, org.mockito.Mockito.never()).save(any());
     }
 }

@@ -6,6 +6,7 @@ import com.booksmith.identity.internal.security.JwtTokenProvider;
 import com.booksmith.identity.internal.security.JwtTokenProvider.IssuedToken;
 import com.booksmith.identity.internal.invite.InviteService;
 import com.booksmith.identity.internal.mfa.MfaService;
+import com.booksmith.identity.internal.security.BreachedPasswords;
 import com.booksmith.identity.internal.security.OneTimeLoginCodes;
 import com.booksmith.identity.internal.terms.TermsService;
 import com.booksmith.identity.internal.security.SecurityProperties;
@@ -57,16 +58,27 @@ public class AuthService {
     private final MfaService mfaService;
     private final InviteService inviteService;
     private final TermsService termsService;
+    private final Turnstile turnstile;
+    private final BreachedPasswords breachedPasswords;
     private final Clock clock;
 
     /**
      * Login com senha. Com 5 erros seguidos na conta, bloqueia por 15 minutos (429 {@code login_locked}). Com a
      * senha certa mas o e-mail ainda não confirmado, 403 {@code email_not_verified} (o app leva para a tela do
-     * código). Aparelho novo gera aviso por e-mail.
+     * código). Aparelho novo gera aviso por e-mail. Depois de 3 erros, só confere a senha com o desafio anti-robô
+     * resolvido (403 {@code captcha_required}).
      */
     @Transactional
     public Session login(String email, String password, String userAgent) {
+        return login(email, password, null, userAgent);
+    }
+
+    @Transactional
+    public Session login(String email, String password, String captchaToken, String userAgent) {
         loginGuard.checkNotLocked(email);
+        if (loginGuard.needsCaptcha(email)) {
+            turnstile.require(captchaToken);
+        }
         User found = userRepository.findByEmailIgnoreCase(email).orElse(null);
         if (found == null || found.getPasswordHash() == null || !passwordEncoder.matches(password, found.getPasswordHash())) {
             loginGuard.recordFailure(email, found);
@@ -201,6 +213,7 @@ public class AuthService {
 
         // Beta fechado: gasta um uso do convite (mesma transação: se o cadastro falhar, o uso volta)
         UUID invite = inviteService.redeem(registration.inviteCode());
+        breachedPasswords.requireNotBreached(registration.password());
 
         String code = TokenHasher.randomCode(EMAIL_CODE_LENGTH);
         User user = userRepository.save(User.builder()
@@ -301,6 +314,7 @@ public class AuthService {
                 .filter(t -> t.isUsable(now))
                 .orElseThrow(() -> ApiException.unprocessable("reset_token_invalid",
                         "Link de redefinição inválido ou expirado. Peça um novo."));
+        breachedPasswords.requireNotBreached(newPassword);
 
         User user = userRepository.findById(resetToken.getUserId())
                 .orElseThrow(() -> ApiException.unprocessable("reset_token_invalid", "Conta não encontrada."));

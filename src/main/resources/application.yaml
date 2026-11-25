@@ -80,6 +80,12 @@ booksmith:
       auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:20}
   identity:
     minimum-age: 13
+  login-protection:
+    # Recusa senhas já vazadas (Have I Been Pwned): só os 5 primeiros caracteres do hash SHA-1 saem do servidor
+    breached-passwords: ${BREACHED_PASSWORDS_CHECK:true}
+    # Desafio anti-robô da Cloudflare depois de 3 senhas erradas na mesma conta; sem as chaves, desligado
+    turnstile-site-key: ${TURNSTILE_SITE_KEY:}
+    turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}
   # Beta fechado: criar conta exige código de convite. Desligue (false) quando o Booksmith abrir para todos.
   invites:
     required: ${INVITE_REQUIRED:true}
@@ -227,6 +233,10 @@ booksmith:
       auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:600}
   mail:
     enabled: ${MAIL_ENABLED:false}   # e-mails vão para o log
+  # Chaves de teste públicas da Cloudflare (o desafio sempre passa e só aceita o token XXXX.DUMMY.TOKEN.XXXX)
+  login-protection:
+    turnstile-site-key: ${TURNSTILE_SITE_KEY:1x00000000000000000000AA}
+    turnstile-secret-key: ${TURNSTILE_SECRET_KEY:1x0000000000000000000000000000000AA}
   # Em desenvolvimento e nos testes, imagem de teste sem custo (para usar o FLUX de verdade: ILLUSTRATIONS_PROVIDER=flux)
   illustrations:
     provider: ${ILLUSTRATIONS_PROVIDER:fake}

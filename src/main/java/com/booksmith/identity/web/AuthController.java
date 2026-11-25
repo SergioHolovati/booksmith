@@ -39,12 +39,13 @@ class AuthController {
     private final com.booksmith.identity.internal.invite.InviteService inviteService;
     private final SessionCookie sessionCookie;
     private final com.booksmith.identity.internal.terms.TermsService termsService;
+    private final com.booksmith.identity.internal.auth.Turnstile turnstile;
 
     @PostMapping("/login")
     SessionResponse login(@RequestBody @Valid LoginRequest request,
                           @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String userAgent,
                           HttpServletResponse response) {
-        return started(authService.login(request.email(), request.password(), userAgent), response);
+        return started(authService.login(request.email(), request.password(), request.captchaToken(), userAgent), response);
     }
 
     @PostMapping("/register")
@@ -62,7 +63,7 @@ class AuthController {
     /** O que as telas públicas precisam saber: se o beta está fechado (convite obrigatório) e a versão dos termos. */
     @org.springframework.web.bind.annotation.GetMapping("/config")
     AuthConfig config() {
-        return new AuthConfig(inviteService.required(), termsService.version());
+        return new AuthConfig(inviteService.required(), termsService.version(), turnstile.siteKey());
     }
 
     /** Confere um código de convite sem gastar (antes de mandar para o Google). */
@@ -71,7 +72,8 @@ class AuthController {
         return new InviteCheck(inviteService.valid(request.code()));
     }
 
-    record AuthConfig(boolean inviteRequired, String termsVersion) {
+    /** {@code captchaSiteKey}: a chave do Turnstile, para o app mostrar o desafio quando o login pedir; null = desligado. */
+    record AuthConfig(boolean inviteRequired, String termsVersion, String captchaSiteKey) {
     }
 
     record InviteCheckRequest(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 40) String code) {

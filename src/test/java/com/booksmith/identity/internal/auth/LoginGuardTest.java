@@ -114,4 +114,16 @@ class LoginGuardTest {
         verify(emailSender).sendSecurityNotice(eq("lia@example.com"), eq("Novo acesso à sua conta"),
                 contains("Safari no iPhone, em 12/11/2026 às 17:30 (horário de Brasília)"));
     }
+
+    @Test
+    void fromTheThirdWrongPasswordTheLoginAsksForTheChallenge() {
+        for (int i = 0; i < LoginGuard.CAPTCHA_AFTER - 1; i++) {
+            guard.recordFailure("lia@example.com", null);
+        }
+        assertThat(guard.needsCaptcha("LIA@example.com ")).isFalse();
+        guard.recordFailure("lia@example.com", null);
+        assertThat(guard.needsCaptcha("lia@example.com")).isTrue();
+        guard.recordSuccess("lia@example.com");
+        assertThat(guard.needsCaptcha("lia@example.com")).isFalse();
+    }
 }

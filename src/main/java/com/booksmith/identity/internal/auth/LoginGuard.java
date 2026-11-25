@@ -29,6 +29,8 @@ import java.util.Map;
 class LoginGuard {
 
     static final int MAX_FAILURES = 5;
+    /** A partir do terceiro erro, o login pede o desafio anti-robô (Turnstile), se estiver ligado. */
+    static final int CAPTCHA_AFTER = 3;
     static final Duration LOCK = Duration.ofMinutes(15);
     /** Aparelhos conhecidos ficam lembrados por pouco mais de um ano sem uso. */
     static final Duration DEVICE_MEMORY = Duration.ofDays(400);
@@ -56,6 +58,12 @@ class LoginGuard {
         if (count != null && Integer.parseInt(count) >= MAX_FAILURES) {
             throw locked();
         }
+    }
+
+    /** Já errou {@value #CAPTCHA_AFTER} vezes nos últimos 15 minutos: o próximo login precisa do desafio. */
+    boolean needsCaptcha(String email) {
+        String count = redis.opsForValue().get(failuresKey(email));
+        return count != null && Integer.parseInt(count) >= CAPTCHA_AFTER;
     }
 
     /**

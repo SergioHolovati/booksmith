@@ -22,7 +22,8 @@ final class AuthDtos {
 
     record LoginRequest(
             @NotBlank @Email String email,
-            @NotBlank String password) {
+            @NotBlank String password,
+            @Size(max = 2048) String captchaToken) {
     }
 
     record RegisterRequest(

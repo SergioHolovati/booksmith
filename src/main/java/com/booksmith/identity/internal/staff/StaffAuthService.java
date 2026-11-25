@@ -4,6 +4,7 @@ import com.booksmith.common.alerts.SecurityIncident;
 import com.booksmith.common.crypto.SecretBox;
 import com.booksmith.common.error.ApiException;
 import com.booksmith.identity.internal.mfa.Totp;
+import com.booksmith.identity.internal.security.BreachedPasswords;
 import com.booksmith.identity.internal.user.TokenHasher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -53,12 +54,13 @@ public class StaffAuthService {
     private final ApplicationEventPublisher events;
     private final StaffProperties properties;
     private final Clock clock;
+    private final BreachedPasswords breachedPasswords;
     /** Para o login com conta inexistente gastar o mesmo tempo do bcrypt (não revela quem é da equipe). */
     private final String dummyHash;
 
     StaffAuthService(StaffStore store, StaffTokens tokens, PasswordEncoder passwords, SecretBox secretBox,
                      StringRedisTemplate redis, ApplicationEventPublisher events, StaffProperties properties,
-                     Clock clock) {
+                     Clock clock, BreachedPasswords breachedPasswords) {
         this.store = store;
         this.tokens = tokens;
         this.passwords = passwords;
@@ -67,6 +69,7 @@ public class StaffAuthService {
         this.events = events;
         this.properties = properties;
         this.clock = clock;
+        this.breachedPasswords = breachedPasswords;
         this.dummyHash = passwords.encode(TokenHasher.randomUrlToken());
     }
 
@@ -180,6 +183,7 @@ public class StaffAuthService {
             throw ApiException.unprocessable("staff_password_weak",
                     "A senha precisa de 12 caracteres ou mais, com letras e números, sem espaços.");
         }
+        breachedPasswords.requireNotBreached(password);
         String secret = secretBox.open(invite.sealedSecret());
         OptionalLong step = Totp.match(secret, code == null ? "" : code.replaceAll("\\s", ""), now);
         if (step.isEmpty()) {
